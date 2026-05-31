@@ -1,0 +1,42 @@
+---
+title: Intake workflow
+description: Register students, detect duplicates, and print labels at intake.
+---
+
+## Overview
+
+The Intake Form (`/intake`) is for front-desk registration. It includes live duplicate detection, cabinet assignment, and immediate label printing.
+
+## Step-by-step
+
+<Steps>
+  <Step title="Open Intake">
+    Intake Members land on `/intake` after sign-in. Select the student type: **NEW**, **RETURNING**, **CTE Orientation**, **Continuing Intake**, or **Other**.
+  </Step>
+  <Step title="Enter personal information">
+    - First and last name (required)
+    - **Date of birth** — a human-readable date appears beside the picker so staff can catch typos
+    - **BE/ESL age rule** — students must be at least **21 years and 1 month** old for BE or ESL. If too young, the form shows how many days until they can register.
+  </Step>
+  <Step title="Review duplicate matches">
+    For NEW students, the system fuzzy-matches same DOB + similar name. If a match appears:
+    - Stop if it is the same person
+    - Check **This is a different person** to flag a sibling for Data Lead review
+    - Use **Copy alert message** to notify your Data Lead in Teams or email
+  </Step>
+  <Step title="Complete intake details">
+    Choose **BE** or **ESL**, intake session, activities, placement class, and time in/out as required.
+  </Step>
+  <Step title="Submit and print">
+    On success, print the label with barcode (Label ID) and QR code. The QR opens the public student page — no login required.
+  </Step>
+</Steps>
+
+## Returning archived students
+
+When a previously archived student re-enrolls through Intake, the system reactivates their record and assigns the next open drawer automatically.
+
+## Related pages
+
+- [Labels and scanning](/workflows/labels-and-scanning)
+- [Duplicates and siblings](/workflows/duplicates-and-siblings)

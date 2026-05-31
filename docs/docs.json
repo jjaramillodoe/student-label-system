@@ -1,0 +1,108 @@
+{
+  "$schema": "https://mintlify.com/docs.json",
+  "theme": "mint",
+  "name": "Student Label System",
+  "description": "Documentation for NYC Adult Education student file labels, intake, cabinets, and archive workflows.",
+  "colors": {
+    "primary": "#1D4ED8",
+    "light": "#3B82F6",
+    "dark": "#1E3A8A"
+  },
+  "favicon": "/favicon.svg",
+  "logo": {
+    "light": "/logo/light.svg",
+    "dark": "/logo/dark.svg"
+  },
+  "navbar": {
+    "links": [
+      {
+        "label": "App",
+        "href": "https://student-label-system.vercel.app"
+      },
+      {
+        "label": "Contact",
+        "href": "mailto:jjaramillo7@schools.nyc.gov"
+      }
+    ],
+    "primary": {
+      "type": "button",
+      "label": "Sign in",
+      "href": "https://student-label-system.vercel.app/auth/signin"
+    }
+  },
+  "navigation": {
+    "pages": [
+      {
+        "group": "Getting started",
+        "pages": [
+          "index",
+          "quickstart",
+          "user-roles"
+        ]
+      },
+      {
+        "group": "Daily workflows",
+        "pages": [
+          "workflows/intake",
+          "workflows/labels-and-scanning",
+          "workflows/duplicates-and-siblings",
+          "workflows/email-validation"
+        ]
+      },
+      {
+        "group": "Storage & archive",
+        "pages": [
+          "storage/cabinets-and-drawers",
+          "storage/archive-and-school-year"
+        ]
+      },
+      {
+        "group": "Admin tools",
+        "pages": [
+          "admin/enrollment-dashboard",
+          "admin/data-lead-tools"
+        ]
+      },
+      {
+        "group": "Reference",
+        "pages": [
+          "reference/dual-id-system",
+          "reference/qr-codes",
+          "reference/bulk-upload"
+        ]
+      },
+      {
+        "group": "Contributors",
+        "pages": [
+          "contributors/cursor-and-mcp",
+          "contributors/local-preview"
+        ]
+      }
+    ],
+    "global": {
+      "anchors": [
+        {
+          "anchor": "Live app",
+          "href": "https://student-label-system.vercel.app",
+          "icon": "arrow-up-right-from-square"
+        },
+        {
+          "anchor": "In-app guide",
+          "href": "https://student-label-system.vercel.app/docs",
+          "icon": "book-open-cover"
+        }
+      ]
+    }
+  },
+  "contextual": {
+    "options": [
+      "copy",
+      "view",
+      "chatgpt",
+      "claude",
+      "cursor",
+      "mcp"
+    ]
+  },
+  "footer": {}
+}

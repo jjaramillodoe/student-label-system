@@ -1,0 +1,44 @@
+---
+title: Local preview
+description: Run the Mintlify dev server and publish to production.
+---
+
+## Prerequisites
+
+- Node.js **20.17+**
+- Mintlify CLI: `npm i -g mint`
+
+## Preview locally
+
+From the repository root:
+
+```bash
+npm run docs:dev
+```
+
+Or from the `docs/` folder:
+
+```bash
+cd docs
+mint dev
+```
+
+Open [http://localhost:3000](http://localhost:3000) to preview changes.
+
+## Deploy to Mintlify
+
+<Steps>
+  <Step title="Create a Mintlify project">
+    Go to [mintlify.com/start](https://mintlify.com/start) and connect your GitHub repository. Point the docs root to the `docs/` folder in this repo.
+  </Step>
+  <Step title="Push changes">
+    Mintlify deploys automatically when you push to the connected branch.
+  </Step>
+  <Step title="Copy your MCP URL">
+    After deploy, your search MCP URL is `https://YOUR-SUBDOMAIN.mintlify.app/mcp`. Add it to `.cursor/mcp.json` as `student-label-docs` and reload Cursor.
+  </Step>
+</Steps>
+
+## Monorepo note
+
+The Next.js app lives at the repo root; Mintlify content lives in `docs/`. Configure Mintlify to use `docs/` as the documentation directory so it does not conflict with the in-app guide at `/docs` in the web app.

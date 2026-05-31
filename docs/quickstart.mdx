@@ -1,0 +1,53 @@
+---
+title: Quickstart
+description: Get started with the Student Label System in a few minutes.
+---
+
+## 1. Sign in
+
+Go to [student-label-system.vercel.app/auth/signin](https://student-label-system.vercel.app/auth/signin) and sign in with your NYC DOE account.
+
+Your role determines which pages you can access:
+
+| Role | Primary starting point |
+| --- | --- |
+| Intake Member | `/intake` |
+| Data Member | Dashboard (`/`) |
+| Data Lead | Dashboard + Admin tools |
+| Admin | All schools + user management |
+
+See [User roles](/user-roles) for the full permission matrix.
+
+## 2. Complete your first task
+
+<Steps>
+  <Step title="Intake Member — register a student">
+    1. Open **Intake** from the navigation.
+    2. Enter name and date of birth — verify the human-readable date shown beside the picker.
+    3. Choose **NEW** or **RETURNING** and complete BE/ESL fields.
+    4. Submit and print the Avery label (barcode + QR).
+  </Step>
+  <Step title="Data Member — find and print a label">
+    1. Open the **Dashboard**.
+    2. Search by name, Label ID, or Student ID.
+    3. Select students and use **Print** for Avery 5163 sheets.
+  </Step>
+  <Step title="Data Lead — review cabinet health">
+    1. Open **Admin → Cabinet Health**.
+    2. Resolve unassigned students or full drawers before intake peaks.
+  </Step>
+</Steps>
+
+## 3. Learn the ID system
+
+Every student has two IDs:
+
+- **Label ID** — short ID on the barcode and QR (e.g. `1979-JJ-0000001`)
+- **Student ID** — demographic format for reporting (e.g. `JARAMILLOJAVIERR0119790522`)
+
+Details: [Dual ID system](/reference/dual-id-system)
+
+## 4. Need help?
+
+- In-app guide: [App documentation](https://student-label-system.vercel.app/docs)
+- Contact: [jjaramillo7@schools.nyc.gov](mailto:jjaramillo7@schools.nyc.gov)

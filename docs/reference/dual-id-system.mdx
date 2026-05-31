@@ -1,0 +1,38 @@
+---
+title: Dual ID system
+description: Label ID and Student ID formats.
+---
+
+Every student receives two auto-generated identifiers.
+
+## Label ID (barcode / QR)
+
+Printed on physical labels.
+
+```
+1979-JJ-0000001
+```
+
+Format: `{birthYear}-{initials}-{7-digit-sequence}`
+
+## Student ID (demographic)
+
+Used for reporting and ASISTS alignment.
+
+```
+JARAMILLOJAVIERR0119790522
+```
+
+Format: `{lastName}{firstName}{agencyId}{dobNoDashes}`
+
+## Agency IDs
+
+Configured per school under **Admin → Schools**:
+
+| Code | School |
+| --- | --- |
+| R00 | District 79 |
+| R01 | School 1 |
+| R02 | School 2 |
+
+Use **Backfill Student IDs** in Schools to migrate existing records.

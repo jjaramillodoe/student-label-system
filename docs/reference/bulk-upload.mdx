@@ -1,0 +1,25 @@
+---
+title: Bulk upload
+description: Import students from CSV with validation.
+---
+
+**Admin → Bulk Upload** (`/admin/students/bulk-upload`)
+
+## Required columns
+
+Cabinet and drawer are selected on the upload screen for the entire file.
+
+```csv
+firstName, lastName, dob
+fiscalYear, status, startDate
+email, phone, gender, program
+```
+
+## Features
+
+- Download CSV template or sample file from the upload page
+- Preview rows before saving with inline editing
+- Validates missing names, invalid dates, placeholder emails, and duplicates
+- Auto-generates Label ID and Student ID for each row
+
+Sample files in the app: `/student_bulk_upload_template.csv` and `/student_bulk_upload_sample.csv`

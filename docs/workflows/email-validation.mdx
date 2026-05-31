@@ -1,0 +1,24 @@
+---
+title: Email validation
+description: Verify student email addresses with EmailAwesome.
+---
+
+**Admin → Email Validation** (`/admin/validation`) verifies student emails via the EmailAwesome API.
+
+## Limits
+
+- **1,000 validations per month** with a visual usage meter (green → amber → red)
+
+## Workflow
+
+<Steps>
+  <Step title="Submit emails">
+    Use the **Submit New** tab. Filter by "has email" or "not yet validated", select students, and click **Validate Emails**.
+  </Step>
+  <Step title="Wait for results">
+    Jobs auto-poll every 8 seconds. Results: Valid (green), Invalid (red), Catch-all (yellow), Unknown (gray).
+  </Step>
+  <Step title="Apply to student records">
+    Click **Apply Results** to write `emailValidationStatus` back to each student record.
+  </Step>
+</Steps>

@@ -1,0 +1,49 @@
+---
+description: Mintlify documentation standards for Student Label System docs in docs/
+globs: docs/**/*
+alwaysApply: false
+---
+
+# Mintlify documentation (Student Label System)
+
+## Project layout
+
+- MDX pages live in `docs/` with YAML frontmatter (`title`, `description`)
+- Site config: `docs/docs.json` (not mint.json)
+- Preview: `npm run docs:dev` from repo root
+
+## Terminology
+
+- **Label ID** — barcode/QR identifier (e.g. `1979-JJ-0000001`)
+- **Student ID** — demographic ID for reporting
+- **BE** — Basic Education; **ESL** — English as a Second Language
+- **Data Lead**, **Data Member**, **Intake Member** — capitalize role names
+- **Cabinet / drawer** — physical file storage; **archive box** — end-of-year storage unit
+
+## Writing style
+
+- Active voice, second person ("you")
+- Sentence case for headings
+- Bold UI labels: Click **Admin → Cabinets**
+- Link to live app paths when helpful: `https://student-label-system.vercel.app/intake`
+
+## Mintlify components
+
+Prefer Mintlify components over raw HTML:
+
+- `<Steps>` / `<Step>` for workflows
+- `<CardGroup>` / `<Card>` for overview links
+- `<Note>`, `<Tip>`, `<Warning>` for callouts
+- Tables for role/permission matrices
+
+Use the **mintlify-platform** MCP to look up component syntax. Use the **mintlify** Admin MCP to create or edit pages and navigation.
+
+## MCP URLs
+
+| Server | URL |
+| --- | --- |
+| Admin (write) | `https://mcp.mintlify.com` |
+| Platform docs | `https://mintlify.com/docs/mcp` |
+| Published site (after deploy) | `https://YOUR-SUBDOMAIN.mintlify.app/mcp` |
+
+After adding a page, update `docs/docs.json` navigation if it is a new top-level route.

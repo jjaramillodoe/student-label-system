@@ -1,0 +1,35 @@
+---
+title: Labels and scanning
+description: Avery 5163 labels, barcodes, QR codes, and public student pages.
+---
+
+## Default print layout
+
+- **Format:** Avery 5163 on legal paper (10 labels per sheet)
+- **Content:** Student name, DOB, barcode (Label ID), QR code
+
+<Tip>
+  Print in multiples of **10** labels to avoid wasting partial sheets.
+</Tip>
+
+## Student QR codes
+
+Scanning a student label QR opens a public detail page:
+
+```
+https://student-label-system.vercel.app/student/{labelId}
+```
+
+The page shows Label ID, Student ID, name, DOB, cabinet, drawer, school, and sibling links. No login is required.
+
+## Archive box QR codes
+
+Physical archive box labels include a separate QR that opens:
+
+```
+https://student-label-system.vercel.app/archive/box/{boxId}
+```
+
+That public page lists every student file in the box plus storage location. You can also **Download PDF** (page 1 = label + QR, page 2 = two-column student list).
+
+See [Archive and school year](/storage/archive-and-school-year).
