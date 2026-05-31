@@ -234,10 +234,15 @@ db.students.createIndex({ labelId: 1 }, { sparse: true })
 
 ### Sync API usage
 
-Add to `.env.local`:
+**Production is live** at [student-label-system.vercel.app](https://student-label-system.vercel.app/api/sync/v1/students).
+
+- `SYNC_API_KEY` is set in **Vercel → student-label-system → Settings → Environment Variables**
+- Local copy (gitignored): **`.sync-api-key.local`** — use this value in Power Automate `stlabel_SyncApiKey`
+
+For local dev, also add to `.env.local`:
 
 ```bash
-SYNC_API_KEY=<long-random-secret>
+SYNC_API_KEY=<same value as .sync-api-key.local>
 ```
 
 ```bash
