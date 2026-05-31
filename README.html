@@ -1,0 +1,896 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>README.md</title>
+<meta http-equiv="Content-type" content="text/html;charset=UTF-8">
+
+<style>
+/* https://github.com/microsoft/vscode/blob/master/extensions/markdown-language-features/media/markdown.css */
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (c) Microsoft Corporation. All rights reserved.
+ *  Licensed under the MIT License. See License.txt in the project root for license information.
+ *--------------------------------------------------------------------------------------------*/
+
+body {
+	font-family: var(--vscode-markdown-font-family, -apple-system, BlinkMacSystemFont, "Segoe WPC", "Segoe UI", "Ubuntu", "Droid Sans", sans-serif);
+	font-size: var(--vscode-markdown-font-size, 14px);
+	padding: 0 26px;
+	line-height: var(--vscode-markdown-line-height, 22px);
+	word-wrap: break-word;
+}
+
+#code-csp-warning {
+	position: fixed;
+	top: 0;
+	right: 0;
+	color: white;
+	margin: 16px;
+	text-align: center;
+	font-size: 12px;
+	font-family: sans-serif;
+	background-color:#444444;
+	cursor: pointer;
+	padding: 6px;
+	box-shadow: 1px 1px 1px rgba(0,0,0,.25);
+}
+
+#code-csp-warning:hover {
+	text-decoration: none;
+	background-color:#007acc;
+	box-shadow: 2px 2px 2px rgba(0,0,0,.25);
+}
+
+body.scrollBeyondLastLine {
+	margin-bottom: calc(100vh - 22px);
+}
+
+body.showEditorSelection .code-line {
+	position: relative;
+}
+
+body.showEditorSelection .code-active-line:before,
+body.showEditorSelection .code-line:hover:before {
+	content: "";
+	display: block;
+	position: absolute;
+	top: 0;
+	left: -12px;
+	height: 100%;
+}
+
+body.showEditorSelection li.code-active-line:before,
+body.showEditorSelection li.code-line:hover:before {
+	left: -30px;
+}
+
+.vscode-light.showEditorSelection .code-active-line:before {
+	border-left: 3px solid rgba(0, 0, 0, 0.15);
+}
+
+.vscode-light.showEditorSelection .code-line:hover:before {
+	border-left: 3px solid rgba(0, 0, 0, 0.40);
+}
+
+.vscode-light.showEditorSelection .code-line .code-line:hover:before {
+	border-left: none;
+}
+
+.vscode-dark.showEditorSelection .code-active-line:before {
+	border-left: 3px solid rgba(255, 255, 255, 0.4);
+}
+
+.vscode-dark.showEditorSelection .code-line:hover:before {
+	border-left: 3px solid rgba(255, 255, 255, 0.60);
+}
+
+.vscode-dark.showEditorSelection .code-line .code-line:hover:before {
+	border-left: none;
+}
+
+.vscode-high-contrast.showEditorSelection .code-active-line:before {
+	border-left: 3px solid rgba(255, 160, 0, 0.7);
+}
+
+.vscode-high-contrast.showEditorSelection .code-line:hover:before {
+	border-left: 3px solid rgba(255, 160, 0, 1);
+}
+
+.vscode-high-contrast.showEditorSelection .code-line .code-line:hover:before {
+	border-left: none;
+}
+
+img {
+	max-width: 100%;
+	max-height: 100%;
+}
+
+a {
+	text-decoration: none;
+}
+
+a:hover {
+	text-decoration: underline;
+}
+
+a:focus,
+input:focus,
+select:focus,
+textarea:focus {
+	outline: 1px solid -webkit-focus-ring-color;
+	outline-offset: -1px;
+}
+
+hr {
+	border: 0;
+	height: 2px;
+	border-bottom: 2px solid;
+}
+
+h1 {
+	padding-bottom: 0.3em;
+	line-height: 1.2;
+	border-bottom-width: 1px;
+	border-bottom-style: solid;
+}
+
+h1, h2, h3 {
+	font-weight: normal;
+}
+
+table {
+	border-collapse: collapse;
+}
+
+table > thead > tr > th {
+	text-align: left;
+	border-bottom: 1px solid;
+}
+
+table > thead > tr > th,
+table > thead > tr > td,
+table > tbody > tr > th,
+table > tbody > tr > td {
+	padding: 5px 10px;
+}
+
+table > tbody > tr + tr > td {
+	border-top: 1px solid;
+}
+
+blockquote {
+	margin: 0 7px 0 5px;
+	padding: 0 16px 0 10px;
+	border-left-width: 5px;
+	border-left-style: solid;
+}
+
+code {
+	font-family: Menlo, Monaco, Consolas, "Droid Sans Mono", "Courier New", monospace, "Droid Sans Fallback";
+	font-size: 1em;
+	line-height: 1.357em;
+}
+
+body.wordWrap pre {
+	white-space: pre-wrap;
+}
+
+pre:not(.hljs),
+pre.hljs code > div {
+	padding: 16px;
+	border-radius: 3px;
+	overflow: auto;
+}
+
+pre code {
+	color: var(--vscode-editor-foreground);
+	tab-size: 4;
+}
+
+/** Theming */
+
+.vscode-light pre {
+	background-color: rgba(220, 220, 220, 0.4);
+}
+
+.vscode-dark pre {
+	background-color: rgba(10, 10, 10, 0.4);
+}
+
+.vscode-high-contrast pre {
+	background-color: rgb(0, 0, 0);
+}
+
+.vscode-high-contrast h1 {
+	border-color: rgb(0, 0, 0);
+}
+
+.vscode-light table > thead > tr > th {
+	border-color: rgba(0, 0, 0, 0.69);
+}
+
+.vscode-dark table > thead > tr > th {
+	border-color: rgba(255, 255, 255, 0.69);
+}
+
+.vscode-light h1,
+.vscode-light hr,
+.vscode-light table > tbody > tr + tr > td {
+	border-color: rgba(0, 0, 0, 0.18);
+}
+
+.vscode-dark h1,
+.vscode-dark hr,
+.vscode-dark table > tbody > tr + tr > td {
+	border-color: rgba(255, 255, 255, 0.18);
+}
+
+</style>
+
+<style>
+/* Tomorrow Theme */
+/* http://jmblog.github.com/color-themes-for-google-code-highlightjs */
+/* Original theme - https://github.com/chriskempson/tomorrow-theme */
+
+/* Tomorrow Comment */
+.hljs-comment,
+.hljs-quote {
+	color: #8e908c;
+}
+
+/* Tomorrow Red */
+.hljs-variable,
+.hljs-template-variable,
+.hljs-tag,
+.hljs-name,
+.hljs-selector-id,
+.hljs-selector-class,
+.hljs-regexp,
+.hljs-deletion {
+	color: #c82829;
+}
+
+/* Tomorrow Orange */
+.hljs-number,
+.hljs-built_in,
+.hljs-builtin-name,
+.hljs-literal,
+.hljs-type,
+.hljs-params,
+.hljs-meta,
+.hljs-link {
+	color: #f5871f;
+}
+
+/* Tomorrow Yellow */
+.hljs-attribute {
+	color: #eab700;
+}
+
+/* Tomorrow Green */
+.hljs-string,
+.hljs-symbol,
+.hljs-bullet,
+.hljs-addition {
+	color: #718c00;
+}
+
+/* Tomorrow Blue */
+.hljs-title,
+.hljs-section {
+	color: #4271ae;
+}
+
+/* Tomorrow Purple */
+.hljs-keyword,
+.hljs-selector-tag {
+	color: #8959a8;
+}
+
+.hljs {
+	display: block;
+	overflow-x: auto;
+	color: #4d4d4c;
+	padding: 0.5em;
+}
+
+.hljs-emphasis {
+	font-style: italic;
+}
+
+.hljs-strong {
+	font-weight: bold;
+}
+</style>
+
+<style>
+/*
+ * Markdown PDF CSS
+ */
+
+ body {
+	font-family: -apple-system, BlinkMacSystemFont, "Segoe WPC", "Segoe UI", "Ubuntu", "Droid Sans", sans-serif, "Meiryo";
+	padding: 0 12px;
+}
+
+pre {
+	background-color: #f8f8f8;
+	border: 1px solid #cccccc;
+	border-radius: 3px;
+	overflow-x: auto;
+	white-space: pre-wrap;
+	overflow-wrap: break-word;
+}
+
+pre:not(.hljs) {
+	padding: 23px;
+	line-height: 19px;
+}
+
+blockquote {
+	background: rgba(127, 127, 127, 0.1);
+	border-color: rgba(0, 122, 204, 0.5);
+}
+
+.emoji {
+	height: 1.4em;
+}
+
+code {
+	font-size: 14px;
+	line-height: 19px;
+}
+
+/* for inline code */
+:not(pre):not(.hljs) > code {
+	color: #C9AE75; /* Change the old color so it seems less like an error */
+	font-size: inherit;
+}
+
+/* Page Break : use <div class="page"/> to insert page break
+-------------------------------------------------------- */
+.page {
+	page-break-after: always;
+}
+
+</style>
+
+<script src="https://unpkg.com/mermaid/dist/mermaid.min.js"></script>
+</head>
+<body>
+  <script>
+    mermaid.initialize({
+      startOnLoad: true,
+      theme: document.body.classList.contains('vscode-dark') || document.body.classList.contains('vscode-high-contrast')
+          ? 'dark'
+          : 'default'
+    });
+  </script>
+<h1 id="student-label-system">Student Label System</h1>
+<p>A comprehensive Next.js application for managing student records, cabinet/drawer assignments, and label generation for the Department of Education (DOE).</p>
+<h2 id="features">Features</h2>
+<h3 id="%F0%9F%93%88-analytics--reporting">📈 Analytics &amp; Reporting</h3>
+<ul>
+<li><strong>Dashboard statistics</strong>:
+<ul>
+<li>Total students (with active/archived breakdown)</li>
+<li>Storage utilization with visual progress bars</li>
+<li>Recent print activity (last 30 days)</li>
+<li>Recent audit activity (last 7 days)</li>
+<li>New students this month</li>
+</ul>
+</li>
+<li><strong>Print reports &amp; analytics</strong> (<code>/reports</code>):
+<ul>
+<li>Visual charts (Line, Bar, Pie charts)</li>
+<li>Print trends over time</li>
+<li>Most printed students</li>
+<li>User activity reports</li>
+<li>Grouping by day, week, month, user, or student</li>
+<li>Export to PDF and Excel</li>
+<li>Cost tracking capabilities</li>
+</ul>
+</li>
+</ul>
+<h3 id="%F0%9F%8E%A8-user-interface-enhancements">🎨 User Interface Enhancements</h3>
+<ul>
+<li><strong>Modern UI with shadcn/ui</strong>:
+<ul>
+<li>Consistent design system</li>
+<li>Accessible components</li>
+<li>Dark mode support</li>
+<li>Responsive design</li>
+</ul>
+</li>
+<li><strong>Enhanced components</strong>:
+<ul>
+<li>Student table with improved layout and actions</li>
+<li>Card-based layouts</li>
+<li>Dropdown menus for actions</li>
+<li>Tooltips for additional information</li>
+<li>Loading states and skeletons</li>
+<li>Empty states with helpful messages</li>
+</ul>
+</li>
+<li><strong>Dark mode</strong> - Toggle between light and dark themes</li>
+<li><strong>Component reusability</strong> - Extracted reusable components for better maintainability</li>
+</ul>
+<h3 id="%F0%9F%94%90-authentication--user-management">🔐 Authentication &amp; User Management</h3>
+<ul>
+<li><strong>Role-based access control</strong> with three user roles:
+<ul>
+<li><strong>Admin</strong>: Full system access</li>
+<li><strong>Data Lead</strong>: Cabinet management and student oversight</li>
+<li><strong>Data Member</strong>: Student management within assigned school</li>
+</ul>
+</li>
+<li><strong>Secure login</strong> with DOE email addresses</li>
+<li><strong>User management dashboard</strong> with last login tracking</li>
+<li><strong>Automatic lastLogin updates</strong> on every successful authentication</li>
+</ul>
+<h3 id="%F0%9F%91%A5-student-management">👥 Student Management</h3>
+<ul>
+<li><strong>Individual student creation</strong> with auto-generated Student IDs</li>
+<li><strong>Bulk student upload</strong> via Excel/CSV files</li>
+<li><strong>Student editing and archiving</strong> capabilities</li>
+<li><strong>Advanced search and filtering</strong>:
+<ul>
+<li>Search by name, student ID, or email</li>
+<li>Filter by fiscal year, status, start/end dates</li>
+<li>Filter by cabinet and drawer location</li>
+<li>Email search</li>
+<li><strong>Saved searches</strong> - Save frequently used filter combinations</li>
+</ul>
+</li>
+<li><strong>Sortable table columns</strong> - Click any column header to sort (Student ID, Name, DOB, Fiscal Year, Status, Location, Start Date)</li>
+<li><strong>Enhanced student details modal</strong> with:
+<ul>
+<li>Organized card-based layout</li>
+<li>QR code display</li>
+<li>Barcode visualization</li>
+<li>Complete student information</li>
+</ul>
+</li>
+<li><strong>Bulk operations</strong> (archive, status updates, fiscal year changes, delete)</li>
+<li><strong>Barcode scanner integration</strong> - Scan barcodes to quickly find students</li>
+<li><strong>Form auto-clear</strong> - Form automatically clears after successful submission for quick entry</li>
+</ul>
+<h3 id="%F0%9F%97%84%EF%B8%8F-cabinet--drawer-management">🗄️ Cabinet &amp; Drawer Management</h3>
+<ul>
+<li><strong>Multi-cabinet support</strong> with unique identifiers</li>
+<li><strong>Drawer organization</strong> within cabinets</li>
+<li><strong>Capacity tracking</strong> with automatic count updates</li>
+<li><strong>Cabinet assignment</strong> during student creation</li>
+<li><strong>Archive cabinet</strong> for inactive students</li>
+<li><strong>School filtering</strong> - Filter cabinets by school for easy navigation</li>
+<li><strong>Smart Fill feature</strong> - One-click button to auto-fill cabinet form with intelligent suggestions:
+<ul>
+<li>Suggests available cabinet names</li>
+<li>Auto-generates identifiers when needed</li>
+<li>Pre-fills school based on user or most common</li>
+<li>Creates 5 drawers with default names and capacity</li>
+</ul>
+</li>
+<li><strong>Smart cabinet seeding</strong> - Automated cabinet creation for Schools 1-8:
+<ul>
+<li>Creates cabinets when storage utilization is high</li>
+<li>Pre-fills cabinets with test students</li>
+<li>Configurable drawers, capacity, and student count</li>
+</ul>
+</li>
+<li><strong>Visual capacity indicators</strong> - Color-coded progress bars (red for full, yellow for near full)</li>
+</ul>
+<h3 id="%F0%9F%93%8A-data-integrity--maintenance">📊 Data Integrity &amp; Maintenance</h3>
+<ul>
+<li><strong>Audit tools</strong> for identifying data inconsistencies</li>
+<li><strong>Enhanced audit log page</strong> (<code>/audit</code>):
+<ul>
+<li>Dedicated full-page interface</li>
+<li>Advanced filtering (action type, date range, user)</li>
+<li>User information tracking (who performed actions)</li>
+<li>Export to CSV</li>
+<li>Role-based filtering</li>
+</ul>
+</li>
+<li><strong>Sync tools</strong> for cabinet/drawer count corrections</li>
+<li><strong>Data migration scripts</strong> for system updates</li>
+<li><strong>Validation</strong> for ObjectId formats and data integrity</li>
+<li><strong>Test data seeding</strong>:
+<ul>
+<li>Generate test students with realistic data</li>
+<li>Configurable count (1-500 students)</li>
+<li>Auto-assignment to existing cabinets</li>
+<li>Smart ID generation (no duplicates)</li>
+</ul>
+</li>
+</ul>
+<h3 id="%F0%9F%8F%B7%EF%B8%8F-label-generation--printing">🏷️ Label Generation &amp; Printing</h3>
+<ul>
+<li><strong>Barcode generation</strong> for student IDs</li>
+<li><strong>QR code generation</strong> - QR codes for quick student lookup</li>
+<li><strong>Multiple label templates</strong>:
+<ul>
+<li>Standard Avery labels</li>
+<li>Brother DK label formats (DK-1201, DK-11208, DK-2205, DK-22208)</li>
+<li>Custom label dimensions</li>
+</ul>
+</li>
+<li><strong>Print-friendly layouts</strong> with customizable options</li>
+<li><strong>Multiple print modes</strong>:
+<ul>
+<li>Single student printing</li>
+<li>Batch printing (selected students)</li>
+<li>Print all filtered students</li>
+<li>Custom label dimensions</li>
+</ul>
+</li>
+<li><strong>Print preview</strong> - Preview labels before printing</li>
+<li><strong>Reprint functionality</strong>:
+<ul>
+<li>Reprint last print job</li>
+<li>Select from print history</li>
+<li>One-click reprint for selected students</li>
+</ul>
+</li>
+<li><strong>Print history tracking</strong> - Track all print jobs with:
+<ul>
+<li>User information</li>
+<li>Timestamp</li>
+<li>Student list</li>
+<li>Label count</li>
+<li>Layout used</li>
+</ul>
+</li>
+<li><strong>Brother Professional Label Printer support</strong>:
+<ul>
+<li>Optimized for Brother QL-800 printers</li>
+<li>Continuous feed support</li>
+<li>300 DPI optimization</li>
+<li>Print setup instructions</li>
+</ul>
+</li>
+<li><strong>Label stock tracking</strong> - Track inventory per template with low stock alerts</li>
+</ul>
+<h2 id="getting-started">Getting Started</h2>
+<h3 id="prerequisites">Prerequisites</h3>
+<ul>
+<li>Node.js 18+</li>
+<li>MongoDB database</li>
+<li>DOE email credentials</li>
+</ul>
+<h3 id="installation">Installation</h3>
+<ol>
+<li>
+<p><strong>Clone the repository</strong></p>
+<pre class="hljs"><code><div>git <span class="hljs-built_in">clone</span> &lt;repository-url&gt;
+<span class="hljs-built_in">cd</span> student-label-system
+</div></code></pre>
+</li>
+<li>
+<p><strong>Install dependencies</strong></p>
+<pre class="hljs"><code><div>npm install
+</div></code></pre>
+</li>
+<li>
+<p><strong>Environment Setup</strong>
+Create a <code>.env.local</code> file with:</p>
+<pre class="hljs"><code><div>MONGODB_URI=your_mongodb_connection_string
+NEXTAUTH_SECRET=your_nextauth_secret
+NEXTAUTH_URL=http://localhost:3000
+</div></code></pre>
+</li>
+<li>
+<p><strong>Start the development server</strong></p>
+<pre class="hljs"><code><div>npm run dev
+</div></code></pre>
+</li>
+<li>
+<p><strong>Access the application</strong>
+Open <a href="http://localhost:3000">http://localhost:3000</a></p>
+</li>
+</ol>
+<h2 id="user-roles--permissions">User Roles &amp; Permissions</h2>
+<h3 id="admin">Admin</h3>
+<ul>
+<li>Full system access</li>
+<li>User management</li>
+<li>Cabinet/drawer management</li>
+<li>All student operations</li>
+<li>System audit tools</li>
+</ul>
+<h3 id="data-lead">Data Lead</h3>
+<ul>
+<li>Cabinet/drawer management</li>
+<li>Student oversight within school</li>
+<li>Bulk operations</li>
+<li>Limited user management</li>
+</ul>
+<h3 id="data-member">Data Member</h3>
+<ul>
+<li>Student management within assigned school</li>
+<li>Individual student operations</li>
+<li>View-only access to cabinets</li>
+</ul>
+<h2 id="data-management-scripts">Data Management Scripts</h2>
+<h3 id="fix-invalid-students">Fix Invalid Students</h3>
+<p>Fixes students with missing or invalid cabinet/drawer assignments by assigning them to a default cabinet.</p>
+<pre class="hljs"><code><div>npx tsx scripts/fix-invalid-students.ts
+</div></code></pre>
+<h3 id="fix-negative-counts">Fix Negative Counts</h3>
+<p>Corrects negative <code>currentCount</code> values in cabinets and drawers by setting them to zero.</p>
+<pre class="hljs"><code><div>npx tsx scripts/fix-negative-counts.ts
+</div></code></pre>
+<h3 id="add-user">Add User</h3>
+<p>Adds a new user to the system with proper role assignment.</p>
+<pre class="hljs"><code><div>npx tsx scripts/add-user.ts
+</div></code></pre>
+<p><strong>Note</strong>: These scripts require Node.js v22+ compatibility. If you encounter ESM module errors, use <code>npx tsx</code> instead of <code>node</code> to run TypeScript files directly.</p>
+<h2 id="api-endpoints">API Endpoints</h2>
+<h3 id="authentication">Authentication</h3>
+<ul>
+<li><code>POST /api/auth/[...nextauth]</code> - NextAuth.js authentication</li>
+<li><code>POST /api/auth/clear</code> - Clear authentication data</li>
+</ul>
+<h3 id="students">Students</h3>
+<ul>
+<li><code>GET /api/students</code> - Fetch students (filtered by role/school)</li>
+<li><code>POST /api/students</code> - Create new student</li>
+<li><code>PUT /api/students/[id]</code> - Update student</li>
+<li><code>DELETE /api/students/[id]</code> - Archive student</li>
+</ul>
+<h3 id="cabinets">Cabinets</h3>
+<ul>
+<li><code>GET /api/cabinets</code> - Fetch cabinets</li>
+<li><code>POST /api/cabinets</code> - Create cabinet</li>
+<li><code>PUT /api/cabinets/[id]</code> - Update cabinet</li>
+<li><code>DELETE /api/cabinets/[id]</code> - Delete cabinet</li>
+<li><code>POST /api/cabinets/sync</code> - Sync cabinet counts</li>
+<li><code>POST /api/cabinets/audit</code> - Audit cabinet assignments</li>
+</ul>
+<h3 id="users">Users</h3>
+<ul>
+<li><code>GET /api/users</code> - Fetch users (Admin only)</li>
+<li><code>POST /api/users</code> - Create user (Admin only)</li>
+<li><code>PUT /api/users/[id]</code> - Update user (Admin only)</li>
+<li><code>DELETE /api/users/[id]</code> - Delete user (Admin only)</li>
+<li><code>POST /api/users/migrate</code> - Migrate user data</li>
+</ul>
+<h3 id="audit-logs">Audit Logs</h3>
+<ul>
+<li><code>GET /api/audit-logs</code> - Fetch audit logs (filtered by role/school)</li>
+<li><code>POST /api/audit-logs</code> - Create audit log entry</li>
+</ul>
+<h3 id="print-history--reports">Print History &amp; Reports</h3>
+<ul>
+<li><code>GET /api/print-history</code> - Fetch print history (filtered by date, user, student)</li>
+<li><code>POST /api/print-history</code> - Record print event</li>
+<li><code>GET /api/print-reports</code> - Get aggregated print statistics and reports</li>
+</ul>
+<h3 id="dashboard-statistics">Dashboard Statistics</h3>
+<ul>
+<li><code>GET /api/dashboard-stats</code> - Get dashboard statistics (students, storage, prints, activity)</li>
+</ul>
+<h3 id="saved-searches">Saved Searches</h3>
+<ul>
+<li><code>GET /api/saved-searches</code> - Fetch user's saved search filters</li>
+<li><code>POST /api/saved-searches</code> - Save a new search filter</li>
+<li><code>DELETE /api/saved-searches/[id]</code> - Delete a saved search</li>
+</ul>
+<h3 id="label-stock">Label Stock</h3>
+<ul>
+<li><code>GET /api/label-stock</code> - Fetch label stock inventory</li>
+<li><code>POST /api/label-stock</code> - Create label stock entry</li>
+<li><code>PUT /api/label-stock/[id]</code> - Update label stock entry</li>
+<li><code>DELETE /api/label-stock/[id]</code> - Delete label stock entry</li>
+</ul>
+<h3 id="test-data-seeding">Test Data Seeding</h3>
+<ul>
+<li><code>POST /api/seed-test-data</code> - Generate test student data (Admin only)</li>
+<li><code>POST /api/seed-cabinets</code> - Smart cabinet seeding for Schools 1-8 (Admin only)</li>
+</ul>
+<h2 id="data-structure">Data Structure</h2>
+<h3 id="student-schema">Student Schema</h3>
+<pre class="hljs"><code><div>{
+  _id: ObjectId,
+  studentId: <span class="hljs-built_in">string</span>,        <span class="hljs-comment">// Auto-generated: YYYY-INITIALS-0000001</span>
+  firstName: <span class="hljs-built_in">string</span>,
+  lastName: <span class="hljs-built_in">string</span>,
+  dob: <span class="hljs-built_in">string</span>,             <span class="hljs-comment">// YYYY-MM-DD format</span>
+  email?: <span class="hljs-built_in">string</span>,
+  fiscalYear: <span class="hljs-built_in">string</span>,
+  status: <span class="hljs-built_in">string</span>,
+  startDate: <span class="hljs-built_in">string</span>,
+  endDate?: <span class="hljs-built_in">string</span>,
+  cabinet: ObjectId,       <span class="hljs-comment">// Reference to cabinet</span>
+  drawer: ObjectId,        <span class="hljs-comment">// Reference to drawer</span>
+  school: <span class="hljs-built_in">string</span>,
+  archived: <span class="hljs-built_in">boolean</span>,
+  createdAt: <span class="hljs-built_in">string</span>,
+  updatedAt: <span class="hljs-built_in">string</span>
+}
+</div></code></pre>
+<h3 id="cabinet-schema">Cabinet Schema</h3>
+<pre class="hljs"><code><div>{
+  _id: ObjectId,
+  name: <span class="hljs-built_in">string</span>,
+  identifier?: <span class="hljs-built_in">string</span>,     <span class="hljs-comment">// Optional unique identifier</span>
+  drawers: [{
+    _id: ObjectId,
+    name: <span class="hljs-built_in">string</span>,
+    capacity: <span class="hljs-built_in">number</span>,
+    currentCount: <span class="hljs-built_in">number</span>
+  }],
+  totalCapacity: <span class="hljs-built_in">number</span>,
+  currentCount: <span class="hljs-built_in">number</span>,
+  createdAt: <span class="hljs-built_in">string</span>,
+  updatedAt: <span class="hljs-built_in">string</span>
+}
+</div></code></pre>
+<h3 id="user-schema">User Schema</h3>
+<pre class="hljs"><code><div>{
+  _id: ObjectId,
+  name: <span class="hljs-built_in">string</span>,
+  email: <span class="hljs-built_in">string</span>,
+  role: <span class="hljs-string">'Admin'</span> | <span class="hljs-string">'Data Lead'</span> | <span class="hljs-string">'Data Member'</span>,
+  school: <span class="hljs-built_in">string</span>,
+  password: <span class="hljs-built_in">string</span>,        <span class="hljs-comment">// Hashed with bcrypt</span>
+  lastLogin?: <span class="hljs-built_in">string</span>,      <span class="hljs-comment">// Updated on each login</span>
+  createdAt: <span class="hljs-built_in">string</span>,
+  updatedAt: <span class="hljs-built_in">string</span>
+}
+</div></code></pre>
+<h2 id="pages--routes">Pages &amp; Routes</h2>
+<h3 id="main-pages">Main Pages</h3>
+<ul>
+<li><code>/</code> - Dashboard with student management and statistics</li>
+<li><code>/audit</code> - Enhanced audit log page with filtering and export</li>
+<li><code>/reports</code> - Print reports and analytics with charts</li>
+<li><code>/admin/users</code> - User management (Admin only)</li>
+<li><code>/admin/cabinets</code> - Cabinet and drawer management</li>
+<li><code>/admin/students</code> - Student management page</li>
+<li><code>/admin/students/bulk-upload</code> - Bulk student upload via Excel/CSV</li>
+<li><code>/admin/label-stock</code> - Label stock inventory management</li>
+<li><code>/admin/migrate/drawers</code> - Drawer migration tool</li>
+</ul>
+<h2 id="key-components">Key Components</h2>
+<h3 id="reusable-components">Reusable Components</h3>
+<ul>
+<li><code>DashboardHeader</code> - Main dashboard header with actions</li>
+<li><code>StudentFilters</code> - Advanced filtering and search</li>
+<li><code>StudentActionsBar</code> - Bulk actions and print controls</li>
+<li><code>StudentTable</code> - Enhanced sortable student table</li>
+<li><code>PrintView</code> - Print preview and label rendering</li>
+<li><code>EditStudentModal</code> - Student editing modal</li>
+<li><code>DeleteConfirmationModal</code> - Delete confirmation dialog</li>
+<li><code>BulkUpdateModal</code> - Bulk update operations</li>
+<li><code>DashboardStats</code> - Statistics cards</li>
+<li><code>PrintHistory</code> - Print history viewer</li>
+<li><code>ReprintButton</code> - Reprint functionality</li>
+<li><code>SavedSearches</code> - Saved search filters</li>
+<li><code>BarcodeScanner</code> - Barcode scanning integration</li>
+<li><code>SeedTestData</code> - Test data generation</li>
+<li><code>SeedCabinets</code> - Smart cabinet seeding</li>
+<li><code>PrinterConfig</code> - Printer setup instructions</li>
+</ul>
+<h2 id="troubleshooting">Troubleshooting</h2>
+<h3 id="common-issues">Common Issues</h3>
+<ol>
+<li>
+<p><strong>&quot;Failed to fetch cabinets&quot; error</strong></p>
+<ul>
+<li>Check authentication status</li>
+<li>Ensure user has proper role permissions</li>
+<li>Verify MongoDB connection</li>
+</ul>
+</li>
+<li>
+<p><strong>Negative cabinet counts</strong></p>
+<ul>
+<li>Run the fix-negative-counts script</li>
+<li>Use the &quot;Sync Counts&quot; button in the cabinets page</li>
+<li>Check for data integrity issues</li>
+</ul>
+</li>
+<li>
+<p><strong>Invalid ObjectId errors</strong></p>
+<ul>
+<li>Run the fix-invalid-students script</li>
+<li>Use the &quot;Audit Assignments&quot; button in the cabinets page</li>
+<li>Verify cabinet/drawer assignments</li>
+</ul>
+</li>
+<li>
+<p><strong>Script execution errors</strong></p>
+<ul>
+<li>Use <code>npx tsx</code> instead of <code>node</code> for TypeScript files</li>
+<li>Ensure Node.js v22+ compatibility</li>
+</ul>
+</li>
+<li>
+<p><strong>405 Method Not Allowed errors</strong></p>
+<ul>
+<li>Ensure API routes are in <code>route.ts</code> files within folders</li>
+<li>Check that route handlers are properly exported</li>
+</ul>
+</li>
+<li>
+<p><strong>Hydration mismatch errors</strong></p>
+<ul>
+<li>This is normal for client-side dark mode initialization</li>
+<li>The app handles this automatically with <code>suppressHydrationWarning</code></li>
+</ul>
+</li>
+<li>
+<p><strong>Empty response or JSON parsing errors</strong></p>
+<ul>
+<li>Check browser console for detailed error messages</li>
+<li>Verify API routes are returning proper JSON responses</li>
+<li>Check network tab for response status codes</li>
+</ul>
+</li>
+</ol>
+<h3 id="development-commands">Development Commands</h3>
+<pre class="hljs"><code><div><span class="hljs-comment"># Start development server</span>
+npm run dev
+
+<span class="hljs-comment"># Build for production</span>
+npm run build
+
+<span class="hljs-comment"># Start production server</span>
+npm start
+
+<span class="hljs-comment"># Run linting</span>
+npm run lint
+
+<span class="hljs-comment"># Run TypeScript scripts</span>
+npx tsx scripts/script-name.ts
+
+<span class="hljs-comment"># Add shadcn/ui components</span>
+npx shadcn@latest add [component-name]
+</div></code></pre>
+<h2 id="technology-stack">Technology Stack</h2>
+<ul>
+<li><strong>Framework</strong>: Next.js 15 (App Router)</li>
+<li><strong>UI Library</strong>: shadcn/ui (Radix UI primitives)</li>
+<li><strong>Styling</strong>: Tailwind CSS v3</li>
+<li><strong>Authentication</strong>: NextAuth.js</li>
+<li><strong>Database</strong>: MongoDB</li>
+<li><strong>Charts</strong>: Recharts</li>
+<li><strong>PDF Export</strong>: jsPDF</li>
+<li><strong>Excel Export</strong>: xlsx</li>
+<li><strong>Barcode Generation</strong>: react-barcode</li>
+<li><strong>QR Code Generation</strong>: qrcode.react</li>
+<li><strong>Barcode Scanning</strong>: @zxing/library</li>
+</ul>
+<h2 id="recent-updates">Recent Updates</h2>
+<h3 id="latest-features-2024">Latest Features (2024)</h3>
+<ul>
+<li>✅ Sortable student table columns</li>
+<li>✅ Smart Fill for cabinet forms</li>
+<li>✅ School filtering on cabinets page</li>
+<li>✅ Test data seeding tools</li>
+<li>✅ Smart cabinet seeding</li>
+<li>✅ Enhanced dashboard statistics</li>
+<li>✅ Print reports and analytics</li>
+<li>✅ Saved search filters</li>
+<li>✅ Barcode scanner integration</li>
+<li>✅ QR code generation</li>
+<li>✅ Reprint functionality</li>
+<li>✅ Label stock tracking</li>
+<li>✅ Enhanced audit log page</li>
+<li>✅ Dark mode support</li>
+<li>✅ Component extraction and reusability</li>
+<li>✅ Brother printer optimization</li>
+<li>✅ Improved error handling and validation</li>
+</ul>
+<h2 id="contributing">Contributing</h2>
+<ol>
+<li>Follow the existing code style</li>
+<li>Add appropriate error handling</li>
+<li>Update documentation for new features</li>
+<li>Test thoroughly before submitting</li>
+</ol>
+<h2 id="license">License</h2>
+<p>This project is developed for the Department of Education (DOE) and is proprietary software.</p>
+
+</body>
+</html>

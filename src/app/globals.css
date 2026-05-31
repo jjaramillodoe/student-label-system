@@ -1,26 +1,135 @@
-@import "tailwindcss";
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
-
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
+@layer base {
   :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+    --background: 0 0% 100%;
+    --foreground: 222.2 84% 4.9%;
+    --card: 0 0% 100%;
+    --card-foreground: 222.2 84% 4.9%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 222.2 84% 4.9%;
+    --primary: 222.2 47.4% 11.2%;
+    --primary-foreground: 210 40% 98%;
+    --secondary: 210 40% 96.1%;
+    --secondary-foreground: 222.2 47.4% 11.2%;
+    --muted: 210 40% 96.1%;
+    --muted-foreground: 215.4 16.3% 46.9%;
+    --accent: 210 40% 96.1%;
+    --accent-foreground: 222.2 47.4% 11.2%;
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 210 40% 98%;
+    --border: 214.3 31.8% 91.4%;
+    --input: 214.3 31.8% 91.4%;
+    --ring: 222.2 84% 4.9%;
+    --radius: 0.5rem;
+  }
+
+  .dark {
+    --background: 222.2 84% 4.9%;
+    --foreground: 210 40% 98%;
+    --card: 222.2 84% 4.9%;
+    --card-foreground: 210 40% 98%;
+    --popover: 222.2 84% 4.9%;
+    --popover-foreground: 210 40% 98%;
+    --primary: 210 40% 98%;
+    --primary-foreground: 222.2 47.4% 11.2%;
+    --secondary: 217.2 32.6% 17.5%;
+    --secondary-foreground: 210 40% 98%;
+    --muted: 217.2 32.6% 17.5%;
+    --muted-foreground: 215 20.2% 65.1%;
+    --accent: 217.2 32.6% 17.5%;
+    --accent-foreground: 210 40% 98%;
+    --destructive: 0 62.8% 30.6%;
+    --destructive-foreground: 210 40% 98%;
+    --border: 217.2 32.6% 17.5%;
+    --input: 217.2 32.6% 17.5%;
+    --ring: 212.7 26.8% 83.9%;
   }
 }
 
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground;
+    font-family: Arial, Helvetica, sans-serif;
+  }
+}
+
+/* ── Google Translate widget ─────────────────────────────────────────────────
+   Hide ONLY the injected top banner so the page isn't pushed down. We do NOT
+   hide the gadget's spans/iframes generally, because the language <select> and
+   its dropdown live inside those and hiding them breaks the picker. */
+.goog-te-banner-frame.skiptranslate {
+  display: none !important;
+}
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  top: 0 !important;
+  position: static !important;
+}
+
+/* Hide just the "Powered by Google" link/icon, not the whole gadget */
+.goog-te-gadget img,
+.goog-logo-link,
+.goog-te-gadget-icon {
+  display: none !important;
+}
+
+/* Collapse the gadget's stray text ("Powered by") without hiding the select.
+   The select's font-size is restored explicitly below. */
+.goog-te-gadget {
+  font-size: 0 !important;
+  color: transparent !important;
+  line-height: normal !important;
+}
+
+/* Style the language <select> to match our UI */
+.gt-pill .goog-te-combo,
+.goog-te-gadget .goog-te-combo {
+  display: inline-block !important;
+  margin: 0 !important;
+  height: 30px;
+  min-width: 150px;
+  max-width: 220px;
+  padding: 0 28px 0 10px;
+  font-size: 0.8rem !important;
+  font-family: inherit;
+  font-weight: 500;
+  line-height: 1.2;
+  color: hsl(var(--foreground));
+  background-color: hsl(var(--background));
+  /* custom chevron */
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%23888' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><polyline points='6 9 12 15 18 9'/></svg>");
+  background-repeat: no-repeat;
+  background-position: right 8px center;
+  border: 1px solid hsl(var(--border));
+  border-radius: 9999px;
+  cursor: pointer;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  appearance: none;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+.gt-pill .goog-te-combo:hover {
+  border-color: hsl(var(--primary));
+}
+.gt-pill .goog-te-combo:focus {
+  outline: none;
+  border-color: hsl(var(--primary));
+  box-shadow: 0 0 0 2px hsl(var(--ring) / 0.4);
+}
+/* The dropdown's option list should use a normal readable size */
+.goog-te-combo option {
+  color: #111;
+  background: #fff;
+  font-size: 0.85rem;
+}
+
+/* Google adds inline highlight styling to translated text — keep it readable */
+font.goog-text-highlight {
+  background: none !important;
+  box-shadow: none !important;
 }

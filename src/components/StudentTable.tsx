@@ -1,0 +1,493 @@
+import React, { useState, useMemo } from "react";
+import Barcode from "react-barcode";
+import { Edit, Trash2, Eye, Users, MoreVertical, Calendar, MapPin, Hash, ArrowUpDown, ArrowUp, ArrowDown, Link2 } from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
+import { cn } from "@/lib/utils";
+import { getStudentStorageDisplay } from "@/lib/studentLocation";
+
+export type Student = {
+  _id?: string;
+  firstName: string;
+  lastName: string;
+  dob: string;
+  fiscalYear: string;
+  status: string;
+  startDate: string;
+  cabinet: string;
+  drawer: string;
+  email?: string | null;
+  /** Barcode printed on the physical label: {year}-{initials}-{counter} */
+  labelId?: string;
+  /** Demographic ID: {LASTNAME}{FIRSTNAME}{AGENCYID}{DOBDIGITS} */
+  studentId?: string;
+  agencyId?: string;
+  siblingConfirmed?: boolean;
+  siblingWith?: string[];
+  endDate: string | null;
+  archived: boolean;
+  school?: string;
+  archiveBoxLabel?: string;
+  archiveLocation?: string;
+  archiveSchoolYear?: string;
+  archiveBoxId?: string;
+};
+
+interface StudentTableProps {
+  students: Student[];
+  selectedIds: string[];
+  onSelect: (id: string) => void;
+  onSelectAll: () => void;
+  allSelected: boolean;
+  someSelected?: boolean;
+  onEdit: (student: Student) => void;
+  onDelete: (id: string) => void;
+  onDetails: (student: Student) => void;
+  userRole: string;
+  cabinetMap: Record<string, string>;
+  drawerMap: Record<string, string>;
+}
+
+type SortColumn = 'studentId' | 'name' | 'dob' | 'fiscalYear' | 'status' | 'location' | 'startDate' | null;
+type SortDirection = 'asc' | 'desc' | null;
+
+const StudentTable: React.FC<StudentTableProps> = ({
+  students,
+  selectedIds,
+  onSelect,
+  onSelectAll,
+  allSelected,
+  someSelected = false,
+  onEdit,
+  onDelete,
+  onDetails,
+  userRole,
+  cabinetMap,
+  drawerMap,
+}) => {
+  const [sortColumn, setSortColumn] = useState<SortColumn>(null);
+  const [sortDirection, setSortDirection] = useState<SortDirection>(null);
+
+  const getStatusVariant = (status: string) => {
+    switch (status?.toLowerCase()) {
+      case 'active':
+        return 'default';
+      case 'inactive':
+        return 'secondary';
+      case 'graduated':
+        return 'outline';
+      case 'withdrawn':
+        return 'destructive';
+      case 'pending':
+        return 'secondary';
+      case 'transferred':
+        return 'outline';
+      case 'archived':
+        return 'secondary';
+      default:
+        return 'outline';
+    }
+  };
+
+  const formatDate = (dateString: string) => {
+    if (!dateString) return '-';
+    try {
+      const date = new Date(dateString);
+      return date.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
+    } catch {
+      return dateString;
+    }
+  };
+
+  const handleSort = (column: SortColumn) => {
+    if (sortColumn === column) {
+      // Toggle direction: asc -> desc -> null (no sort)
+      if (sortDirection === 'asc') {
+        setSortDirection('desc');
+      } else if (sortDirection === 'desc') {
+        setSortColumn(null);
+        setSortDirection(null);
+      }
+    } else {
+      setSortColumn(column);
+      setSortDirection('asc');
+    }
+  };
+
+  const sortedStudents = useMemo(() => {
+    if (!sortColumn || !sortDirection) return students;
+
+    return [...students].sort((a, b) => {
+      let aValue: any;
+      let bValue: any;
+
+      switch (sortColumn) {
+        case 'studentId':
+          aValue = a.labelId || a.studentId || '';
+          bValue = b.labelId || b.studentId || '';
+          break;
+        case 'name':
+          aValue = `${a.firstName} ${a.lastName}`.toLowerCase();
+          bValue = `${b.firstName} ${b.lastName}`.toLowerCase();
+          break;
+        case 'dob':
+          aValue = a.dob ? new Date(a.dob).getTime() : 0;
+          bValue = b.dob ? new Date(b.dob).getTime() : 0;
+          break;
+        case 'fiscalYear':
+          aValue = a.fiscalYear || '';
+          bValue = b.fiscalYear || '';
+          break;
+        case 'status':
+          aValue = a.status || '';
+          bValue = b.status || '';
+          break;
+        case 'location': {
+          const aLoc = getStudentStorageDisplay(a, cabinetMap, drawerMap);
+          const bLoc = getStudentStorageDisplay(b, cabinetMap, drawerMap);
+          aValue = `${aLoc.primary} ${aLoc.secondary}`.toLowerCase();
+          bValue = `${bLoc.primary} ${bLoc.secondary}`.toLowerCase();
+          break;
+        }
+        case 'startDate':
+          aValue = a.startDate ? new Date(a.startDate).getTime() : 0;
+          bValue = b.startDate ? new Date(b.startDate).getTime() : 0;
+          break;
+        default:
+          return 0;
+      }
+
+      // Handle null/undefined values
+      if (aValue === null || aValue === undefined) aValue = '';
+      if (bValue === null || bValue === undefined) bValue = '';
+
+      // Compare values
+      if (aValue < bValue) return sortDirection === 'asc' ? -1 : 1;
+      if (aValue > bValue) return sortDirection === 'asc' ? 1 : -1;
+      return 0;
+    });
+  }, [students, sortColumn, sortDirection, cabinetMap, drawerMap]);
+
+  const SortIcon = ({ column }: { column: SortColumn }) => {
+    if (sortColumn !== column) {
+      return <ArrowUpDown className="h-3 w-3 ml-1 text-muted-foreground opacity-50" />;
+    }
+    if (sortDirection === 'asc') {
+      return <ArrowUp className="h-3 w-3 ml-1 text-primary" />;
+    }
+    if (sortDirection === 'desc') {
+      return <ArrowDown className="h-3 w-3 ml-1 text-primary" />;
+    }
+    return <ArrowUpDown className="h-3 w-3 ml-1 text-muted-foreground opacity-50" />;
+  };
+
+  return (
+    <div className="rounded-lg border border-border overflow-hidden bg-card shadow-sm">
+      <div className="overflow-x-auto">
+        <Table>
+          <TableHeader>
+            <TableRow className="bg-muted/50 hover:bg-muted/50">
+              <TableHead className="w-12 sticky left-0 bg-muted/50 z-10">
+                <Checkbox
+                  checked={allSelected ? true : someSelected ? 'indeterminate' : false}
+                  onCheckedChange={onSelectAll}
+                  aria-label="Select all on this page"
+                  title="Select / deselect this page"
+                />
+              </TableHead>
+              <TableHead 
+                className="min-w-[160px] font-semibold cursor-pointer hover:bg-muted/70 transition-colors select-none"
+                onClick={() => handleSort('studentId')}
+              >
+                <div className="flex items-center gap-2">
+                  <Hash className="h-4 w-4 text-muted-foreground" />
+                  <div className="flex flex-col leading-tight">
+                    <span>Label ID</span>
+                    <span className="text-[10px] font-normal text-muted-foreground">Student ID</span>
+                  </div>
+                  <SortIcon column="studentId" />
+                </div>
+              </TableHead>
+              <TableHead 
+                className="min-w-[140px] font-semibold cursor-pointer hover:bg-muted/70 transition-colors select-none"
+                onClick={() => handleSort('name')}
+              >
+                <div className="flex items-center gap-2">
+                  Name
+                  <SortIcon column="name" />
+                </div>
+              </TableHead>
+              <TableHead 
+                className="min-w-[110px] font-semibold cursor-pointer hover:bg-muted/70 transition-colors select-none"
+                onClick={() => handleSort('dob')}
+              >
+                <div className="flex items-center gap-2">
+                  <Calendar className="h-4 w-4 text-muted-foreground" />
+                  DOB
+                  <SortIcon column="dob" />
+                </div>
+              </TableHead>
+              <TableHead 
+                className="min-w-[120px] font-semibold cursor-pointer hover:bg-muted/70 transition-colors select-none"
+                onClick={() => handleSort('fiscalYear')}
+              >
+                <div className="flex items-center gap-2">
+                  Fiscal Year
+                  <SortIcon column="fiscalYear" />
+                </div>
+              </TableHead>
+              <TableHead 
+                className="min-w-[100px] font-semibold cursor-pointer hover:bg-muted/70 transition-colors select-none"
+                onClick={() => handleSort('status')}
+              >
+                <div className="flex items-center gap-2">
+                  Status
+                  <SortIcon column="status" />
+                </div>
+              </TableHead>
+              <TableHead 
+                className="min-w-[140px] font-semibold cursor-pointer hover:bg-muted/70 transition-colors select-none"
+                onClick={() => handleSort('location')}
+              >
+                <div className="flex items-center gap-2">
+                  <MapPin className="h-4 w-4 text-muted-foreground" />
+                  Location
+                  <SortIcon column="location" />
+                </div>
+              </TableHead>
+              <TableHead 
+                className="min-w-[120px] font-semibold cursor-pointer hover:bg-muted/70 transition-colors select-none"
+                onClick={() => handleSort('startDate')}
+              >
+                <div className="flex items-center gap-2">
+                  Start Date
+                  <SortIcon column="startDate" />
+                </div>
+              </TableHead>
+              <TableHead className="w-[100px] font-semibold text-center">Actions</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {sortedStudents.length === 0 ? (
+              <TableRow>
+                <TableCell colSpan={9} className="h-32 text-center">
+                  <div className="flex flex-col items-center justify-center gap-3 text-muted-foreground py-8">
+                    <div className="rounded-full bg-muted p-4">
+                      <Users className="h-8 w-8" />
+                    </div>
+                    <div>
+                      <p className="font-medium text-foreground">No students found</p>
+                      <p className="text-sm mt-1">Try adjusting your filters or add a new student</p>
+                    </div>
+                  </div>
+                </TableCell>
+              </TableRow>
+            ) : (
+              sortedStudents.map((student) => {
+                const isSelected = selectedIds.includes(student._id!);
+                const storage = getStudentStorageDisplay(student, cabinetMap, drawerMap);
+                
+                return (
+                  <TableRow
+                    key={student._id}
+                    data-state={isSelected ? "selected" : undefined}
+                    className={cn(
+                      "transition-colors hover:bg-muted/50",
+                      isSelected && "bg-primary/5 hover:bg-primary/10"
+                    )}
+                  >
+                    <TableCell className="sticky left-0 bg-background z-10">
+                      <Checkbox
+                        checked={isSelected}
+                        onCheckedChange={() => onSelect(student._id!)}
+                        aria-label={`Select ${student.firstName} ${student.lastName}`}
+                      />
+                    </TableCell>
+                    <TableCell>
+                      <TooltipProvider>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <div className="flex flex-col gap-0.5 cursor-help">
+                              <span className="font-mono text-sm font-medium">
+                                {student.labelId || student.studentId || '—'}
+                              </span>
+                              {student.studentId && student.labelId && (
+                                <span className="font-mono text-[11px] text-muted-foreground truncate max-w-[160px]" title={student.studentId}>
+                                  {student.studentId}
+                                </span>
+                              )}
+                            </div>
+                          </TooltipTrigger>
+                          <TooltipContent side="right" className="max-w-xs">
+                            <div className="flex flex-col items-center gap-2 p-2">
+                              {(student.labelId || student.studentId) && (
+                                <Barcode
+                                  value={student.labelId || student.studentId || ''}
+                                  width={1.5}
+                                  height={40}
+                                  fontSize={12}
+                                  margin={0}
+                                />
+                              )}
+                              <div className="text-left w-full space-y-0.5">
+                                <p className="text-xs text-muted-foreground">Label ID</p>
+                                <p className="text-xs font-mono font-medium">{student.labelId || student.studentId || '—'}</p>
+                                {student.studentId && student.labelId && (
+                                  <>
+                                    <p className="text-xs text-muted-foreground mt-1">Student ID</p>
+                                    <p className="text-xs font-mono font-medium break-all">{student.studentId}</p>
+                                  </>
+                                )}
+                              </div>
+                            </div>
+                          </TooltipContent>
+                        </Tooltip>
+                      </TooltipProvider>
+                    </TableCell>
+                    <TableCell>
+                      <button
+                        onClick={() => onDetails(student)}
+                        className="font-medium text-primary hover:underline cursor-pointer text-left"
+                      >
+                        <div className="flex flex-col">
+                          <span>{student.firstName} {student.lastName}</span>
+                          {student.email && (
+                            <span className="text-xs text-muted-foreground font-normal truncate max-w-[200px]">
+                              {student.email}
+                            </span>
+                          )}
+                        </div>
+                      </button>
+                    </TableCell>
+                    <TableCell className="text-sm">
+                      {formatDate(student.dob)}
+                    </TableCell>
+                    <TableCell>
+                      <Badge variant="outline" className="font-normal">
+                        {student.fiscalYear}
+                      </Badge>
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex flex-col gap-1">
+                        <Badge variant={getStatusVariant(student.status) as any} className="font-normal">
+                          {student.status}
+                        </Badge>
+                        {(student as any).siblingFlag && (
+                          <span className="inline-flex items-center gap-1 text-xs font-medium text-amber-700 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/40 border border-amber-300 dark:border-amber-700 rounded px-1.5 py-0.5">
+                            <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126z"/></svg>
+                            Sibling flag
+                          </span>
+                        )}
+                        {student.siblingConfirmed && (
+                          <span className="inline-flex items-center gap-1 text-xs font-medium text-blue-700 dark:text-blue-400 bg-blue-50 dark:bg-blue-950/40 border border-blue-300 dark:border-blue-700 rounded px-1.5 py-0.5">
+                            <Link2 className="h-3 w-3" />
+                            {student.siblingWith?.length
+                              ? `${student.siblingWith.length} sibling`
+                              : 'Sibling'}
+                          </span>
+                        )}
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex flex-col gap-1">
+                        <div className="flex items-center gap-1 text-sm">
+                          <span className="text-muted-foreground">{storage.primaryLabel}:</span>
+                          <span
+                            className={cn(
+                              'font-medium truncate max-w-[140px]',
+                              storage.isArchived && storage.primary === 'No box assigned' && 'text-amber-700 dark:text-amber-400',
+                            )}
+                            title={storage.primary}
+                          >
+                            {storage.primary}
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-1 text-sm">
+                          <span className="text-muted-foreground">{storage.secondaryLabel}:</span>
+                          <span
+                            className={cn(
+                              'font-medium truncate max-w-[140px]',
+                              storage.isArchived && storage.secondary.includes('Move to boxes') && 'text-amber-600 dark:text-amber-500 text-xs',
+                            )}
+                            title={storage.secondary}
+                          >
+                            {storage.secondary}
+                          </span>
+                        </div>
+                      </div>
+                    </TableCell>
+                    <TableCell className="text-sm text-muted-foreground">
+                      {formatDate(student.startDate)}
+                    </TableCell>
+                    <TableCell>
+                      <TooltipProvider>
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-8 w-8 p-0"
+                            >
+                              <MoreVertical className="h-4 w-4" />
+                              <span className="sr-only">Open menu</span>
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end" className="w-40">
+                            <DropdownMenuItem onClick={() => onDetails(student)}>
+                              <Eye className="h-4 w-4 mr-2" />
+                              View Details
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => onEdit(student)}>
+                              <Edit className="h-4 w-4 mr-2" />
+                              Edit
+                            </DropdownMenuItem>
+                            {['Data Lead', 'Admin'].includes(userRole) && (
+                              <>
+                                <DropdownMenuSeparator />
+                                <DropdownMenuItem
+                                  onClick={() => onDelete(student._id!)}
+                                  className="text-destructive focus:text-destructive"
+                                >
+                                  <Trash2 className="h-4 w-4 mr-2" />
+                                  Delete
+                                </DropdownMenuItem>
+                              </>
+                            )}
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </TooltipProvider>
+                    </TableCell>
+                  </TableRow>
+                );
+              })
+            )}
+          </TableBody>
+        </Table>
+      </div>
+    </div>
+  );
+};
+
+export default StudentTable; 
