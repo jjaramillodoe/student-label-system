@@ -3,10 +3,8 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { useSession, signOut } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
-import Barcode from 'react-barcode';
-import QRCodeComponent from '@/components/QRCode';
 import GoogleTranslate from '@/components/GoogleTranslate';
-import { buildStudentQrPayload } from '@/lib/qrPayload';
+import Avery5163LabelContent from '@/components/Avery5163LabelContent';
 import { isStudentSearchQueryValid } from '@/lib/studentSearch';
 import { DEFAULT_INTAKE_ACTIVITIES, DEFAULT_INTAKE_SESSIONS } from '@/lib/intakeDefaults';
 import { findNextAvailableSlot, studentNeedsActiveDrawer, type NextCabinetSlot } from '@/lib/cabinets';
@@ -499,36 +497,29 @@ export default function IntakePage() {
 
   // ── SUCCESS / LABEL VIEW ────────────────────────────────────────────────────
   if (savedStudent) {
-    // labelId = barcode on the physical label (short format: 1979-JJ-0000001)
-    // studentId = demographic ID (long format: JARAMILLOJAVIERR0819790522) — not for barcode
-    const barcodeValue = savedStudent.labelId || savedStudent.studentId || '';
-    const qrPayload = buildStudentQrPayload({ studentId: barcodeValue });
     return (
-      <div className="min-h-screen bg-green-50 dark:bg-green-950/20 flex flex-col items-center justify-center p-6 gap-6">
-        <div className="flex items-center gap-3 text-green-700 dark:text-green-400">
+      <div className="min-h-screen bg-green-50 dark:bg-green-950/20 flex flex-col items-center justify-center p-6 gap-6 print:bg-white print:p-0 print:min-h-0">
+        <div className="flex items-center gap-3 text-green-700 dark:text-green-400 print:hidden">
           <CheckCircle2 className="h-8 w-8" />
           <h1 className="text-2xl font-bold">Student Registered!</h1>
         </div>
 
-        {/* Label preview */}
-        <Card className="w-full max-w-lg shadow-xl">
-          <CardContent className="pt-6 pb-6 px-8 flex flex-col items-center gap-3 text-center">
-            <p className="text-xl font-bold">{savedStudent.firstName} {savedStudent.lastName}</p>
-            <p className="text-sm text-muted-foreground">DOB: {savedStudent.dob}</p>
-            {barcodeValue && (
-              <div className="w-full flex flex-row items-center justify-between gap-4 mt-2 px-2">
-                <div className="flex-1 min-w-0 flex items-center justify-center overflow-hidden">
-                  <Barcode value={barcodeValue} width={1.6} height={52} fontSize={12} margin={0} />
-                </div>
-                <QRCodeComponent
-                  value={qrPayload}
-                  size={200}
-                  level="M"
-                  containerStyle={{ width: '1in', height: '1in', flexShrink: 0 }}
-                />
-              </div>
-            )}
-            <div className="flex flex-wrap justify-center gap-2 mt-1">
+        {/* Label preview — matches Avery 5163 print layout */}
+        <Card className="w-full max-w-lg shadow-xl print:shadow-none print:border-none">
+          <CardContent className="pt-6 pb-6 px-8 flex flex-col items-center gap-3 text-center print:p-0">
+            <div
+              className="intake-label-print mx-auto bg-white print:border-none"
+              style={{
+                width: '4in',
+                height: '2in',
+                boxSizing: 'border-box',
+                padding: '0.07in 0.1in',
+                border: '1px dashed #bbb',
+              }}
+            >
+              <Avery5163LabelContent student={savedStudent} />
+            </div>
+            <div className="flex flex-wrap justify-center gap-2 mt-1 print:hidden">
               <Badge variant="outline">{savedStudent.status}</Badge>
               {savedStudent.siblingFlag && (
                 <Badge variant="outline" className="text-xs border-amber-400 text-amber-700 bg-amber-50 dark:bg-amber-950/30">
@@ -653,6 +644,7 @@ export default function IntakePage() {
             <p className="text-xs text-muted-foreground">Quickly log another visit without filling out the full form.</p>
           </div>
           <QuickAddVisit
+            activityOptions={intakeActivityOptions}
             recordedBy={{ name: session?.user?.name || session?.user?.email || 'Unknown', email: session?.user?.email || '' }}
             onSaved={() => { if (activeTab === 'history') fetchHistory(historyFilter, historyScope); }}
           />
@@ -1422,6 +1414,7 @@ export default function IntakePage() {
               onScopeChange={s => setHistoryScope(s)}
               currentUserEmail={session?.user?.email ?? ''}
               canViewAll={['Admin', 'Data Lead'].includes((session?.user as any)?.role ?? '')}
+              activityOptions={intakeActivityOptions}
               onRefresh={() => fetchHistory(historyFilter, historyScope)}
             />
           </TabsContent>
@@ -1476,8 +1469,6 @@ export default function IntakePage() {
 
 function ReprintHistoryLabel({ student }: { student: any }) {
   const [open, setOpen] = useState(false);
-  const barcodeValue = student.labelId || student.studentId || '';
-  const qrPayload = buildStudentQrPayload({ studentId: barcodeValue });
   return (
     <>
       <Button variant="ghost" size="sm" className="gap-1.5 text-muted-foreground hover:text-foreground shrink-0"
@@ -1486,20 +1477,22 @@ function ReprintHistoryLabel({ student }: { student: any }) {
         <span className="hidden sm:inline">Reprint</span>
       </Button>
       <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className="max-w-xs">
+        <DialogContent className="max-w-md">
           <DialogHeader>
             <DialogTitle>Reprint Label</DialogTitle>
             <DialogDescription>{student.firstName} {student.lastName}</DialogDescription>
           </DialogHeader>
-          <div className="flex flex-col items-center gap-2 py-2">
-            <p className="text-sm font-semibold">{student.firstName} {student.lastName}</p>
-            <p className="text-xs text-muted-foreground">DOB: {student.dob}</p>
-            {barcodeValue && (
-              <div className="w-full flex flex-row items-center justify-center gap-2">
-                <Barcode value={barcodeValue} width={1.6} height={32} fontSize={9} margin={0} />
-                <QRCodeComponent value={qrPayload} size={200} level="M" containerStyle={{ width: '0.75in', height: '0.75in', flexShrink: 0 }} />
-              </div>
-            )}
+          <div
+            className="mx-auto bg-white"
+            style={{
+              width: '4in',
+              height: '2in',
+              boxSizing: 'border-box',
+              padding: '0.07in 0.1in',
+              border: '1px dashed #bbb',
+            }}
+          >
+            <Avery5163LabelContent student={student} />
           </div>
           <DialogFooter>
             <Button onClick={() => window.print()} className="gap-2 w-full">
@@ -1512,13 +1505,62 @@ function ReprintHistoryLabel({ student }: { student: any }) {
   );
 }
 
+function VisitActivityPicker({
+  options,
+  value,
+  onChange,
+  idPrefix,
+}: {
+  options: string[];
+  value: string[];
+  onChange: (next: string[]) => void;
+  idPrefix: string;
+}) {
+  function toggle(activity: string) {
+    onChange(
+      value.includes(activity)
+        ? value.filter(a => a !== activity)
+        : [...value, activity],
+    );
+  }
+
+  return (
+    <div className="space-y-1.5">
+      <Label className="text-xs">Intake Activity</Label>
+      <div className="grid grid-cols-1 gap-1.5">
+        {options.map(activity => (
+          <label
+            key={activity}
+            className="flex items-center gap-2.5 cursor-pointer select-none rounded-md border px-2.5 py-2 hover:bg-accent transition-colors"
+          >
+            <Checkbox
+              checked={value.includes(activity)}
+              onCheckedChange={() => toggle(activity)}
+              id={`${idPrefix}-${activity}`}
+            />
+            <span className="text-sm">{activity}</span>
+          </label>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 // ── Add-Visit button (log another time for a returning student) ──────────────
-function AddVisitButton({ student, onSaved }: { student: any; onSaved: () => void }) {
+function AddVisitButton({
+  student,
+  activityOptions,
+  onSaved,
+}: {
+  student: any;
+  activityOptions: string[];
+  onSaved: () => void;
+}) {
   const [open, setOpen] = useState(false);
   const [timeIn, setTimeIn] = useState(nowHHMM());
   const [leaving, setLeaving] = useState<'Leaving' | 'Staying' | ''>('');
   const [timeOut, setTimeOut] = useState('');
-  const [activity, setActivity] = useState('');
+  const [activities, setActivities] = useState<string[]>([]);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
 
@@ -1526,7 +1568,7 @@ function AddVisitButton({ student, onSaved }: { student: any; onSaved: () => voi
   const priorTotal = totalVisitMinutes(priorVisits);
 
   function reset() {
-    setTimeIn(nowHHMM()); setLeaving(''); setTimeOut(''); setActivity(''); setError('');
+    setTimeIn(nowHHMM()); setLeaving(''); setTimeOut(''); setActivities([]); setError('');
   }
 
   async function save() {
@@ -1549,7 +1591,7 @@ function AddVisitButton({ student, onSaved }: { student: any; onSaved: () => voi
             timeIn,
             timeOut: out ?? null,
             isLeaving: leaving || null,
-            intakeActivity: activity ? [activity] : [],
+            intakeActivity: activities,
           },
         }),
       });
@@ -1580,7 +1622,7 @@ function AddVisitButton({ student, onSaved }: { student: any; onSaved: () => voi
         <span className="hidden sm:inline">Add Visit</span>
       </Button>
       <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className="max-w-sm">
+        <DialogContent className="max-w-md">
           <DialogHeader>
             <DialogTitle>Log Another Visit</DialogTitle>
             <DialogDescription>{student.firstName} {student.lastName} · DOB {student.dob}</DialogDescription>
@@ -1640,10 +1682,12 @@ function AddVisitButton({ student, onSaved }: { student: any; onSaved: () => voi
               </div>
             )}
 
-            <div className="space-y-1.5">
-              <Label className="text-xs">Activity / reason (optional)</Label>
-              <Input value={activity} onChange={e => setActivity(e.target.value)} placeholder="e.g. Testing, Orientation…" />
-            </div>
+            <VisitActivityPicker
+              options={activityOptions}
+              value={activities}
+              onChange={setActivities}
+              idPrefix={`add-visit-${student._id}`}
+            />
 
             {error && <p className="text-xs text-destructive">{error}</p>}
           </div>
@@ -1661,7 +1705,15 @@ function AddVisitButton({ student, onSaved }: { student: any; onSaved: () => voi
 }
 
 // ── Quick Add-Visit (from the Register tab): search a student, then log time ──
-function QuickAddVisit({ recordedBy, onSaved }: { recordedBy: { name: string; email: string }; onSaved?: () => void }) {
+function QuickAddVisit({
+  activityOptions,
+  recordedBy,
+  onSaved,
+}: {
+  activityOptions: string[];
+  recordedBy: { name: string; email: string };
+  onSaved?: () => void;
+}) {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<any[]>([]);
@@ -1671,7 +1723,7 @@ function QuickAddVisit({ recordedBy, onSaved }: { recordedBy: { name: string; em
   const [timeIn, setTimeIn] = useState(nowHHMM());
   const [leaving, setLeaving] = useState<'Leaving' | 'Staying' | ''>('');
   const [timeOut, setTimeOut] = useState('');
-  const [activity, setActivity] = useState('');
+  const [activities, setActivities] = useState<string[]>([]);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const [savedName, setSavedName] = useState('');
@@ -1680,7 +1732,7 @@ function QuickAddVisit({ recordedBy, onSaved }: { recordedBy: { name: string; em
 
   function resetAll() {
     setQuery(''); setResults([]); setSelected(null);
-    setTimeIn(nowHHMM()); setLeaving(''); setTimeOut(''); setActivity('');
+    setTimeIn(nowHHMM()); setLeaving(''); setTimeOut(''); setActivities([]);
     setError(''); setSavedName('');
   }
 
@@ -1721,7 +1773,7 @@ function QuickAddVisit({ recordedBy, onSaved }: { recordedBy: { name: string; em
             timeIn,
             timeOut: out ?? null,
             isLeaving: leaving || null,
-            intakeActivity: activity ? [activity] : [],
+            intakeActivity: activities,
             recordedBy,
           },
         }),
@@ -1734,7 +1786,7 @@ function QuickAddVisit({ recordedBy, onSaved }: { recordedBy: { name: string; em
       setSavedName(`${selected.firstName} ${selected.lastName}`);
       // Reset for the next quick entry but stay open to confirm
       setSelected(null); setQuery(''); setResults([]);
-      setTimeIn(nowHHMM()); setLeaving(''); setTimeOut(''); setActivity('');
+      setTimeIn(nowHHMM()); setLeaving(''); setTimeOut(''); setActivities([]);
       onSaved?.();
     } catch {
       setError('Failed to add visit. Please try again.');
@@ -1753,7 +1805,7 @@ function QuickAddVisit({ recordedBy, onSaved }: { recordedBy: { name: string; em
         <Clock className="h-4 w-4" /> Add a visit (returning student)
       </Button>
       <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className="max-w-sm">
+        <DialogContent className="max-w-md">
           <DialogHeader>
             <DialogTitle>Add a Visit</DialogTitle>
             <DialogDescription>Log time for a student who is already in the system.</DialogDescription>
@@ -1855,10 +1907,12 @@ function QuickAddVisit({ recordedBy, onSaved }: { recordedBy: { name: string; em
                 </div>
               )}
 
-              <div className="space-y-1.5">
-                <Label className="text-xs">Activity / reason (optional)</Label>
-                <Input value={activity} onChange={e => setActivity(e.target.value)} placeholder="e.g. Testing, Orientation…" />
-              </div>
+              <VisitActivityPicker
+                options={activityOptions}
+                value={activities}
+                onChange={setActivities}
+                idPrefix="quick-add-visit"
+              />
             </div>
           )}
 
@@ -1933,12 +1987,14 @@ interface HistoryPanelProps {
   onScopeChange: (s: 'mine' | 'all') => void;
   currentUserEmail: string;
   canViewAll: boolean;
+  activityOptions: string[];
   onRefresh: () => void;
 }
 
 function HistoryPanel({
   students, loading, filter, onFilterChange,
   scope, onScopeChange, currentUserEmail, canViewAll,
+  activityOptions,
   onRefresh,
 }: HistoryPanelProps) {
   const todayCount = students.filter(s => s.createdAt && dayLabel(s.createdAt) === 'Today').length;
@@ -2080,7 +2136,7 @@ function HistoryPanel({
                         {s.status || 'Active'}
                       </Badge>
                       {/* Add another visit */}
-                      <AddVisitButton student={s} onSaved={onRefresh} />
+                      <AddVisitButton student={s} activityOptions={activityOptions} onSaved={onRefresh} />
                       {/* Reprint */}
                       <ReprintHistoryLabel student={s} />
                     </div>

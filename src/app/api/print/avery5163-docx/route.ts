@@ -47,6 +47,21 @@ import {
 import QRCode   from 'qrcode';
 // @ts-ignore
 import bwipjs   from 'bwip-js';
+import {
+  LABEL_DOCX_CELL_MARGIN_BOTTOM,
+  LABEL_DOCX_CELL_MARGIN_LEFT,
+  LABEL_DOCX_CELL_MARGIN_RIGHT,
+  LABEL_DOCX_CELL_MARGIN_TOP,
+  LABEL_DOCX_DOB_AFTER,
+  LABEL_DOCX_NAME_AFTER,
+  LABEL_DOCX_TEXT_MARGIN_LEFT,
+  LABEL_DOCX_TEXT_MARGIN_RIGHT,
+  LABEL_DOCX_TEXT_MARGIN_TOP,
+  LABEL_DOB_FONT_SIZE_HALF_PT,
+  LABEL_QR_SIZE_PX,
+  LABEL_TEXT_COLUMN_RATIO,
+  labelNameFontSizeHalfPt,
+} from '@/lib/avery5163LabelStyle';
 
 // ── Page geometry (twips: 1 inch = 1440) ─────────────────────────────────────
 const T              = 1440;
@@ -144,7 +159,12 @@ interface StudentData {
 const LABEL_CELL_PROPS = {
   borders:       NBR,
   width:         { size: LABEL_W, type: WidthType.DXA },
-  margins:       { top: 60, bottom: 40, left: 80, right: 40 },
+  margins:       {
+    top: LABEL_DOCX_CELL_MARGIN_TOP,
+    bottom: LABEL_DOCX_CELL_MARGIN_BOTTOM,
+    left: LABEL_DOCX_CELL_MARGIN_LEFT,
+    right: LABEL_DOCX_CELL_MARGIN_RIGHT,
+  },
   verticalAlign: VerticalAlign.TOP,
 } as const;
 
@@ -186,45 +206,73 @@ async function buildLabelCell(s: StudentData | null): Promise<TableCell> {
   const labelId = s.labelId || s.studentId || '';
   const appUrl  = process.env.NEXT_PUBLIC_APP_URL ?? '';
   const qrText  = labelId ? `${appUrl}/student/${labelId}` : `${s.firstName} ${s.lastName}`;
+  const fullName = `${s.firstName} ${s.lastName}`.trim();
+  const nameSize = labelNameFontSizeHalfPt(fullName);
 
   const [qrBuf, barBuf] = await Promise.all([
     makeQR(qrText),
     labelId ? makeBarcode(labelId) : Promise.resolve(null as unknown as Buffer),
   ]);
 
-  //
-  // Vertical layout inside a 4" × 2" label cell:
-  //
-  //  ┌────────────────────────────────────┐  ← top cell margin  60 tw
-  //  │ First Last                (14 pt)  │  line 300 + after 16 = 316 tw
-  //  │ DOB: YYYY-MM-DD            (9 pt)  │  line 180 + after 12 = 192 tw
-  //  │    ▐▐▐▌▌▐▌▐▌▐▐▌▌▐ (barcode 18 px) │  auto ~270 + after 14 = ~284 tw
-  //  │        ▣▣▣▣▣▣▣▣     (QR 75 px)    │  auto ~1125 tw
-  //  └────────────────────────────────────┘  ← bottom cell margin 40 tw
-  //
-  //  Content  316 + 192 + 284 + 1125 = 1917 tw
-  //  Margins  60 + 40               =  100 tw
-  //  Total                          ≈ 2017 tw  <<  2880 tw ✓
-  //
+  // Horizontal layout inside a 4" × 2" label cell:
+  // [ name (wraps) / DOB / barcode ]  |  [ QR ]
+  const INNER_W  = LABEL_W - LABEL_DOCX_CELL_MARGIN_LEFT - LABEL_DOCX_CELL_MARGIN_RIGHT;
+  const LEFT_COL = Math.round(INNER_W * LABEL_TEXT_COLUMN_RATIO);
+  const RIGHT_COL = INNER_W - LEFT_COL;
 
-  const paragraphs: Paragraph[] = [
-    // Name — 14 pt bold
+  const leftParas: Paragraph[] = [
     textPara(
-      [new TextRun({ text: `${s.firstName} ${s.lastName}`, bold: true, size: 28 })],
-      300, 16, AlignmentType.LEFT,
+      [new TextRun({ text: fullName, bold: true, size: nameSize, font: 'Times New Roman' })],
+      360, LABEL_DOCX_NAME_AFTER, AlignmentType.LEFT,
     ),
-    // DOB — 9 pt
     textPara(
-      [new TextRun({ text: `DOB: ${s.dob ?? ''}`, size: 18 })],
-      180, 12, AlignmentType.LEFT,
+      [new TextRun({ text: `DOB: ${s.dob ?? ''}`, size: LABEL_DOB_FONT_SIZE_HALF_PT, font: 'Times New Roman' })],
+      240, LABEL_DOCX_DOB_AFTER, AlignmentType.LEFT,
     ),
-    // Barcode — 220 px × 18 px, centered
-    ...(barBuf ? [imagePara(barBuf, 220, 18, 14, AlignmentType.CENTER)] : []),
-    // QR code — 75 px × 75 px, centered
-    imagePara(qrBuf, 75, 75, 0, AlignmentType.CENTER),
+    ...(barBuf ? [imagePara(barBuf, 230, 22, 0, AlignmentType.LEFT)] : []),
   ];
 
-  return new TableCell({ ...LABEL_CELL_PROPS, children: paragraphs });
+  const rightParas: Paragraph[] = [
+    imagePara(qrBuf, LABEL_QR_SIZE_PX, LABEL_QR_SIZE_PX, 0, AlignmentType.CENTER),
+  ];
+
+  return new TableCell({
+    ...LABEL_CELL_PROPS,
+    verticalAlign: VerticalAlign.CENTER,
+    children: [
+      new Table({
+        width:        { size: INNER_W, type: WidthType.DXA },
+        columnWidths: [LEFT_COL, RIGHT_COL],
+        borders:      NBA,
+        rows: [
+          new TableRow({
+            cantSplit: true,
+            children: [
+              new TableCell({
+                borders:       NBR,
+                width:         { size: LEFT_COL, type: WidthType.DXA },
+                margins:       {
+                  top: LABEL_DOCX_TEXT_MARGIN_TOP,
+                  bottom: 0,
+                  left: LABEL_DOCX_TEXT_MARGIN_LEFT,
+                  right: LABEL_DOCX_TEXT_MARGIN_RIGHT,
+                },
+                verticalAlign: VerticalAlign.TOP,
+                children:      leftParas,
+              }),
+              new TableCell({
+                borders:       NBR,
+                width:         { size: RIGHT_COL, type: WidthType.DXA },
+                margins:       { top: 0, bottom: 0, left: 20, right: 20 },
+                verticalAlign: VerticalAlign.CENTER,
+                children:      rightParas,
+              }),
+            ],
+          }),
+        ],
+      }),
+    ],
+  });
 }
 
 // ── Document builder ──────────────────────────────────────────────────────────

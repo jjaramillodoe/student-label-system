@@ -8,6 +8,7 @@ import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Download, FileText, Loader2, Printer, X, Info } from 'lucide-react';
 import { buildStudentQrPayload } from '@/lib/qrPayload';
+import Avery5163LabelContent from '@/components/Avery5163LabelContent';
 
 // Avery 5163 on Letter paper (8.5" × 11"):
 // 2 cols × 5 rows = 10 labels, each 4" wide × 2" tall
@@ -361,72 +362,7 @@ export default function PrintView({
                   className="print:border-none"
                 >
                   {student?.firstName ? (
-                    /*
-                     * Layout: [left col: name / DOB / barcode] [right: QR]
-                     * Target fill: ~85-90% of the 4"×2" label
-                     */
-                    <div style={{
-                      display: 'flex', flexDirection: 'row',
-                      width: '100%', height: '100%',
-                      alignItems: 'center',
-                      gap: '0.1in',
-                    }}>
-
-                      {/* ── Left column ── */}
-                      <div style={{
-                        flex: 1,
-                        display: 'flex', flexDirection: 'column',
-                        justifyContent: 'center',
-                        overflow: 'hidden',
-                        gap: '0.02in',
-                      }}>
-                        {/* Full name — 16 pt bold */}
-                        <div style={{
-                          fontWeight: 700,
-                          fontSize: '16pt',
-                          lineHeight: 1.1,
-                          overflow: 'hidden',
-                          textOverflow: 'ellipsis',
-                          whiteSpace: 'nowrap',
-                        }}>
-                          {student.firstName} {student.lastName}
-                        </div>
-
-                        {/* DOB — 10 pt */}
-                        <div style={{
-                          fontSize: '10pt',
-                          lineHeight: 1.2,
-                          overflow: 'hidden',
-                          textOverflow: 'ellipsis',
-                          whiteSpace: 'nowrap',
-                        }}>
-                          DOB: {student.dob}
-                        </div>
-
-                        {/* Barcode — taller to fill remaining vertical space */}
-                        {getLabelId(student) && (
-                          <div style={{ display: 'flex', justifyContent: 'flex-start', marginTop: '0.03in' }}>
-                            <Barcode
-                              value={getLabelId(student)}
-                              width={1.2}
-                              height={30}
-                              fontSize={7}
-                              margin={0}
-                            />
-                          </div>
-                        )}
-                      </div>
-
-                      {/* ── Right: QR code — 1.55" fills ~86% of the 1.8" available height ── */}
-                      {getLabelId(student) && (
-                        <QRCode
-                          value={getQrPayload(student)}
-                          size={300}
-                          level="M"
-                          containerStyle={{ width: '1.55in', height: '1.55in', flexShrink: 0 }}
-                        />
-                      )}
-                    </div>
+                    <Avery5163LabelContent student={student} />
                   ) : null}
                 </div>
               ))}

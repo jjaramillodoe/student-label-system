@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import AdminHeader from '@/components/AdminHeader';
 import {
   UserPlus, Users, CalendarDays, Clock, TrendingUp,
@@ -227,10 +228,18 @@ export default function EnrollmentPage() {
               Track student registrations by staff member, time period, and school.
             </p>
           </div>
-          <Button variant="outline" size="sm" onClick={load} disabled={loading} className="gap-2">
-            <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
-            Refresh
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button variant="outline" size="sm" asChild>
+              <Link href="/admin/thoughtspot-analytics" className="gap-2">
+                <TrendingUp className="h-4 w-4" />
+                ThoughtSpot Analytics
+              </Link>
+            </Button>
+            <Button variant="outline" size="sm" onClick={load} disabled={loading} className="gap-2">
+              <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
+              Refresh
+            </Button>
+          </div>
         </div>
 
         {error && (

@@ -219,6 +219,7 @@ export async function POST(req: NextRequest) {
       archived: archived || false,
       school: userSchool,
       createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
       createdBy: {
         name: session?.user?.name || session?.user?.email || 'Unknown',
         email: session?.user?.email || '',
