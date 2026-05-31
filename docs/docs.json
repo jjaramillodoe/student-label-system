@@ -75,7 +75,8 @@
         "group": "Contributors",
         "pages": [
           "contributors/cursor-and-mcp",
-          "contributors/local-preview"
+          "contributors/local-preview",
+          "contributors/screenshot-checklist"
         ]
       }
     ],

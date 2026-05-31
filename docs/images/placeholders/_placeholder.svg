@@ -1,0 +1,12 @@
+<!-- Base template  copy and customize title per image -->
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="675" viewBox="0 0 1200 675" role="img">
+  <rect width="1200" height="675" fill="#F8FAFC"/>
+  <rect x="32" y="32" width="1136" height="611" rx="12" fill="#FFFFFF" stroke="#CBD5E1" stroke-width="2" stroke-dasharray="14 10"/>
+  <rect x="32" y="32" width="1136" height="48" rx="12" fill="#EFF6FF"/>
+  <circle cx="56" cy="56" r="8" fill="#FCA5A5"/>
+  <circle cx="80" cy="56" r="8" fill="#FCD34D"/>
+  <circle cx="104" cy="56" r="8" fill="#86EFAC"/>
+  <text x="600" y="310" text-anchor="middle" font-family="system-ui, -apple-system, sans-serif" font-size="26" font-weight="600" fill="#334155">Screenshot placeholder</text>
+  <text x="600" y="350" text-anchor="middle" font-family="system-ui, -apple-system, sans-serif" font-size="18" fill="#64748B">Replace with a real screenshot</text>
+  <text x="600" y="390" text-anchor="middle" font-family="ui-monospace, SFMono-Regular, monospace" font-size="15" fill="#94A3B8">docs/images/placeholders/</text>
+</svg>

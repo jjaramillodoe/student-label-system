@@ -1,0 +1,59 @@
+---
+title: Screenshot checklist
+description: Placeholder images to replace with real app screenshots.
+---
+
+Use PNG or WebP for final screenshots (recommended width **1200px**). Replace files in `docs/images/placeholders/` or add new files under `docs/images/screenshots/` and update the page.
+
+<Tip>
+  On macOS: **Cmd+Shift+4** then Space to capture a window. Crop sensitive student data before publishing.
+</Tip>
+
+## Placeholder inventory
+
+| File | Replace with | Used on |
+| --- | --- | --- |
+| `sign-in.svg` | NYC DOE sign-in screen | [Quickstart](/quickstart) |
+| `intake-form.svg` | Intake form with name, DOB, BE/ESL | [Intake workflow](/workflows/intake) |
+| `intake-label-print.svg` | Success screen after registration | [Intake workflow](/workflows/intake) |
+| `avery-label-sheet.svg` | Print preview (Avery 5163) | [Labels and scanning](/workflows/labels-and-scanning) |
+| `public-student-page.svg` | Public `/student/{labelId}` page | [QR codes](/reference/qr-codes) |
+| `public-archive-box.svg` | Public `/archive/box/{boxId}` page | [QR codes](/reference/qr-codes), [Archive](/storage/archive-and-school-year) |
+| `archive-box-label.svg` | Box label dialog or PDF preview | [Archive](/storage/archive-and-school-year) |
+| `cabinets-page.svg` | Admin → Cabinets list | [Cabinets and drawers](/storage/cabinets-and-drawers) |
+| `school-year-rollover.svg` | School Year Rollover checklist | [Archive](/storage/archive-and-school-year) |
+| `duplicates-page.svg` | Admin → Duplicates review | [Duplicates](/workflows/duplicates-and-siblings) |
+| `enrollment-dashboard.svg` | Admin → Enrollment metrics | [Enrollment dashboard](/admin/enrollment-dashboard) |
+
+## How to swap a placeholder
+
+<Steps>
+  <Step title="Capture the screenshot">
+    Open the live app, navigate to the screen, and capture at full width.
+  </Step>
+  <Step title="Save the file">
+    Save as `docs/images/screenshots/intake-form.png` (or overwrite the matching `.svg` in `placeholders/`).
+  </Step>
+  <Step title="Update the MDX page">
+    Change the `src` in the `<Frame>` on that page:
+
+    ```mdx
+    <Frame caption="Intake form with DOB and BE/ESL fields">
+      <img src="/images/screenshots/intake-form.png" alt="Intake form" />
+    </Frame>
+    ```
+  </Step>
+  <Step title="Preview and deploy">
+    Run `npm run docs:dev`, verify locally, then push to GitHub for Mintlify to deploy.
+  </Step>
+</Steps>
+
+## Suggested screenshots still needed
+
+These pages do not have placeholders yet — add when you have captures:
+
+- Email validation usage meter and results
+- Bulk upload preview table
+- Cabinet Health summary cards
+- Data Lead **School Settings** (fiscal year)
+- Mobile view of public archive box page (optional)

@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="675" viewBox="0 0 1200 675" role="img" aria-label="Placeholder: School year rollover">
+  <rect width="1200" height="675" fill="#F8FAFC"/>
+  <rect x="32" y="32" width="1136" height="611" rx="12" fill="#FFF" stroke="#CBD5E1" stroke-width="2" stroke-dasharray="14 10"/>
+  <rect x="32" y="32" width="1136" height="48" rx="12" fill="#EFF6FF"/>
+  <text x="600" y="290" text-anchor="middle" font-family="system-ui,sans-serif" font-size="24" font-weight="600" fill="#334155">School year rollover checklist</text>
+  <text x="600" y="330" text-anchor="middle" font-family="system-ui,sans-serif" font-size="16" fill="#64748B">Admin ’ School Year  archive progress</text>
+  <text x="600" y="370" text-anchor="middle" font-family="ui-monospace,monospace" font-size="14" fill="#94A3B8">school-year-rollover.svg</text>
+</svg>
