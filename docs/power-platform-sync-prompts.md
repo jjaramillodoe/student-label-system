@@ -299,6 +299,7 @@ SYNC_API_KEY=<long-random-secret>
 2. ~~Add sync indexes + backfill `updatedAt`~~ — `npx tsx scripts/setup-students-sync.ts`
 3. ~~Implement `/api/sync/v1/students`~~ — requires `SYNC_API_KEY` in env
 4. Create Dataverse tables using **Prompts 1, 2, and 5**.
-5. Build the Power Automate flow — see **[power-automate-nightly-sync.md](./power-automate-nightly-sync.md)** (HTTP action, upsert, pagination, error handling).
+5. Build the Power Automate flow — see **[power-automate-nightly-sync.md](./power-automate-nightly-sync.md)** (HTTP action, upsert, pagination, error handling).  
+   **Start here:** [power-automate-first-manual-test.md](./power-automate-first-manual-test.md) (manual HTTP test → one Dataverse row → pagination).
 6. Run a manual test with 10 records before enabling the 2:00 AM schedule.
 7. Add **Prompts 3, 4, 6** as needed for reference data and audit mirroring.

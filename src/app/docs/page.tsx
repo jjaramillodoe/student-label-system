@@ -251,9 +251,14 @@ export default function DocsPage() {
                 A complete guide to all features, roles, scanning workflow, archive boxes, school year rollover, ID system, and admin tools.
               </p>
             </div>
-            <Button asChild>
-              <Link href="/">Back to Dashboard</Link>
-            </Button>
+            <div className="flex flex-col sm:flex-row gap-2">
+              <Button variant="outline" asChild>
+                <Link href="/docs/api">API Reference (Swagger)</Link>
+              </Button>
+              <Button asChild>
+                <Link href="/">Back to Dashboard</Link>
+              </Button>
+            </div>
           </div>
         </section>
 
