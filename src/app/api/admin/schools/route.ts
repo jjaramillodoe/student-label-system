@@ -6,6 +6,7 @@ import { authOptions } from '@/lib/authOptions';
 import { resolveAgencyId } from '@/lib/studentId';
 import { normalizeIntakeStringList } from '@/lib/intakeDefaults';
 import { getCurrentFiscalYear, normalizeFiscalYear } from '@/lib/fiscalYear';
+import { DEFAULT_SCHOOLS, getSchoolOptions } from '@/lib/schoolConfig';
 
 function escapeRegex(value: string) {
   return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -14,16 +15,6 @@ function escapeRegex(value: string) {
 function schoolNameFilter(name: string) {
   return { name: { $regex: `^${escapeRegex(name.trim())}$`, $options: 'i' } };
 }
-
-const DEFAULT_SCHOOLS = [
-  { name: 'District 79', type: 'District', active: true, agencyId: 'R00' },
-  ...Array.from({ length: 8 }, (_, index) => ({
-    name: `School ${index + 1}`,
-    type: 'School',
-    active: true,
-    agencyId: `R${String(index + 1).padStart(2, '0')}`,
-  })),
-];
 
 async function upsertDataLeadIntakeSettings(
   db: any,
@@ -67,18 +58,6 @@ async function upsertDataLeadIntakeSettings(
   };
   const insert = await db.collection('school_config').insertOne(newSchool);
   return { _id: insert.insertedId, ...newSchool };
-}
-
-async function getSchoolOptions(db: any) {
-  const configured = await db.collection('school_config').find({}).sort({ name: 1 }).toArray();
-  const configuredNames = new Set(configured.map((school: any) => school.name?.toLowerCase()).filter(Boolean));
-  const fallbackDefaults = DEFAULT_SCHOOLS.filter(school => !configuredNames.has(school.name.toLowerCase())).map((school, index) => ({
-    _id: `default-${index}`,
-    ...school,
-    isDefault: true,
-  }));
-
-  return [...configured, ...fallbackDefaults].sort((a: any, b: any) => a.name.localeCompare(b.name));
 }
 
 export async function GET() {

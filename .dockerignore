@@ -1,0 +1,14 @@
+node_modules
+.next
+.git
+.gitignore
+.env
+.env.*
+!.env.example
+.sync-api-key.local
+*.md
+docs
+.cursor
+.vercel
+coverage
+npm-debug.log*

@@ -9,6 +9,7 @@ import {
   getSourceLastModified,
   toSyncStudentDto,
 } from '@/lib/syncStudent';
+import { logSyncExport } from '@/lib/syncExportLog';
 
 const DEFAULT_LIMIT = 500;
 const MAX_LIMIT = 1000;
@@ -78,13 +79,21 @@ export async function GET(req: NextRequest) {
           })
         : null;
 
-    return NextResponse.json({
+    const response = {
       students,
       hasMore,
       nextCursor,
       since: sinceParam,
       count: students.length,
+    };
+
+    void logSyncExport({
+      since: sinceParam,
+      recordCount: students.length,
+      hasMore,
     });
+
+    return NextResponse.json(response);
   } catch (error) {
     console.error('Sync students error:', error);
     return NextResponse.json({ error: 'Failed to fetch sync students' }, { status: 500 });

@@ -76,7 +76,10 @@
         "pages": [
           "contributors/cursor-and-mcp",
           "contributors/local-preview",
-          "contributors/screenshot-checklist"
+          "contributors/screenshot-checklist",
+          "contributors/system-architecture",
+          "contributors/aws-deployment",
+          "contributors/aws-support-request"
         ]
       }
     ],

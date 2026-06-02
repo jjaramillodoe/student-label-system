@@ -37,3 +37,4 @@ Install Mintlify skill: `npm run docs:skill`
 - Document staff-facing workflows, not internal MongoDB schema
 - Do not document secrets, `.env` values, or production credentials
 - Age rule for intake: 21 years and 1 month for BE/ESL
+- **Platform architecture** (stack, AWS deployment, Docker) belongs under **Contributors** — see `contributors/system-architecture.mdx` and `contributors/aws-deployment.mdx`. The long-form export for AWS lives in `docs/aws-deployment-architecture.md` (repo markdown, not staff-facing).
