@@ -2,41 +2,40 @@ import { NextRequest, NextResponse } from 'next/server';
 import clientPromise from '@/lib/mongodb';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/authOptions';
+import { epeStudentTotalMinutes } from '@/lib/epeClock';
 
-// Parse an "HH:MM" time string into minutes-of-day. Returns null if invalid.
-function parseMinutes(t: unknown): number | null {
-  if (typeof t !== 'string') return null;
-  const m = t.match(/^(\d{1,2}):(\d{2})/);
-  if (!m) return null;
-  const h = parseInt(m[1], 10);
-  const min = parseInt(m[2], 10);
-  if (isNaN(h) || isNaN(min)) return null;
-  return h * 60 + min;
+function escapeRegex(value: string) {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
-// Duration between time-in and time-out in minutes (handles past-midnight rollover).
-function intakeDurationMinutes(timeIn: unknown, timeOut: unknown): number | null {
-  const a = parseMinutes(timeIn);
-  const b = parseMinutes(timeOut);
-  if (a === null || b === null) return null;
-  let diff = b - a;
-  if (diff < 0) diff += 24 * 60; // crossed midnight
-  return diff;
-}
+function buildEnrollmentSearchFilter(search: string): Record<string, unknown> | null {
+  const trimmed = search.trim();
+  if (!trimmed) return null;
 
-// Total intake minutes for a student across ALL recorded visits.
-// Falls back to the top-level timeIn/timeOut for legacy records without a visit log.
-function studentTotalMinutes(doc: any): number | null {
-  if (Array.isArray(doc?.intakeVisits) && doc.intakeVisits.length) {
-    let total = 0;
-    let counted = false;
-    for (const v of doc.intakeVisits) {
-      const mins = intakeDurationMinutes(v?.timeIn, v?.timeOut);
-      if (mins !== null) { total += mins; counted = true; }
-    }
-    return counted ? total : null;
+  const re = { $regex: escapeRegex(trimmed), $options: 'i' };
+  const or: Record<string, unknown>[] = [
+    { firstName: re },
+    { lastName: re },
+    { labelId: re },
+    { studentId: re },
+    { dob: re },
+    { 'createdBy.name': re },
+    { 'createdBy.email': re },
+    { intakeStudentStatus: re },
+    { educationStatus: re },
+    { placementClass: re },
+    { intakeSession: re },
+  ];
+
+  const parts = trimmed.split(/\s+/).filter(Boolean);
+  if (parts.length >= 2) {
+    const firstRe = { $regex: escapeRegex(parts[0]), $options: 'i' };
+    const lastRe = { $regex: escapeRegex(parts.slice(1).join(' ')), $options: 'i' };
+    or.push({ $and: [{ firstName: firstRe }, { lastName: lastRe }] });
+    or.push({ $and: [{ firstName: lastRe }, { lastName: firstRe }] });
   }
-  return intakeDurationMinutes(doc?.timeIn, doc?.timeOut);
+
+  return { $or: or };
 }
 
 function startOf(unit: 'today' | 'week' | 'month' | 'year'): Date {
@@ -60,7 +59,7 @@ export async function GET(req: NextRequest) {
   const session = await getServerSession(authOptions);
   const role = (session?.user as any)?.role;
   const school = (session?.user as any)?.school;
-  if (!session || !['Admin', 'Data Lead'].includes(role)) {
+  if (!session || !['Admin', 'Data Lead', 'Data Member'].includes(role)) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
 
@@ -127,12 +126,14 @@ export async function GET(req: NextRequest) {
   const trend = trendAgg.map(r => ({ date: r._id, count: r.count }));
 
   // ── Paginated enrollment list ──────────────────────────────────────────────
-  const listQuery: Record<string, any> = { ...schoolFilter, ...periodFilter };
-  if (staffFilter) listQuery['createdBy.email'] = staffFilter;
-  if (search) {
-    const re = { $regex: search, $options: 'i' };
-    listQuery.$or = [{ firstName: re }, { lastName: re }, { 'createdBy.name': re }];
+  const searchFilter = buildEnrollmentSearchFilter(search);
+  const listQuery: Record<string, any> = { ...schoolFilter };
+  // When searching, look across all enrollments for the school (not just the selected period).
+  if (!searchFilter) {
+    Object.assign(listQuery, periodFilter);
   }
+  if (staffFilter) listQuery['createdBy.email'] = staffFilter;
+  if (searchFilter) Object.assign(listQuery, searchFilter);
 
   const total = await db.collection('students').countDocuments(listQuery);
   const enrollments = await db.collection('students')
@@ -163,7 +164,7 @@ export async function GET(req: NextRequest) {
   let timedStudents = 0;
   let totalVisits = 0;
   for (const d of timedDocs) {
-    const mins = studentTotalMinutes(d);
+    const mins = epeStudentTotalMinutes(d);
     const visitCount = Array.isArray(d.intakeVisits) && d.intakeVisits.length
       ? d.intakeVisits.length
       : (d.timeIn ? 1 : 0);
@@ -175,7 +176,7 @@ export async function GET(req: NextRequest) {
   const enrichedEnrollments = enrollments.map(e => ({
     ...e,
     _id: e._id.toString(),
-    durationMinutes: studentTotalMinutes(e),
+    durationMinutes: epeStudentTotalMinutes(e),
     visitCount: Array.isArray(e.intakeVisits) && e.intakeVisits.length
       ? e.intakeVisits.length
       : (e.timeIn ? 1 : 0),

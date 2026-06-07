@@ -1,5 +1,6 @@
 import clientPromise from '@/lib/mongodb';
 import { slugMatchesSchoolName } from '@/lib/schoolSlug';
+import type { SchoolLeader } from '@/lib/schoolLeadership';
 
 export const DEFAULT_SCHOOLS = [
   { name: 'District 79', type: 'District', active: true, agencyId: 'R00' },
@@ -20,6 +21,8 @@ export type SchoolConfigRecord = {
   intakeSessions?: string[];
   intakeActivities?: string[];
   currentFiscalYear?: string;
+  principal?: SchoolLeader | null;
+  assistantPrincipals?: SchoolLeader[];
   isDefault?: boolean;
   createdAt?: string;
   updatedAt?: string;

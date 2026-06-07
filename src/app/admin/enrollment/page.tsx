@@ -9,7 +9,7 @@ import {
   UserPlus, Users, CalendarDays, Clock, TrendingUp,
   RefreshCw, Loader2, Search, Filter, ChevronLeft, ChevronRight,
   Medal, Award, Star, AlertTriangle, Link2,
-  ArrowLeft,
+  ArrowLeft, ChevronDown, ChevronUp, Wrench,
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -22,6 +22,22 @@ import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from '@/components/ui/table';
 import { Skeleton } from '@/components/ui/skeleton';
+import {
+  epeVisitDurationMinutes,
+  epeVisitsTotalMinutes,
+  fmtEpeTimeStr,
+  isEpeAdjusted,
+} from '@/lib/epeClock';
+import {
+  validateIntakeVisits,
+  flagsForVisit,
+  INTAKE_FLAG_LABELS,
+  type IntakeVisitValidation,
+  type IntakeVisitFlag,
+} from '@/lib/intakeVisitValidation';
+import { canFixIntakeHandoff } from '@/lib/intakeVisitFix';
+import IntakeIssuesBanner from '@/components/IntakeIssuesBanner';
+import IntakeHandoffFixDialog from '@/components/IntakeHandoffFixDialog';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 interface Metrics {
@@ -59,7 +75,20 @@ interface Enrollment {
   isLeaving?: string;
   durationMinutes?: number | null;
   visitCount?: number;
-  intakeVisits?: { date?: string; timeIn?: string; timeOut?: string; isLeaving?: string }[];
+  intakeVisits?: IntakeVisit[];
+}
+
+interface IntakeVisit {
+  date?: string;
+  timeIn?: string;
+  timeOut?: string | null;
+  isLeaving?: string;
+  intakeSession?: string;
+  intakeActivity?: string[];
+  educationStatus?: string;
+  placementClass?: string;
+  notes?: string;
+  recordedBy?: { name?: string; email?: string };
 }
 interface Pagination { page: number; limit: number; total: number; pages: number; }
 
@@ -105,6 +134,46 @@ function fmtTotalHM(mins: number) {
   const m = mins % 60;
   return `${h}h ${m}m`;
 }
+function epeTimeTitle(t?: string) {
+  if (!t || !isEpeAdjusted(t)) return undefined;
+  return `Actual: ${fmtTimeStr(t)} · EPE: ${fmtEpeTimeStr(t)}`;
+}
+function getVisitHistory(e: Enrollment): IntakeVisit[] {
+  if (Array.isArray(e.intakeVisits) && e.intakeVisits.length > 0) {
+    return [...e.intakeVisits].sort(
+      (a, b) => new Date(a.date || 0).getTime() - new Date(b.date || 0).getTime(),
+    );
+  }
+  if (e.timeIn) {
+    return [{
+      date: e.createdAt,
+      timeIn: e.timeIn,
+      timeOut: e.timeOut ?? null,
+      isLeaving: e.isLeaving,
+      intakeSession: e.intakeSession,
+      intakeActivity: e.intakeActivity,
+      educationStatus: e.educationStatus,
+      placementClass: e.placementClass,
+      recordedBy: e.createdBy,
+    }];
+  }
+  return [];
+}
+
+/** Prefer the latest intakeVisits entry; fall back to top-level fields for legacy rows. */
+function resolveLatestIntakeDisplay(e: Enrollment) {
+  const visits = getVisitHistory(e);
+  const latest = visits.length ? visits[visits.length - 1] : null;
+  return {
+    educationStatus: latest?.educationStatus ?? e.educationStatus,
+    intakeActivity: latest?.intakeActivity ?? e.intakeActivity,
+    placementClass: latest?.placementClass ?? e.placementClass,
+    intakeSession: latest?.intakeSession ?? e.intakeSession,
+    timeIn: latest?.timeIn ?? e.timeIn,
+    timeOut: latest?.timeOut ?? e.timeOut,
+    isLeaving: latest?.isLeaving ?? e.isLeaving,
+  };
+}
 const RANK_COLORS = [
   'bg-yellow-100 text-yellow-700 border-yellow-300',
   'bg-slate-100 text-slate-600 border-slate-300',
@@ -137,6 +206,147 @@ function TrendBar({ trend }: { trend: TrendPoint[] }) {
   );
 }
 
+function IntakeFlagBadge({ flag }: { flag: IntakeVisitFlag }) {
+  const isEarly = flag.type === 'premature_clock_out';
+  return (
+    <Badge
+      title={flag.message}
+      className={`text-[10px] px-1.5 py-0 gap-1 ${
+        isEarly
+          ? 'bg-amber-100 text-amber-800 border-amber-300 hover:bg-amber-100'
+          : 'bg-rose-100 text-rose-800 border-rose-300 hover:bg-rose-100'
+      }`}
+    >
+      <AlertTriangle className="h-2.5 w-2.5 shrink-0" />
+      {INTAKE_FLAG_LABELS[flag.type]}
+    </Badge>
+  );
+}
+
+function IntakeVisitHistory({
+  visits,
+  validation,
+}: {
+  visits: IntakeVisit[];
+  validation: IntakeVisitValidation;
+}) {
+  if (visits.length === 0) {
+    return (
+      <p className="text-sm text-muted-foreground py-2">No intake visit history recorded.</p>
+    );
+  }
+  return (
+    <div className="space-y-3">
+      {validation.dayIssues.map(issue => (
+        <div
+          key={issue.dayKey}
+          className="rounded-md border border-amber-300 bg-amber-50/80 dark:bg-amber-950/20 dark:border-amber-800 px-3 py-2 text-xs text-amber-900 dark:text-amber-100"
+        >
+          <p className="font-medium flex items-center gap-1.5">
+            <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
+            Intake handoff issue — {issue.dayLabel}
+          </p>
+          <ul className="mt-1 list-disc list-inside space-y-0.5 text-amber-800/90 dark:text-amber-200/90">
+            {issue.messages.map(msg => (
+              <li key={msg}>{msg}</li>
+            ))}
+          </ul>
+        </div>
+      ))}
+      <div className="rounded-md border bg-background overflow-hidden">
+      <Table>
+        <TableHeader>
+          <TableRow className="bg-muted/40 hover:bg-muted/40">
+            <TableHead className="w-10 text-xs">#</TableHead>
+            <TableHead className="text-xs">Date</TableHead>
+            <TableHead className="text-xs">Time in (EPE)</TableHead>
+            <TableHead className="text-xs">Time out (EPE)</TableHead>
+            <TableHead className="text-xs">Duration (EPE)</TableHead>
+            <TableHead className="text-xs">BE/ESL</TableHead>
+            <TableHead className="text-xs">Session</TableHead>
+            <TableHead className="text-xs">Activity</TableHead>
+            <TableHead className="text-xs">Leaving</TableHead>
+            <TableHead className="text-xs">Flags</TableHead>
+            <TableHead className="text-xs">Recorded by</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {visits.map((v, i) => {
+            const mins = epeVisitDurationMinutes(v.timeIn, v.timeOut);
+            const rowFlags = flagsForVisit(validation, i);
+            const flagged = rowFlags.length > 0;
+            return (
+              <TableRow
+                key={`${v.date}-${i}`}
+                className={flagged ? 'bg-amber-50/60 dark:bg-amber-950/15' : undefined}
+              >
+                <TableCell className="text-xs text-muted-foreground">{i + 1}</TableCell>
+                <TableCell className="text-xs whitespace-nowrap">
+                  {v.date
+                    ? new Date(v.date).toLocaleString('en-US', {
+                        month: 'short',
+                        day: 'numeric',
+                        year: 'numeric',
+                        hour: 'numeric',
+                        minute: '2-digit',
+                      })
+                    : '—'}
+                </TableCell>
+                <TableCell className="text-xs" title={epeTimeTitle(v.timeIn)}>
+                  {fmtEpeTimeStr(v.timeIn)}
+                </TableCell>
+                <TableCell className="text-xs">
+                  {v.isLeaving === 'Staying'
+                    ? <span className="italic text-muted-foreground">Staying</span>
+                    : (
+                      <span title={epeTimeTitle(v.timeOut ?? undefined)}>
+                        {fmtEpeTimeStr(v.timeOut ?? undefined)}
+                      </span>
+                    )}
+                </TableCell>
+                <TableCell className="text-xs font-medium">
+                  {mins != null ? fmtTotalHM(mins) : '—'}
+                </TableCell>
+                <TableCell className="text-xs">
+                  {v.educationStatus
+                    ? <Badge variant="secondary" className="text-[10px] px-1.5 py-0">{v.educationStatus}</Badge>
+                    : '—'}
+                </TableCell>
+                <TableCell className="text-xs text-muted-foreground max-w-[140px]">
+                  {v.intakeSession || '—'}
+                </TableCell>
+                <TableCell className="text-xs text-muted-foreground max-w-[200px]">
+                  {v.intakeActivity?.length ? v.intakeActivity.join(', ') : '—'}
+                </TableCell>
+                <TableCell className="text-xs">
+                  {v.isLeaving
+                    ? <Badge variant="outline" className="text-[10px] px-1.5 py-0">{v.isLeaving}</Badge>
+                    : '—'}
+                </TableCell>
+                <TableCell className="text-xs">
+                  {rowFlags.length > 0
+                    ? (
+                      <div className="flex flex-col gap-1 max-w-[160px]">
+                        {rowFlags.map((flag, fi) => (
+                          <IntakeFlagBadge key={`${flag.type}-${fi}`} flag={flag} />
+                        ))}
+                      </div>
+                    )
+                    : <span className="text-muted-foreground">—</span>}
+                </TableCell>
+                <TableCell className="text-xs">
+                  {v.recordedBy?.name || v.recordedBy?.email || '—'}
+                </TableCell>
+              </TableRow>
+            );
+          })}
+        </TableBody>
+      </Table>
+      </div>
+    </div>
+  );
+}
+
 // ── Page ──────────────────────────────────────────────────────────────────────
 export default function EnrollmentPage() {
   const { data: session, status: authStatus } = useSession();
@@ -144,6 +354,7 @@ export default function EnrollmentPage() {
 
   const [period, setPeriod] = useState('month');
   const [staffFilter, setStaffFilter] = useState('');
+  const [searchInput, setSearchInput] = useState('');
   const [search, setSearch] = useState('');
   const [page, setPage] = useState(1);
 
@@ -156,15 +367,34 @@ export default function EnrollmentPage() {
   const [trend, setTrend] = useState<TrendPoint[]>([]);
   const [enrollments, setEnrollments] = useState<Enrollment[]>([]);
   const [pagination, setPagination] = useState<Pagination | null>(null);
+  const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [issuesOnly, setIssuesOnly] = useState(false);
+  const [issuesRefresh, setIssuesRefresh] = useState(0);
+  const [fixTarget, setFixTarget] = useState<{ id: string; name: string } | null>(null);
 
   const role = (session?.user as any)?.role ?? '';
+  const school = (session?.user as any)?.school ?? '';
+  const canAccess = ['Admin', 'Data Lead', 'Data Member'].includes(role);
+  const canFix = canFixIntakeHandoff(role);
+  const isAdmin = role === 'Admin';
+  const tableColSpan = 13;
 
   useEffect(() => {
     if (authStatus === 'unauthenticated') router.replace('/admin');
-    if (authStatus === 'authenticated' && !['Admin', 'Data Lead'].includes(role)) {
+    if (authStatus === 'authenticated' && !canAccess) {
       router.replace('/admin');
     }
-  }, [authStatus, role, router]);
+  }, [authStatus, canAccess, router]);
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => setSearch(searchInput.trim()), 300);
+    return () => window.clearTimeout(timer);
+  }, [searchInput]);
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('issuesOnly') === '1') setIssuesOnly(true);
+  }, []);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -194,9 +424,21 @@ export default function EnrollmentPage() {
   }, [authStatus, load]);
 
   // Reset page when filters change
-  useEffect(() => { setPage(1); }, [period, staffFilter, search]);
+  useEffect(() => {
+    setPage(1);
+    setExpandedId(null);
+  }, [period, staffFilter, search]);
 
   if (authStatus === 'loading') return null;
+
+  const displayedEnrollments = issuesOnly
+    ? enrollments.filter(e => validateIntakeVisits(getVisitHistory(e)).hasIssues)
+    : enrollments;
+
+  const handleFixed = () => {
+    setIssuesRefresh(n => n + 1);
+    load();
+  };
 
   const METRIC_CARDS = metrics ? [
     { label: 'Today', value: metrics.today, icon: <Clock className="h-5 w-5 text-blue-500" />, color: 'text-blue-600' },
@@ -212,6 +454,13 @@ export default function EnrollmentPage() {
       <AdminHeader />
       <main className="w-full px-4 sm:px-6 py-6 space-y-6">
 
+        {canFix && (
+          <IntakeIssuesBanner
+            reviewHref="/admin/enrollment?issuesOnly=1"
+            refreshToken={issuesRefresh}
+          />
+        )}
+
         {/* Back button */}
         <Button variant="outline" onClick={() => router.back()}>
           <ArrowLeft className="mr-2 h-4 w-4" /> Back to Dashboard
@@ -225,16 +474,20 @@ export default function EnrollmentPage() {
               Enrollment Dashboard
             </h1>
             <p className="text-sm text-muted-foreground mt-1">
-              Track student registrations by staff member, time period, and school.
+              {isAdmin
+                ? 'Track student registrations by staff member, time period, and school.'
+                : `Search and review enrollments for ${school || 'your school'}.`}
             </p>
           </div>
           <div className="flex items-center gap-2">
+            {isAdmin && (
             <Button variant="outline" size="sm" asChild>
               <Link href="/admin/thoughtspot-analytics" className="gap-2">
                 <TrendingUp className="h-4 w-4" />
                 ThoughtSpot Analytics
               </Link>
             </Button>
+            )}
             <Button variant="outline" size="sm" onClick={load} disabled={loading} className="gap-2">
               <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
               Refresh
@@ -272,6 +525,18 @@ export default function EnrollmentPage() {
 
         {/* ── Intake time summary ── */}
         {intakeTime && (
+          <div className="space-y-3">
+          <div className="rounded-lg border border-blue-200 bg-blue-50/80 dark:bg-blue-950/30 dark:border-blue-800 px-4 py-3 text-sm text-blue-900 dark:text-blue-100">
+            <p className="font-medium flex items-center gap-2">
+              <Clock className="h-4 w-4" />
+              EPE Clock — half-hour rounding
+            </p>
+              <p className="text-xs mt-1 text-blue-800/90 dark:text-blue-200/90">
+                Times and durations use EPE rules: :00–:14 → :00, :15–:44 → :30, :45–:59 → next hour.
+                Hover a rounded time to see the actual clock entry. Rows with multiple same-day activities are
+                flagged when Time Out is recorded too early or when every handoff is marked Staying with no final clock-out.
+              </p>
+          </div>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <Card className="border-primary/30 bg-primary/5">
               <CardContent className="pt-5 pb-4 flex items-start justify-between">
@@ -303,6 +568,7 @@ export default function EnrollmentPage() {
                 <div className="p-2 rounded-lg bg-muted/50"><CalendarDays className="h-5 w-5 text-violet-500" /></div>
               </CardContent>
             </Card>
+            </div>
           </div>
         )}
 
@@ -416,15 +682,33 @@ export default function EnrollmentPage() {
                   </SelectContent>
                 </Select>
 
-                <div className="relative">
+                <div className="relative min-w-[220px]">
                   <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
                   <Input
-                    value={search}
-                    onChange={e => setSearch(e.target.value)}
-                    placeholder="Search student or staff…"
-                    className="pl-8 h-8 text-xs w-52"
+                    value={searchInput}
+                    onChange={e => setSearchInput(e.target.value)}
+                    placeholder="Name, label ID, student ID, staff…"
+                    className="pl-8 h-8 text-xs w-full sm:w-64"
+                    aria-label="Search enrollments"
                   />
                 </div>
+                {search && (
+                  <p className="text-[11px] text-muted-foreground w-full">
+                    Searching all enrollments for your school (period filter ignored while searching).
+                  </p>
+                )}
+                {canFix && (
+                  <Button
+                    type="button"
+                    variant={issuesOnly ? 'default' : 'outline'}
+                    size="sm"
+                    className="h-8 text-xs gap-1.5"
+                    onClick={() => setIssuesOnly(v => !v)}
+                  >
+                    <AlertTriangle className="h-3.5 w-3.5" />
+                    {issuesOnly ? 'Showing issues only' : 'Show issues only'}
+                  </Button>
+                )}
               </div>
             </div>
           </CardHeader>
@@ -441,6 +725,7 @@ export default function EnrollmentPage() {
                 <Table>
                   <TableHeader>
                     <TableRow>
+                      <TableHead className="w-10" />
                       <TableHead>Student</TableHead>
                       <TableHead>DOB</TableHead>
                       <TableHead className="hidden md:table-cell">ID</TableHead>
@@ -448,24 +733,50 @@ export default function EnrollmentPage() {
                       <TableHead className="hidden lg:table-cell">BE/ESL</TableHead>
                       <TableHead className="hidden xl:table-cell">Activity</TableHead>
                       <TableHead className="hidden lg:table-cell">Session</TableHead>
-                      <TableHead>Time In</TableHead>
-                      <TableHead>Time Out</TableHead>
-                      <TableHead>Total Time</TableHead>
+                      <TableHead>Time In (EPE)</TableHead>
+                      <TableHead>Time Out (EPE)</TableHead>
+                      <TableHead>Total Time (EPE)</TableHead>
                       <TableHead>Registered By</TableHead>
                       <TableHead>Date &amp; Time</TableHead>
                       <TableHead className="hidden sm:table-cell">Status</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {enrollments.length === 0 && (
+                    {displayedEnrollments.length === 0 && (
                       <TableRow>
-                        <TableCell colSpan={13} className="text-center py-12 text-muted-foreground">
-                          No enrollments match the current filters.
+                        <TableCell colSpan={tableColSpan + 1} className="text-center py-12 text-muted-foreground">
+                          {issuesOnly
+                            ? 'No intake handoff issues on this page. Try a wider period or search.'
+                            : 'No enrollments match the current filters.'}
                         </TableCell>
                       </TableRow>
                     )}
-                    {enrollments.map(e => (
+                    {displayedEnrollments.map(e => {
+                      const visits = getVisitHistory(e);
+                      const latest = resolveLatestIntakeDisplay(e);
+                      const visitValidation = validateIntakeVisits(visits);
+                      const hasHistory = visits.length > 0;
+                      const isExpanded = expandedId === e._id;
+                      return (
+                      <>
                       <TableRow key={e._id} className="hover:bg-muted/30">
+                        <TableCell className="w-10 p-2">
+                          {hasHistory ? (
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              className="h-7 w-7 p-0"
+                              aria-expanded={isExpanded}
+                              aria-label={isExpanded ? 'Hide visit history' : 'Show visit history'}
+                              onClick={() => setExpandedId(isExpanded ? null : e._id)}
+                            >
+                              {isExpanded
+                                ? <ChevronUp className="h-4 w-4" />
+                                : <ChevronDown className="h-4 w-4" />}
+                            </Button>
+                          ) : null}
+                        </TableCell>
                         <TableCell>
                           <div className="flex items-center gap-2">
                             <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary/10 text-primary text-xs font-semibold shrink-0">
@@ -489,31 +800,67 @@ export default function EnrollmentPage() {
                             : <span className="text-xs text-muted-foreground">—</span>}
                         </TableCell>
                         <TableCell className="hidden lg:table-cell text-xs">
-                          {e.educationStatus
-                            ? <Badge variant="secondary" className="text-[10px] px-1.5 py-0.5">{e.educationStatus}</Badge>
+                          {latest.educationStatus
+                            ? <Badge variant="secondary" className="text-[10px] px-1.5 py-0.5">{latest.educationStatus}</Badge>
                             : <span className="text-muted-foreground">—</span>}
                         </TableCell>
                         <TableCell className="hidden xl:table-cell text-xs text-muted-foreground max-w-[180px]">
-                          {e.intakeActivity?.length ? e.intakeActivity.join(', ') : '—'}
-                          {e.placementClass ? <span className="block text-[10px] italic">Class: {e.placementClass}</span> : null}
+                          {latest.intakeActivity?.length ? latest.intakeActivity.join(', ') : '—'}
+                          {latest.placementClass ? <span className="block text-[10px] italic">Class: {latest.placementClass}</span> : null}
                         </TableCell>
                         <TableCell className="hidden lg:table-cell text-xs text-muted-foreground whitespace-nowrap">
-                          {e.intakeSession || '—'}
+                          {latest.intakeSession || '—'}
                         </TableCell>
-                        <TableCell className="text-xs whitespace-nowrap">{fmtTimeStr(e.timeIn)}</TableCell>
+                        <TableCell className="text-xs whitespace-nowrap" title={epeTimeTitle(latest.timeIn)}>
+                          {fmtEpeTimeStr(latest.timeIn)}
+                        </TableCell>
                         <TableCell className="text-xs whitespace-nowrap">
-                          {e.isLeaving === 'Staying'
+                          {latest.isLeaving === 'Staying'
                             ? <span className="text-muted-foreground italic">Staying</span>
-                            : fmtTimeStr(e.timeOut)}
+                            : (
+                              <span title={epeTimeTitle(latest.timeOut)}>
+                                {fmtEpeTimeStr(latest.timeOut)}
+                              </span>
+                            )}
                         </TableCell>
                         <TableCell className="text-xs whitespace-nowrap font-medium">
                           {e.durationMinutes != null
                             ? <span className="text-primary">{fmtDuration(e.durationMinutes)}</span>
                             : <span className="text-muted-foreground">—</span>}
-                          {(e.visitCount ?? 0) > 1 && (
-                            <span className="block text-[10px] text-muted-foreground font-normal">
-                              {e.visitCount} visits
-                            </span>
+                          {visitValidation.hasIssues && (
+                            <div className="mt-1 flex flex-col items-start gap-1">
+                              <Badge
+                                className="text-[10px] px-1.5 py-0 gap-1 bg-amber-100 text-amber-800 border-amber-300 hover:bg-amber-100"
+                                title={visitValidation.dayIssues.map(d => d.dayLabel).join(', ')}
+                              >
+                                <AlertTriangle className="h-2.5 w-2.5" />
+                                Intake handoff issue
+                              </Badge>
+                              {canFix && (
+                                <Button
+                                  type="button"
+                                  variant="outline"
+                                  size="sm"
+                                  className="h-6 text-[10px] px-2 gap-1"
+                                  onClick={() => setFixTarget({
+                                    id: e._id,
+                                    name: `${e.firstName} ${e.lastName}`,
+                                  })}
+                                >
+                                  <Wrench className="h-3 w-3" />
+                                  Fix
+                                </Button>
+                              )}
+                            </div>
+                          )}
+                          {hasHistory && (
+                            <button
+                              type="button"
+                              onClick={() => setExpandedId(isExpanded ? null : e._id)}
+                              className="block text-[10px] text-primary hover:underline font-normal text-left"
+                            >
+                              {visits.length} visit{visits.length !== 1 ? 's' : ''} — view history
+                            </button>
                           )}
                         </TableCell>
                         <TableCell>
@@ -555,7 +902,34 @@ export default function EnrollmentPage() {
                           </div>
                         </TableCell>
                       </TableRow>
-                    ))}
+                      {isExpanded && hasHistory && (
+                        <TableRow key={`${e._id}-visits`} className="bg-muted/20 hover:bg-muted/20">
+                          <TableCell colSpan={tableColSpan + 1} className="py-4 px-6">
+                            <div className="space-y-3">
+                              <div className="flex flex-wrap items-center justify-between gap-2">
+                                <p className="text-sm font-medium flex items-center gap-2">
+                                  <Clock className="h-4 w-4 text-primary" />
+                                  Intake visit history — {e.firstName} {e.lastName}
+                                </p>
+                                <Badge variant="outline" className="text-xs">
+                                  Total: {fmtTotalHM(epeVisitsTotalMinutes(visits) ?? 0)}
+                                </Badge>
+                              </div>
+                              <p className="text-xs text-muted-foreground">
+                                Latest row in the table above reflects the most recent visit. Visits are listed oldest to newest.
+                                When a student moves between staff the same day, handoff visits should be marked Staying;
+                                only the final activity should record Time Out (EPE). Total time counts from the first
+                                visit&apos;s time-in to the final clock-out each day (not each segment added up). If staff
+                                forgot, use Fix to add a catch-up activity on a later date with calendar and time pickers.
+                              </p>
+                              <IntakeVisitHistory visits={visits} validation={visitValidation} />
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      )}
+                      </>
+                    );
+                    })}
                   </TableBody>
                 </Table>
                 </div>
@@ -594,6 +968,16 @@ export default function EnrollmentPage() {
         </Card>
 
       </main>
+
+      {fixTarget && (
+        <IntakeHandoffFixDialog
+          studentId={fixTarget.id}
+          studentName={fixTarget.name}
+          open={Boolean(fixTarget)}
+          onOpenChange={open => { if (!open) setFixTarget(null); }}
+          onFixed={handleFixed}
+        />
+      )}
     </div>
   );
 }

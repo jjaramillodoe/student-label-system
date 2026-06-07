@@ -1,6 +1,6 @@
 'use client';
 
-import { Loader2 } from 'lucide-react';
+import { Loader2, Plus, Trash2, UserRound } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
@@ -13,6 +13,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { getFiscalYearOptions } from '@/lib/fiscalYear';
+import { EMPTY_SCHOOL_LEADER, type SchoolLeader } from '@/lib/schoolLeadership';
 
 export type SchoolFormState = {
   name: string;
@@ -22,6 +23,8 @@ export type SchoolFormState = {
   currentFiscalYear: string;
   intakeSessions: string[];
   intakeActivities: string[];
+  principal: SchoolLeader;
+  assistantPrincipals: SchoolLeader[];
 };
 
 const FISCAL_YEAR_OPTIONS = getFiscalYearOptions();
@@ -38,6 +41,70 @@ type SchoolConfigFormProps = {
   mode: 'create' | 'edit';
   onCancel: () => void;
 };
+
+function LeaderFields({
+  idPrefix,
+  leader,
+  onChange,
+  onRemove,
+  showRemove,
+}: {
+  idPrefix: string;
+  leader: SchoolLeader;
+  onChange: (next: SchoolLeader) => void;
+  onRemove?: () => void;
+  showRemove?: boolean;
+}) {
+  return (
+    <div className="rounded-lg border bg-card p-4 space-y-3">
+      <div className="flex items-start justify-between gap-2">
+        <div className="grid gap-3 flex-1 sm:grid-cols-3">
+          <div className="space-y-1.5 sm:col-span-1">
+            <Label htmlFor={`${idPrefix}-name`}>Name</Label>
+            <Input
+              id={`${idPrefix}-name`}
+              value={leader.name}
+              onChange={(e) => onChange({ ...leader, name: e.target.value })}
+              placeholder="Full name"
+            />
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor={`${idPrefix}-email`}>Email</Label>
+            <Input
+              id={`${idPrefix}-email`}
+              type="email"
+              value={leader.email ?? ''}
+              onChange={(e) => onChange({ ...leader, email: e.target.value })}
+              placeholder="name@schools.nyc.gov"
+            />
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor={`${idPrefix}-phone`}>Phone</Label>
+            <Input
+              id={`${idPrefix}-phone`}
+              type="tel"
+              value={leader.phone ?? ''}
+              onChange={(e) => onChange({ ...leader, phone: e.target.value })}
+              placeholder="Optional"
+            />
+          </div>
+        </div>
+        {showRemove && onRemove && (
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            className="shrink-0 text-muted-foreground hover:text-destructive"
+            onClick={onRemove}
+            aria-label="Remove assistant principal"
+          >
+            <Trash2 className="h-4 w-4" />
+          </Button>
+        )}
+      </div>
+    </div>
+  );
+}
 
 export default function SchoolConfigForm({
   form,
@@ -134,6 +201,76 @@ export default function SchoolConfigForm({
           </div>
         </section>
       )}
+
+      <section className="space-y-4">
+        <div>
+          <h2 className="text-lg font-semibold flex items-center gap-2">
+            <UserRound className="h-5 w-5 text-primary" />
+            School leadership
+          </h2>
+          <p className="text-sm text-muted-foreground">
+            One principal and one or more assistant principals for this school or program.
+          </p>
+        </div>
+        <div className="space-y-3">
+          <Label>Principal</Label>
+          <LeaderFields
+            idPrefix="principal"
+            leader={form.principal}
+            onChange={(principal) => setForm((current) => ({ ...current, principal }))}
+          />
+        </div>
+        <div className="space-y-3">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <Label>Assistant principals</Label>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="gap-1.5"
+              onClick={() =>
+                setForm((current) => ({
+                  ...current,
+                  assistantPrincipals: [...current.assistantPrincipals, { ...EMPTY_SCHOOL_LEADER }],
+                }))
+              }
+            >
+              <Plus className="h-4 w-4" />
+              Add assistant principal
+            </Button>
+          </div>
+          {form.assistantPrincipals.length === 0 ? (
+            <p className="text-sm text-muted-foreground rounded-md border border-dashed px-4 py-3">
+              No assistant principals added yet.
+            </p>
+          ) : (
+            <div className="space-y-3">
+              {form.assistantPrincipals.map((leader, index) => (
+                <LeaderFields
+                  key={`ap-${index}`}
+                  idPrefix={`assistant-${index}`}
+                  leader={leader}
+                  showRemove
+                  onChange={(next) =>
+                    setForm((current) => ({
+                      ...current,
+                      assistantPrincipals: current.assistantPrincipals.map((item, i) =>
+                        i === index ? next : item,
+                      ),
+                    }))
+                  }
+                  onRemove={() =>
+                    setForm((current) => ({
+                      ...current,
+                      assistantPrincipals: current.assistantPrincipals.filter((_, i) => i !== index),
+                    }))
+                  }
+                />
+              ))}
+            </div>
+          )}
+        </div>
+      </section>
 
       <section className="space-y-4">
         <div>

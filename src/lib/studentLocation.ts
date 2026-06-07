@@ -4,6 +4,9 @@ export type StorageStudent = {
   status?: string;
   cabinet?: string;
   drawer?: string;
+  /** Resolved display name from API enrichment */
+  cabinetName?: string;
+  drawerName?: string;
   archiveBoxLabel?: string;
   archiveLocation?: string;
   archiveSchoolYear?: string;
@@ -61,10 +64,21 @@ export function getStudentStorageDisplay(
     };
   }
 
+  const cabinetDisplay =
+    cabinetMap[student.cabinet || '']
+    || student.cabinetName
+    || student.cabinet
+    || '—';
+  const drawerDisplay =
+    drawerMap[student.drawer || '']
+    || student.drawerName
+    || student.drawer
+    || '—';
+
   return {
     isArchived: false,
-    primary: cabinetMap[student.cabinet || ''] || student.cabinet || '—',
-    secondary: drawerMap[student.drawer || ''] || student.drawer || '—',
+    primary: cabinetDisplay,
+    secondary: drawerDisplay,
     primaryLabel: 'Cab',
     secondaryLabel: 'Draw',
   };

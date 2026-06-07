@@ -4,6 +4,13 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/authOptions';
 import { ObjectId } from 'mongodb';
 import { isPossibleDuplicate } from '@/lib/fuzzyName';
+import {
+  addressMatchHint,
+  addressMatchLabel,
+  comparePeerAddresses,
+  isSameAddressPair,
+  type StudentAddressRecord,
+} from '@/lib/addressDuplicate';
 
 /**
  * GET /api/admin/duplicates
@@ -40,13 +47,47 @@ export async function GET() {
 
   const serialize = (s: any) => ({ ...s, _id: s._id.toString() });
 
+  function addressComparisonFor(a: any, b: any) {
+    const cmp = comparePeerAddresses(a as StudentAddressRecord, b as StudentAddressRecord);
+    const flaggedVerified = ['verified', 'warning'].includes(
+      String(a.addressValidationStatus ?? ''),
+    );
+    const matchVerified = ['verified', 'warning'].includes(
+      String(b.addressValidationStatus ?? ''),
+    );
+    return {
+      match: cmp.match,
+      flaggedDisplay: cmp.incomingDisplay,
+      matchDisplay: cmp.existingDisplay,
+      flaggedVerified,
+      matchVerified,
+      label: addressMatchLabel(cmp.match),
+      hint: addressMatchHint(cmp.match),
+      addressDriven: isSameAddressPair(a, b) && !isPossibleDuplicate(a, b),
+    };
+  }
+
+  function enrichMatch(flagged: any, match: any) {
+    return {
+      ...serialize(match),
+      addressComparison: addressComparisonFor(flagged, match),
+    };
+  }
+
+  function isPairCandidate(a: any, b: any): boolean {
+    return isPossibleDuplicate(a, b) || isSameAddressPair(a, b);
+  }
+
   // ── Flagged pairs (explicit siblingFlag) ──────────────────────────────────
   const flaggedStudents = allStudents.filter(s => s.siblingFlag === true);
   const flaggedPairs = flaggedStudents.map(f => {
     const candidates = (byDob.get(f.dob) || [])
       .filter(c => c._id.toString() !== f._id.toString())
-      .filter(c => isPossibleDuplicate(f, c));
-    return { flagged: serialize(f), matches: candidates.map(serialize) };
+      .filter(c => isPairCandidate(f, c));
+    return {
+      flagged: serialize(f),
+      matches: candidates.map(c => enrichMatch(f, c)),
+    };
   });
 
   // ── Auto-detected pairs (same DOB + fuzzy name, not yet confirmed/flagged) ─
@@ -71,13 +112,16 @@ export async function GET() {
         if (Array.isArray(a.siblingDismissed) && a.siblingDismissed.includes(bId)) continue;
         if (Array.isArray(b.siblingDismissed) && b.siblingDismissed.includes(aId)) continue;
 
-        if (!isPossibleDuplicate(a, b)) continue;
+        if (!isPairCandidate(a, b)) continue;
 
         const pairKey = [a._id.toString(), b._id.toString()].sort().join(':');
         if (seen.has(pairKey)) continue;
         seen.add(pairKey);
 
-        autoPairs.push({ flagged: serialize(a), matches: [serialize(b)] });
+        autoPairs.push({
+          flagged: serialize(a),
+          matches: [enrichMatch(a, b)],
+        });
       }
     }
   }
@@ -177,7 +221,10 @@ export async function POST(req: NextRequest) {
       siblingReviewedAt: new Date().toISOString(),
       mergedFromId: secondaryId,
     };
-    const fillIfMissing = ['email', 'phone', 'gender', 'program', 'notes', 'fiscalYear', 'startDate'];
+    const fillIfMissing = [
+      'email', 'phone', 'gender', 'program', 'notes', 'fiscalYear', 'startDate',
+      'address', 'apt', 'city', 'state', 'zip',
+    ];
     for (const field of fillIfMissing) {
       if (!primary[field] && secondary[field]) mergedFields[field] = secondary[field];
     }

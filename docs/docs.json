@@ -67,6 +67,7 @@
         "group": "Reference",
         "pages": [
           "reference/dual-id-system",
+          "reference/address-and-verification",
           "reference/qr-codes",
           "reference/bulk-upload"
         ]

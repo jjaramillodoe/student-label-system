@@ -7,6 +7,10 @@ import { resolveAgencyId } from '@/lib/studentId';
 import { normalizeIntakeStringList } from '@/lib/intakeDefaults';
 import { getCurrentFiscalYear, normalizeFiscalYear } from '@/lib/fiscalYear';
 import { DEFAULT_SCHOOLS, getSchoolOptions } from '@/lib/schoolConfig';
+import {
+  normalizeAssistantPrincipals,
+  normalizePrincipal,
+} from '@/lib/schoolLeadership';
 
 function escapeRegex(value: string) {
   return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -22,6 +26,8 @@ async function upsertDataLeadIntakeSettings(
   intakeSessions: string[],
   intakeActivities: string[],
   currentFiscalYear: string,
+  principal: ReturnType<typeof normalizePrincipal>,
+  assistantPrincipals: ReturnType<typeof normalizeAssistantPrincipals>,
 ) {
   const existing = await db.collection('school_config').findOne(schoolNameFilter(userSchool));
   const now = new Date().toISOString();
@@ -34,6 +40,8 @@ async function upsertDataLeadIntakeSettings(
           intakeSessions,
           intakeActivities,
           currentFiscalYear,
+          principal,
+          assistantPrincipals,
           updatedAt: now,
         },
       },
@@ -53,6 +61,8 @@ async function upsertDataLeadIntakeSettings(
     intakeSessions,
     intakeActivities,
     currentFiscalYear,
+    principal,
+    assistantPrincipals,
     createdAt: now,
     updatedAt: now,
   };
@@ -95,7 +105,17 @@ export async function POST(req: NextRequest) {
   }
 
   try {
-    const { name, type = 'School', active = true, agencyId, intakeSessions, intakeActivities, currentFiscalYear } = await req.json();
+    const {
+      name,
+      type = 'School',
+      active = true,
+      agencyId,
+      intakeSessions,
+      intakeActivities,
+      currentFiscalYear,
+      principal,
+      assistantPrincipals,
+    } = await req.json();
     const trimmedName = typeof name === 'string' ? name.trim() : '';
 
     if (!trimmedName) {
@@ -125,6 +145,8 @@ export async function POST(req: NextRequest) {
       intakeSessions: normalizeIntakeStringList(intakeSessions),
       intakeActivities: normalizeIntakeStringList(intakeActivities),
       currentFiscalYear: normalizeFiscalYear(currentFiscalYear),
+      principal: normalizePrincipal(principal),
+      assistantPrincipals: normalizeAssistantPrincipals(assistantPrincipals),
       createdAt: now,
       updatedAt: now,
     };
@@ -159,12 +181,16 @@ export async function PUT(req: NextRequest) {
       const intakeSessions = normalizeIntakeStringList(body.intakeSessions);
       const intakeActivities = normalizeIntakeStringList(body.intakeActivities);
       const currentFiscalYear = normalizeFiscalYear(body.currentFiscalYear);
+      const principal = normalizePrincipal(body.principal);
+      const assistantPrincipals = normalizeAssistantPrincipals(body.assistantPrincipals);
       const result = await upsertDataLeadIntakeSettings(
         db,
         userSchool,
         intakeSessions,
         intakeActivities,
         currentFiscalYear,
+        principal,
+        assistantPrincipals,
       );
 
       if (!result) {
@@ -174,7 +200,18 @@ export async function PUT(req: NextRequest) {
       return NextResponse.json(result);
     }
 
-    const { _id, name, type, active, agencyId, intakeSessions, intakeActivities, currentFiscalYear } = body;
+    const {
+      _id,
+      name,
+      type,
+      active,
+      agencyId,
+      intakeSessions,
+      intakeActivities,
+      currentFiscalYear,
+      principal,
+      assistantPrincipals,
+    } = body;
     const trimmedName = typeof name === 'string' ? name.trim() : '';
 
     if (!_id || !ObjectId.isValid(_id)) {
@@ -200,6 +237,8 @@ export async function PUT(req: NextRequest) {
           intakeSessions: normalizeIntakeStringList(intakeSessions),
           intakeActivities: normalizeIntakeStringList(intakeActivities),
           currentFiscalYear: normalizeFiscalYear(currentFiscalYear),
+          principal: normalizePrincipal(principal),
+          assistantPrincipals: normalizeAssistantPrincipals(assistantPrincipals),
           updatedAt: new Date().toISOString(),
         },
       },

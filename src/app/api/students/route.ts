@@ -10,6 +10,8 @@ import {
   checkBeEslAgeEligibility,
   requiresBeEslAgeCheck,
 } from '@/lib/beEslEligibility';
+import { normalizeStudentAddress, validateStudentAddress } from '@/lib/addressValidation';
+import { verifyAddressWithGeoclient } from '@/lib/addressGeoclient';
 
 // Helper function to validate ObjectId
 function isValidObjectId(id: string): boolean {
@@ -106,6 +108,12 @@ export async function POST(req: NextRequest) {
       isLeaving,
       timeOut,
       otherNote,
+      address,
+      apt,
+      city,
+      state,
+      zip,
+      verifyAddress,
     } = body;
 
     if (requiresBeEslAgeCheck({ intakeStudentStatus, educationStatus }) && dob) {
@@ -242,6 +250,39 @@ export async function POST(req: NextRequest) {
     if (timeOut)              studentData.timeOut              = timeOut;
     if (otherNote)            studentData.otherNote            = otherNote;
 
+    const hasAddressInput = [address, apt, city, state, zip].some(v => String(v ?? '').trim());
+    if (hasAddressInput) {
+      const normalized = normalizeStudentAddress({ address, apt, city, state, zip });
+      const local = validateStudentAddress(normalized);
+      studentData.address = normalized.address || null;
+      studentData.apt = normalized.apt || null;
+      studentData.city = normalized.city || null;
+      studentData.state = normalized.state || null;
+      studentData.zip = normalized.zip || null;
+      studentData.addressFlags = local.flags;
+      studentData.addressWarnings = local.warnings;
+
+      if (verifyAddress !== false && normalized.address) {
+        const verification = await verifyAddressWithGeoclient(normalized);
+        studentData.addressValidationStatus = verification.status;
+        studentData.addressFlags = verification.flags;
+        studentData.addressWarnings = verification.warnings;
+        studentData.addressGeoclient = verification.geoclient;
+        studentData.addressVerifiedAt = new Date().toISOString();
+
+        if (verification.standardized && ['verified', 'warning'].includes(verification.status)) {
+          studentData.address = verification.standardized.address || null;
+          studentData.apt = verification.standardized.apt || null;
+          studentData.city = verification.standardized.city || null;
+          studentData.state = verification.standardized.state || null;
+          studentData.zip = verification.standardized.zip || null;
+          studentData.addressStandardized = verification.standardized;
+        }
+      } else {
+        studentData.addressValidationStatus = local.status === 'empty' ? 'empty' : 'unverified';
+      }
+    }
+
     // ── Seed the first intake visit (time log) ────────────────────────────────
     // Each student record keeps a history of visits so we can total time across
     // multiple days (Continuing Intake / Returning students re-visit).
@@ -253,6 +294,9 @@ export async function POST(req: NextRequest) {
         isLeaving: isLeaving || null,
         intakeSession: intakeSession || null,
         intakeActivity: Array.isArray(intakeActivity) ? intakeActivity : [],
+        educationStatus: educationStatus || null,
+        placementClass: placementClass || null,
+        notes: notes || null,
         recordedBy: {
           name: session?.user?.name || session?.user?.email || 'Unknown',
           email: session?.user?.email || '',
@@ -261,7 +305,14 @@ export async function POST(req: NextRequest) {
     }
 
     // Flag records added via sibling acknowledgement
-    if (body.siblingFlag)     { studentData.siblingFlag = true; studentData.siblingFlagNote = body.siblingFlagNote; }
+    if (body.siblingFlag) {
+      studentData.siblingFlag = true;
+      studentData.siblingFlagNote = body.siblingFlagNote;
+    }
+    if (body.registeredWithNewAddress) {
+      studentData.registeredWithNewAddress = true;
+      studentData.newAddressReviewNote = body.newAddressReviewNote;
+    }
     
     const result = await db.collection('students').insertOne(studentData);
     const insertedStudent = {

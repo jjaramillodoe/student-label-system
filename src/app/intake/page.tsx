@@ -36,15 +36,28 @@ import {
   UserPlus, AlertCircle, CheckCircle2, Printer, RotateCcw,
   Loader2, User, Calendar, Phone, Mail, ClipboardList, LogOut, Building2,
   FolderOpen, ChevronRight, List, RefreshCw, Clock, CalendarDays,
-  Users, ShieldAlert, Copy, Check,
+  Users, ShieldAlert, Copy, Check, MapPin, ExternalLink, Lock, ChevronDown, BookOpen,
 } from 'lucide-react';
+import IntakeIssuesBanner from '@/components/IntakeIssuesBanner';
+import IntakeHandoffFixDialog from '@/components/IntakeHandoffFixDialog';
+import IntakeAddressFields, {
+  type IntakeAddressVerification,
+  type IntakeAddressValues,
+} from '@/components/IntakeAddressFields';
+import { formatStudentAddressStacked } from '@/lib/addressValidation';
+import { googleMapsSearchUrl } from '@/lib/googleMaps';
+import { epeVisitsTotalMinutes } from '@/lib/epeClock';
+import {
+  addressMatchHint,
+  addressMatchLabel,
+  type AddressMatchKind,
+} from '@/lib/addressDuplicate';
 
 const INTAKE_STATUS_OPTIONS = [
-  { value: 'NEW',               label: 'NEW',               description: 'First-time student' },
-  { value: 'RETURNING',         label: 'RETURNING',         description: 'Previously enrolled student' },
-  { value: 'Continuing Intake', label: 'Continuing Intake', description: 'Student who started but didn\'t complete intake' },
-  { value: 'CTE Orientation',   label: 'CTE Orientation',   description: 'Career & Technical Education orientation' },
-  { value: 'Other',             label: 'Other',             description: 'Other purpose — describe below' },
+  { value: 'NEW',             label: 'NEW',       description: 'First-time student' },
+  { value: 'RETURNING',       label: 'RETURNING', description: 'Returning or continuing intake — log another visit' },
+  { value: 'CTE Orientation', label: 'CTE Orientation', description: 'Career & Technical Education orientation' },
+  { value: 'Other',           label: 'Other',     description: 'Other purpose — describe below' },
 ];
 
 interface CheckResult {
@@ -80,16 +93,216 @@ function visitMinutes(timeIn: unknown, timeOut: unknown): number | null {
   return diff;
 }
 
-// Sum minutes across a student's visit log.
+// Total minutes across visit log (per-day span: first time-in → final clock-out).
 function totalVisitMinutes(visits: any[] | undefined): number {
   if (!Array.isArray(visits)) return 0;
-  return visits.reduce((sum, v) => sum + (visitMinutes(v?.timeIn, v?.timeOut) ?? 0), 0);
+  return epeVisitsTotalMinutes(visits) ?? 0;
 }
 
 // Format minutes as "1h 25m".
 function fmtHM(mins: number): string {
   const h = Math.floor(mins / 60), m = mins % 60;
   return h > 0 ? `${h}h ${m}m` : `${m}m`;
+}
+
+/** Fresh visit fields when logging a returning student (do not copy prior visit). */
+function emptyReturningVisitFields() {
+  return {
+    educationStatus: '',
+    intakeActivity: [] as string[],
+    placementClass: '',
+    intakeSession: '',
+    timeIn: nowHHMM(),
+    timeOut: '',
+    isLeaving: '',
+    notes: '',
+  };
+}
+
+function IntakeMemberGuide() {
+  const [open, setOpen] = useState(true);
+
+  return (
+    <Card className="border-primary/20 bg-primary/[0.02]">
+      <CardHeader className="pb-3">
+        <button
+          type="button"
+          onClick={() => setOpen(v => !v)}
+          className="w-full flex items-start gap-3 text-left"
+        >
+          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary/10 border border-primary/20">
+            <BookOpen className="h-4 w-4 text-primary" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <CardTitle className="text-base flex items-center gap-2">
+              Intake member guide
+              <ChevronDown className={`h-4 w-4 text-muted-foreground transition-transform ${open ? 'rotate-180' : ''}`} />
+            </CardTitle>
+            <CardDescription className="text-xs mt-0.5">
+              Step-by-step: how to register new students, log returning visits, and what to check before you submit.
+            </CardDescription>
+          </div>
+        </button>
+      </CardHeader>
+      {open && (
+        <CardContent className="pt-0 space-y-5 text-sm">
+          <div className="grid gap-5 lg:grid-cols-2">
+            <div className="space-y-2.5">
+              <p className="font-semibold text-foreground flex items-center gap-2">
+                <UserPlus className="h-4 w-4 text-primary" />
+                New First Time Student
+              </p>
+              <ol className="list-decimal list-inside space-y-1.5 text-muted-foreground text-xs leading-relaxed">
+                <li>Select <strong className="text-foreground">New First Time Student</strong> under Student Status.</li>
+                <li>Enter <strong className="text-foreground">first name, last name, and date of birth</strong>. Watch the duplicate alert at the top — it checks automatically.</li>
+                <li>Add <strong className="text-foreground">phone, email, and home address</strong>. Click <strong className="text-foreground">Verify with NYC Geoclient</strong> so the standardized address is saved.</li>
+                <li>If a <strong className="text-foreground">possible duplicate</strong> appears, compare name, DOB, and address. Stop if it is the same person. Use <strong className="text-foreground">Copy alert message</strong> to contact your Data Lead if unsure.</li>
+                <li>Only check <strong className="text-foreground">“This is a different person”</strong> for a true sibling or coincidence — that flags the record for Data Lead review.</li>
+                <li>Complete <strong className="text-foreground">BE or ESL</strong>, intake activity, placement class, session, and <strong className="text-foreground">Time In</strong> (defaults to now).</li>
+                <li>Choose <strong className="text-foreground">Staying</strong> if another staff member will continue intake, or <strong className="text-foreground">Leaving</strong> with Time Out when the student is done for the day.</li>
+                <li>Click <strong className="text-foreground">Register &amp; Print Label</strong>, then print the Avery label.</li>
+              </ol>
+            </div>
+            <div className="space-y-2.5">
+              <p className="font-semibold text-foreground flex items-center gap-2">
+                <Clock className="h-4 w-4 text-primary" />
+                Returning Student (another visit)
+              </p>
+              <ol className="list-decimal list-inside space-y-1.5 text-muted-foreground text-xs leading-relaxed">
+                <li>Select <strong className="text-foreground">RETURNING</strong> under Student Status.</li>
+                <li>Search by name, label ID, or DOB and select the student. Prior visits appear in the accordion — expand to review history.</li>
+                <li>Personal info and address are <strong className="text-foreground">locked</strong> from the student record. Complete <strong className="text-foreground">today&apos;s visit</strong> fields fresh (BE/ESL, activity, session, time).</li>
+                <li>File assignment keeps the existing cabinet/drawer unless the student needs a new drawer for the school year.</li>
+                <li>Click <strong className="text-foreground">Log Visit &amp; Save</strong> — this adds a new visit without overwriting past visits.</li>
+              </ol>
+            </div>
+          </div>
+          <div className="rounded-md border border-amber-200/80 bg-amber-50/50 dark:bg-amber-950/20 dark:border-amber-800/60 px-3 py-3 space-y-2">
+            <p className="font-semibold text-xs text-amber-900 dark:text-amber-100 flex items-center gap-1.5">
+              <AlertCircle className="h-3.5 w-3.5" />
+              Before you submit — quick checklist
+            </p>
+            <ul className="grid sm:grid-cols-2 gap-x-4 gap-y-1 text-xs text-amber-800/90 dark:text-amber-200/90">
+              <li>✓ Duplicate alert reviewed (name + DOB + address)</li>
+              <li>✓ BE/ESL age rule met (21 years and 1 month for BE/ESL)</li>
+              <li>✓ Address verified with Geoclient (new students)</li>
+              <li>✓ Time In correct; Time Out if student is leaving</li>
+              <li>✓ Handoff visits marked <strong>Staying</strong> — only final staff clocks out</li>
+              <li>✓ Placement class and intake activity completed</li>
+            </ul>
+          </div>
+          <p className="text-[11px] text-muted-foreground">
+            Use <strong className="text-foreground">Reset</strong> to clear the form, or the <strong className="text-foreground">Intake History</strong> tab to review today&apos;s registrations. Contact your Data Lead for duplicates, address corrections, or cabinet issues.
+          </p>
+        </CardContent>
+      )}
+    </Card>
+  );
+}
+
+function addressMatchBadgeClass(match?: AddressMatchKind): string {
+  switch (match) {
+    case 'same_verified':
+      return 'bg-green-100 text-green-800 border-green-300';
+    case 'same':
+    case 'similar':
+      return 'bg-emerald-50 text-emerald-800 border-emerald-300';
+    case 'different':
+      return 'bg-sky-50 text-sky-800 border-sky-300';
+    case 'incoming_missing':
+      return 'bg-amber-50 text-amber-800 border-amber-300';
+    default:
+      return 'bg-slate-50 text-slate-600 border-slate-300';
+  }
+}
+
+function ReturningVisitHistory({ visits }: { visits: any[] }) {
+  const [openIdx, setOpenIdx] = useState<number | null>(null);
+  const sorted = [...visits].sort(
+    (a, b) => new Date(a.date || 0).getTime() - new Date(b.date || 0).getTime(),
+  );
+
+  return (
+    <div className="rounded-md border border-border bg-background px-3 py-2.5 text-xs space-y-2">
+      <div className="flex items-center justify-between">
+        <span className="font-medium text-foreground flex items-center gap-1.5">
+          <Clock className="h-3.5 w-3.5" />
+          {sorted.length} previous visit{sorted.length !== 1 ? 's' : ''}
+        </span>
+        <Badge variant="outline" className="text-[10px]">
+          Total so far: {fmtHM(totalVisitMinutes(sorted))}
+        </Badge>
+      </div>
+      <div className="space-y-1">
+        {sorted.map((v, i) => {
+          const isOpen = openIdx === i;
+          const mins = visitMinutes(v?.timeIn, v?.timeOut);
+          const dateLabel = v?.date
+            ? new Date(v.date).toLocaleString('en-US', {
+                month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit',
+              })
+            : '—';
+          const summary = [
+            v?.educationStatus,
+            v?.intakeActivity?.length ? v.intakeActivity.join(', ') : null,
+          ].filter(Boolean).join(' · ') || 'Visit recorded';
+
+          return (
+            <div key={`${v.date}-${i}`} className="rounded-md border border-border/80 overflow-hidden">
+              <button
+                type="button"
+                onClick={() => setOpenIdx(isOpen ? null : i)}
+                className="w-full flex items-center gap-2 px-2.5 py-2 text-left hover:bg-muted/40 transition-colors"
+              >
+                <ChevronDown className={`h-3.5 w-3.5 shrink-0 text-muted-foreground transition-transform ${isOpen ? 'rotate-180' : ''}`} />
+                <span className="flex-1 min-w-0">
+                  <span className="font-medium text-foreground">Visit {i + 1}</span>
+                  <span className="text-muted-foreground"> · {dateLabel}</span>
+                  <span className="block text-[10px] text-muted-foreground truncate">{summary}</span>
+                </span>
+                <span className="shrink-0 font-medium text-foreground">
+                  {v?.isLeaving === 'Staying' ? 'Staying' : (mins != null ? fmtHM(mins) : '—')}
+                </span>
+              </button>
+              {isOpen && (
+                <div className="px-3 pb-2.5 pt-0 space-y-1.5 border-t border-dashed text-muted-foreground">
+                  <div className="grid grid-cols-2 gap-x-3 gap-y-1 pt-2">
+                    <p><span className="text-foreground/70">Time in:</span> {v?.timeIn || '—'}</p>
+                    <p>
+                      <span className="text-foreground/70">Time out:</span>{' '}
+                      {v?.isLeaving === 'Staying' ? 'Staying' : (v?.timeOut || '—')}
+                    </p>
+                    <p><span className="text-foreground/70">BE / ESL:</span> {v?.educationStatus || '—'}</p>
+                    <p><span className="text-foreground/70">Session:</span> {v?.intakeSession || '—'}</p>
+                    <p className="col-span-2">
+                      <span className="text-foreground/70">Activity:</span>{' '}
+                      {v?.intakeActivity?.length ? v.intakeActivity.join(', ') : '—'}
+                    </p>
+                    {v?.placementClass && (
+                      <p className="col-span-2">
+                        <span className="text-foreground/70">Placement:</span> {v.placementClass}
+                      </p>
+                    )}
+                    {v?.notes && (
+                      <p className="col-span-2">
+                        <span className="text-foreground/70">Notes:</span> {v.notes}
+                      </p>
+                    )}
+                    <p className="col-span-2 text-[10px] italic">
+                      Recorded by {v?.recordedBy?.name || v?.recordedBy?.email || '—'}
+                    </p>
+                  </div>
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+      <p className="text-[10px] text-muted-foreground italic">
+        Complete today&apos;s visit below — each submission adds a new entry here.
+      </p>
+    </div>
+  );
 }
 
 const emptyForm = () => ({
@@ -99,6 +312,10 @@ const emptyForm = () => ({
   dob: '',
   phone: '',
   email: '',
+  address: '',
+  city: '',
+  state: 'NY',
+  zip: '',
   // Intake type
   intakeStudentStatus: 'NEW',
   otherNote: '',
@@ -136,6 +353,7 @@ export default function IntakePage() {
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState('');
   const [savedStudent, setSavedStudent] = useState<any>(null);
+  const [savedAsVisit, setSavedAsVisit] = useState(false);
   const [confirmDupeOpen, setConfirmDupeOpen] = useState(false);
   const [pendingSubmit, setPendingSubmit] = useState(false);
 
@@ -150,17 +368,24 @@ export default function IntakePage() {
 
   // Data Lead contact for this school
   const [dataLead, setDataLead] = useState<{ name: string; email: string; role: string } | null>(null);
+  const [geoclientConfigured, setGeoclientConfigured] = useState<boolean | null>(null);
+  const [addressVerification, setAddressVerification] = useState<IntakeAddressVerification | null>(null);
+  const [intakeAddress, setIntakeAddress] = useState<IntakeAddressValues>({
+    address: '', apt: '', city: '', state: 'NY', zip: '',
+  });
 
   // Intake sessions, activities, and fiscal year (school-level config)
   const [intakeSessions, setIntakeSessions] = useState<string[]>(DEFAULT_INTAKE_SESSIONS);
   const [intakeActivityOptions, setIntakeActivityOptions] = useState<string[]>(DEFAULT_INTAKE_ACTIVITIES);
   const [currentFiscalYear, setCurrentFiscalYear] = useState('2025-2026');
 
-  // Continuing Intake student search
+  // Returning student search
   const [studentSearch, setStudentSearch] = useState('');
   const [studentSearchResults, setStudentSearchResults] = useState<any[]>([]);
   const [studentSearchLoading, setStudentSearchLoading] = useState(false);
   const [selectedExistingStudent, setSelectedExistingStudent] = useState<any>(null);
+  const [issuesRefresh, setIssuesRefresh] = useState(0);
+  const [fixTarget, setFixTarget] = useState<{ id: string; name: string } | null>(null);
 
   const checkTimeout = useRef<NodeJS.Timeout | null>(null);
 
@@ -212,6 +437,21 @@ export default function IntakePage() {
       .catch(() => {});
   }, [authStatus]);
 
+  useEffect(() => {
+    if (authStatus !== 'authenticated') return;
+    fetch('/api/admin/addresses/verify')
+      .then(r => r.ok ? r.json() : null)
+      .then(d => setGeoclientConfigured(d?.configured ?? false))
+      .catch(() => setGeoclientConfigured(false));
+  }, [authStatus]);
+
+  useEffect(() => {
+    if (form.intakeStudentStatus !== 'NEW') {
+      setIntakeAddress({ address: '', apt: '', city: '', state: 'NY', zip: '' });
+      setAddressVerification(null);
+    }
+  }, [form.intakeStudentStatus]);
+
   // Load school-level intake sessions and activities
   useEffect(() => {
     if (authStatus !== 'authenticated') return;
@@ -260,11 +500,13 @@ export default function IntakePage() {
     }
   }, [activeTab, historyFilter, historyScope, authStatus, fetchHistory]);
 
-  // Debounced duplicate check whenever name + DOB are sufficiently filled
-  const runDuplicateCheck = useCallback(async (f: ReturnType<typeof emptyForm>) => {
-    // Skip check for "Other", "Continuing Intake" and "Returning" — these use the
-    // explicit existing-student search instead of the auto duplicate panel.
-    if (['Other', 'Continuing Intake', 'RETURNING'].includes(f.intakeStudentStatus)) {
+  // Debounced duplicate check: name, DOB, and address (when available)
+  const runDuplicateCheck = useCallback(async (
+    f: ReturnType<typeof emptyForm>,
+    addr: IntakeAddressValues,
+    verification: IntakeAddressVerification | null,
+  ) => {
+    if (['Other', 'RETURNING'].includes(f.intakeStudentStatus)) {
       setCheckResult({ status: 'idle', exact: [], fuzzy: [] });
       return;
     }
@@ -277,7 +519,18 @@ export default function IntakePage() {
       const res = await fetch('/api/intake/check', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ firstName: f.firstName.trim(), lastName: f.lastName.trim(), dob: f.dob }),
+        body: JSON.stringify({
+          firstName: f.firstName.trim(),
+          lastName: f.lastName.trim(),
+          dob: f.dob,
+          address: addr.address.trim() || undefined,
+          apt: addr.apt.trim() || undefined,
+          city: addr.city.trim() || undefined,
+          state: addr.state.trim() || undefined,
+          zip: addr.zip.trim() || undefined,
+          standardized: verification?.standardized ?? undefined,
+          geoclient: verification?.geoclient ?? undefined,
+        }),
       });
       const data = await res.json();
       const hasMatches = (data.exact?.length || 0) + (data.fuzzy?.length || 0) > 0;
@@ -291,17 +544,36 @@ export default function IntakePage() {
     }
   }, []);
 
-  const scheduleCheck = useCallback((f: ReturnType<typeof emptyForm>) => {
+  const scheduleCheck = useCallback((
+    f: ReturnType<typeof emptyForm>,
+    addr = intakeAddress,
+    verification = addressVerification,
+  ) => {
     if (checkTimeout.current) clearTimeout(checkTimeout.current);
-    checkTimeout.current = setTimeout(() => runDuplicateCheck(f), 600);
-  }, [runDuplicateCheck]);
+    checkTimeout.current = setTimeout(
+      () => runDuplicateCheck(f, addr, verification),
+      600,
+    );
+  }, [runDuplicateCheck, intakeAddress, addressVerification]);
+
+  useEffect(() => {
+    if (form.intakeStudentStatus !== 'NEW') return;
+    scheduleCheck(form, intakeAddress, addressVerification);
+  }, [
+    form.intakeStudentStatus,
+    form.firstName,
+    form.lastName,
+    form.dob,
+    intakeAddress,
+    addressVerification,
+    scheduleCheck,
+  ]);
 
   function setField(key: keyof ReturnType<typeof emptyForm>, value: string) {
     const updated = { ...form, [key]: value };
     setForm(updated);
     if (['firstName', 'lastName', 'dob'].includes(key)) {
       setSiblingAcknowledged(false);
-      scheduleCheck(updated);
     }
     if (key === 'intakeStudentStatus') {
       // Reset duplicate check and selected student when type changes
@@ -344,13 +616,12 @@ export default function IntakePage() {
         return;
       }
 
-      // Continuing Intake & Returning (when an existing student is selected) UPDATE
-      // the existing record and APPEND a new visit instead of creating a duplicate.
+      // RETURNING with a selected student updates the record and appends a visit.
       const isUpdatingExisting =
-        ['Continuing Intake', 'RETURNING'].includes(status) && !!selectedExistingStudent?._id;
+        status === 'RETURNING' && !!selectedExistingStudent?._id;
 
-      if (status === 'Continuing Intake' && !selectedExistingStudent?._id) {
-        setSubmitError('Please search for and select the existing student before submitting a Continuing Intake.');
+      if (status === 'RETURNING' && !selectedExistingStudent?._id) {
+        setSubmitError('Please search for and select the student to log this visit.');
         return;
       }
 
@@ -375,33 +646,48 @@ export default function IntakePage() {
         : (needsNewDrawer ? nextSlot!.drawer._id : (form.drawer || undefined));
 
       const payload: Record<string, any> = {
-        firstName: form.firstName.trim(),
-        lastName: form.lastName.trim(),
-        dob: form.dob,
-        email: form.email.trim() || undefined,
-        phone: form.phone.trim() || undefined,
-        gender: form.gender || undefined,
         fiscalYear: currentFiscalYear,
         status: 'Active',
-        startDate: (status === 'NEW') ? form.startDate : undefined,
-        originalStartDate: (status !== 'NEW' && status !== 'Other') ? form.originalStartDate || undefined : undefined,
         cabinet: cabinetAssignment,
         drawer: drawerAssignment,
         reactivateFromArchive: needsNewDrawer || undefined,
-        notes: form.notes.trim() || undefined,
-        // New intake fields — top-level reflects the LATEST visit (for quick display)
-        intakeStudentStatus: status,
-        educationStatus: form.educationStatus || undefined,
-        intakeActivity: form.intakeActivity.length ? form.intakeActivity : undefined,
-        placementClass: form.placementClass.trim() || undefined,
-        intakeSession: form.intakeSession || undefined,
-        timeIn: form.timeIn || undefined,
-        isLeaving: form.isLeaving || undefined,
-        timeOut,
         otherNote: (status === 'Other') ? form.otherNote.trim() || undefined : undefined,
       };
 
-      // When updating an existing record, append this visit to the time log.
+      if (isUpdatingExisting) {
+        // Returning visit: append a full visit record — do not overwrite top-level intake fields.
+        payload.intakeStudentStatus = status;
+      } else {
+        payload.notes = form.notes.trim() || undefined;
+        payload.intakeStudentStatus = status;
+        payload.educationStatus = form.educationStatus || undefined;
+        payload.intakeActivity = form.intakeActivity.length ? form.intakeActivity : undefined;
+        payload.placementClass = form.placementClass.trim() || undefined;
+        payload.intakeSession = form.intakeSession || undefined;
+        payload.timeIn = form.timeIn || undefined;
+        payload.isLeaving = form.isLeaving || undefined;
+        payload.timeOut = timeOut;
+        payload.firstName = form.firstName.trim();
+        payload.lastName = form.lastName.trim();
+        payload.dob = form.dob;
+        payload.email = form.email.trim() || undefined;
+        payload.phone = form.phone.trim() || undefined;
+        payload.gender = form.gender || undefined;
+        payload.startDate = (status === 'NEW') ? form.startDate : undefined;
+        payload.originalStartDate =
+          (status !== 'NEW' && status !== 'Other') ? form.originalStartDate || undefined : undefined;
+      }
+
+      if (status === 'NEW' && intakeAddress.address.trim()) {
+        payload.address = intakeAddress.address.trim();
+        payload.apt = intakeAddress.apt.trim() || undefined;
+        payload.city = intakeAddress.city.trim() || undefined;
+        payload.state = intakeAddress.state.trim() || undefined;
+        payload.zip = intakeAddress.zip.trim() || undefined;
+        payload.verifyAddress = true;
+      }
+
+      // When updating an existing record, append a self-contained visit (full snapshot).
       if (isUpdatingExisting && form.timeIn) {
         payload.appendVisit = {
           date: new Date().toISOString(),
@@ -410,6 +696,9 @@ export default function IntakePage() {
           isLeaving: form.isLeaving || null,
           intakeSession: form.intakeSession || null,
           intakeActivity: form.intakeActivity,
+          educationStatus: form.educationStatus || null,
+          placementClass: form.placementClass.trim() || null,
+          notes: form.notes.trim() || null,
           recordedBy: {
             name: session?.user?.name || session?.user?.email || 'Unknown',
             email: session?.user?.email || '',
@@ -421,6 +710,14 @@ export default function IntakePage() {
         payload.siblingFlag = true;
         payload.siblingFlagNote =
           'Intake member confirmed this is a different person with the same name (possible sibling or coincidence). Requires Data Lead review.';
+        const hasDifferentAddress = [...checkResult.exact, ...checkResult.fuzzy].some(
+          (s: { _addressMatch?: AddressMatchKind }) => s._addressMatch === 'different',
+        );
+        if (hasDifferentAddress) {
+          payload.registeredWithNewAddress = true;
+          payload.newAddressReviewNote =
+            'Registered with a different home address than a possible name match on file — verify move or sibling.';
+        }
       }
 
       const res = isUpdatingExisting
@@ -441,6 +738,7 @@ export default function IntakePage() {
         return;
       }
       const student = await res.json();
+      setSavedAsVisit(isUpdatingExisting);
       setSavedStudent(student);
     } catch {
       setSubmitError('Failed to save student. Please try again.');
@@ -481,10 +779,13 @@ export default function IntakePage() {
     setCheckResult({ status: 'idle', exact: [], fuzzy: [] });
     setSiblingAcknowledged(false);
     setSavedStudent(null);
+    setSavedAsVisit(false);
     setSubmitError('');
     setSelectedExistingStudent(null);
     setStudentSearch('');
     setStudentSearchResults([]);
+    setIntakeAddress({ address: '', apt: '', city: '', state: 'NY', zip: '' });
+    setAddressVerification(null);
   }
 
   if (authStatus === 'loading') {
@@ -497,11 +798,29 @@ export default function IntakePage() {
 
   // ── SUCCESS / LABEL VIEW ────────────────────────────────────────────────────
   if (savedStudent) {
+    const savedAddress = formatStudentAddressStacked({
+      address: savedStudent.address,
+      apt: savedStudent.apt,
+      city: savedStudent.city,
+      state: savedStudent.state,
+      zip: savedStudent.zip,
+    });
+    const savedMapsUrl = googleMapsSearchUrl({
+      latitude: savedStudent.addressGeoclient?.latitude,
+      longitude: savedStudent.addressGeoclient?.longitude,
+      address: savedStudent.address,
+      city: savedStudent.city,
+      state: savedStudent.state,
+      zip: savedStudent.zip,
+    });
+
     return (
       <div className="min-h-screen bg-green-50 dark:bg-green-950/20 flex flex-col items-center justify-center p-6 gap-6 print:bg-white print:p-0 print:min-h-0">
         <div className="flex items-center gap-3 text-green-700 dark:text-green-400 print:hidden">
           <CheckCircle2 className="h-8 w-8" />
-          <h1 className="text-2xl font-bold">Student Registered!</h1>
+          <h1 className="text-2xl font-bold">
+            {savedAsVisit ? 'Visit Logged!' : 'Student Registered!'}
+          </h1>
         </div>
 
         {/* Label preview — matches Avery 5163 print layout */}
@@ -526,7 +845,34 @@ export default function IntakePage() {
                   <ShieldAlert className="h-3 w-3 mr-1" /> Sibling flag — awaiting Data Lead review
                 </Badge>
               )}
+              {savedStudent.addressValidationStatus && (
+                <Badge variant="outline" className="text-xs capitalize">
+                  Address: {String(savedStudent.addressValidationStatus).replace(/_/g, ' ')}
+                </Badge>
+              )}
             </div>
+            {savedAddress?.streetLine && (
+              <div className="text-sm text-center print:hidden space-y-1">
+                <div className="flex items-center justify-center gap-1.5 text-muted-foreground">
+                  <MapPin className="h-3.5 w-3.5" />
+                  <span>{savedAddress.streetLine}</span>
+                </div>
+                {savedAddress.cityStateZip ? (
+                  <p className="text-xs text-muted-foreground">{savedAddress.cityStateZip}</p>
+                ) : null}
+                {savedMapsUrl ? (
+                  <a
+                    href={savedMapsUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1 text-xs text-blue-600 hover:underline"
+                  >
+                    <ExternalLink className="h-3 w-3" />
+                    View on Google Maps
+                  </a>
+                ) : null}
+              </div>
+            )}
           </CardContent>
         </Card>
 
@@ -535,7 +881,7 @@ export default function IntakePage() {
             <Printer className="h-4 w-4" /> Print Label
           </Button>
           <Button variant="outline" onClick={resetForm} className="gap-2">
-            <RotateCcw className="h-4 w-4" /> New Student
+            <RotateCcw className="h-4 w-4" /> {savedAsVisit ? 'Log Another Visit' : 'New Student'}
           </Button>
         </div>
       </div>
@@ -551,6 +897,9 @@ export default function IntakePage() {
       ? new Date(form.dob + 'T00:00:00').toLocaleDateString('en-US', { month: '2-digit', day: '2-digit', year: 'numeric' })
       : form.dob;
 
+    const incomingAddr = formatStudentAddressStacked(
+      addressVerification?.standardized ?? intakeAddress,
+    );
     const lines: string[] = [
       `⚠️  Possible Duplicate — Intake Alert`,
       `Date: ${now}`,
@@ -558,6 +907,9 @@ export default function IntakePage() {
       `New student being registered:`,
       `  Name: ${incomingName}`,
       `  DOB:  ${dobFormatted}`,
+      ...(incomingAddr?.streetLine
+        ? [`  Address: ${incomingAddr.streetLine}${incomingAddr.cityStateZip ? `, ${incomingAddr.cityStateZip}` : ''}`]
+        : []),
       ``,
       `Possible match(es) already in the system:`,
     ];
@@ -570,6 +922,10 @@ export default function IntakePage() {
       lines.push(`     DOB: ${existingDob}   ID: ${s.labelId || s.studentId || '—'}   Status: ${s.status || '—'}`);
       if (s._similarity) lines.push(`     Match confidence: ${s._similarity}%`);
       if (s._dobMismatch) lines.push(`     ⚠ DOB differs from new record`);
+      if (s._addressMatch) {
+        lines.push(`     Address: ${addressMatchLabel(s._addressMatch)}`);
+        if (s._addressExisting) lines.push(`     On file: ${s._addressExisting}`);
+      }
     });
 
     const reviewUrl = typeof window !== 'undefined'
@@ -593,12 +949,50 @@ export default function IntakePage() {
     }
   }
 
+  const showMainIntakeFields =
+    form.intakeStudentStatus !== 'RETURNING' || !!selectedExistingStudent;
+
+  const profileLocked =
+    form.intakeStudentStatus === 'RETURNING' && !!selectedExistingStudent;
+
+  const lockedFieldClass = profileLocked ? 'bg-muted/50 cursor-default' : undefined;
+
+  function applyStudentAddressFromRecord(s: {
+    address?: string;
+    apt?: string;
+    city?: string;
+    state?: string;
+    zip?: string;
+    addressValidationStatus?: string;
+    addressValidationWarnings?: string[];
+    addressGeoclient?: { latitude?: number; longitude?: number };
+  }) {
+    setIntakeAddress({
+      address: s.address ?? '',
+      apt: s.apt ?? '',
+      city: s.city ?? '',
+      state: s.state ?? 'NY',
+      zip: s.zip ?? '',
+    });
+    setAddressVerification(
+      s.addressValidationStatus
+        ? {
+            status: s.addressValidationStatus,
+            warnings: Array.isArray(s.addressValidationWarnings)
+              ? s.addressValidationWarnings
+              : [],
+            geoclient: s.addressGeoclient,
+          }
+        : null,
+    );
+  }
+
   // ── INTAKE FORM ─────────────────────────────────────────────────────────────
   return (
     <div className="min-h-screen bg-background">
       {/* Top bar */}
       <header className="border-b bg-background/95 backdrop-blur sticky top-0 z-40">
-        <div className="w-full px-4 sm:px-6 py-3 flex items-center justify-between">
+        <div className="w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3 flex items-center justify-between">
           <div className="flex items-center gap-3">
             <div className="flex items-center justify-center h-9 w-9 rounded-lg bg-primary/10 border border-primary/20">
               <UserPlus className="h-5 w-5 text-primary" />
@@ -610,7 +1004,19 @@ export default function IntakePage() {
               )}
             </div>
           </div>
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 sm:gap-3">
+            {activeTab === 'register' && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={resetForm}
+                disabled={submitting || cabinetsLoading}
+                className="gap-1.5"
+              >
+                <RotateCcw className="h-4 w-4" />
+                <span className="hidden sm:inline">Reset</span>
+              </Button>
+            )}
             <GoogleTranslate />
             <span className="text-sm text-muted-foreground hidden sm:inline">{session?.user?.name}</span>
             <Button variant="ghost" size="sm" onClick={() => signOut({ callbackUrl: '/auth/signin' })} className="gap-1.5 text-muted-foreground">
@@ -620,7 +1026,16 @@ export default function IntakePage() {
         </div>
       </header>
 
-      <main className="w-full max-w-5xl mx-auto px-4 sm:px-6 py-6">
+      <main className="w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-4">
+        <IntakeIssuesBanner
+          reviewHref="/intake"
+          refreshToken={issuesRefresh}
+          onFixStudent={issue => setFixTarget({
+            id: issue.studentId,
+            name: `${issue.firstName} ${issue.lastName}`,
+          })}
+        />
+
         <Tabs value={activeTab} onValueChange={v => setActiveTab(v)} className="space-y-6">
           <TabsList className="grid w-full grid-cols-2 h-11">
             <TabsTrigger value="register" className="gap-2 text-sm">
@@ -637,18 +1052,7 @@ export default function IntakePage() {
           {/* ── REGISTER TAB ─────────────────────────────── */}
           <TabsContent value="register" className="space-y-6 mt-0">
 
-        {/* Quick action: log a visit for a student already in the system */}
-        <div className="flex items-center justify-between gap-3 rounded-lg border border-dashed border-blue-300 dark:border-blue-800 bg-blue-50/40 dark:bg-blue-950/10 px-4 py-3">
-          <div className="text-sm">
-            <p className="font-medium text-blue-900 dark:text-blue-200">Student already registered?</p>
-            <p className="text-xs text-muted-foreground">Quickly log another visit without filling out the full form.</p>
-          </div>
-          <QuickAddVisit
-            activityOptions={intakeActivityOptions}
-            recordedBy={{ name: session?.user?.name || session?.user?.email || 'Unknown', email: session?.user?.email || '' }}
-            onSaved={() => { if (activeTab === 'history') fetchHistory(historyFilter, historyScope); }}
-          />
-        </div>
+        <IntakeMemberGuide />
 
         {/* Duplicate check panel */}
         {checkResult.status === 'checking' && (
@@ -664,19 +1068,14 @@ export default function IntakePage() {
             <AlertTitle className="text-green-800 dark:text-green-200">No existing records found</AlertTitle>
             <AlertDescription className="text-green-700 dark:text-green-300">
               This student does not appear to be in the system yet. Safe to register.
+              {!intakeAddress.address.trim() && (
+                <span className="block mt-1 text-green-600/90">
+                  Tip: add and verify the home address for a stronger duplicate check.
+                </span>
+              )}
             </AlertDescription>
           </Alert>
         )}
-        {checkResult.status === 'clear' && form.intakeStudentStatus === 'RETURNING' && (
-          <Alert className="border-amber-200 bg-amber-50 dark:bg-amber-950/30 dark:border-amber-800">
-            <AlertCircle className="h-4 w-4 text-amber-600 dark:text-amber-400" />
-            <AlertTitle className="text-amber-800 dark:text-amber-200">No existing record found</AlertTitle>
-            <AlertDescription className="text-amber-700 dark:text-amber-300">
-              No matching student found. Verify the name and DOB are correct — or register as NEW if this is a first visit.
-            </AlertDescription>
-          </Alert>
-        )}
-
         {checkResult.status === 'found' && (
           <div className={`rounded-lg border-2 p-4 space-y-3 transition-colors ${
             siblingAcknowledged
@@ -694,7 +1093,7 @@ export default function IntakePage() {
                   {siblingAcknowledged ? 'Flagged as different person — Data Lead will review' : 'Possible existing student(s) found'}
                 </p>
                 <p className={`text-xs mt-0.5 ${siblingAcknowledged ? 'text-amber-700 dark:text-amber-300' : 'text-destructive/80'}`}>
-                  Review before registering to avoid duplicates:
+                  Review name, DOB, and address before registering. A different address may mean the student moved — it does not clear a name match.
                 </p>
               </div>
             </div>
@@ -702,15 +1101,53 @@ export default function IntakePage() {
             {/* Matched records */}
             <div className="space-y-1.5">
               {[...checkResult.exact, ...checkResult.fuzzy].map((s, i) => (
-                <div key={s._id || i} className="rounded-md border border-border bg-background/80 px-3 py-2 text-sm grid grid-cols-2 sm:grid-cols-4 gap-1">
-                  <span><strong>Name:</strong> {s.firstName} {s.lastName}</span>
-                  <span><strong>DOB:</strong> {s.dob}</span>
-                  <span><strong>ID:</strong> <span className="font-mono text-xs">{s.labelId || s.studentId}</span></span>
-                  <span className="flex items-center gap-1 flex-wrap">
-                    <strong>Status:</strong> {s.status || '—'}
-                    {s._dobMismatch && <Badge variant="outline" className="text-xs">Diff. DOB</Badge>}
-                    {s._similarity && !s._dobMismatch && <Badge variant="outline" className="text-xs">{s._similarity}% match</Badge>}
-                  </span>
+                <div key={s._id || i} className="rounded-md border border-border bg-background/80 px-3 py-2.5 text-sm space-y-2">
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-1">
+                    <span><strong>Name:</strong> {s.firstName} {s.lastName}</span>
+                    <span><strong>DOB:</strong> {s.dob}</span>
+                    <span><strong>ID:</strong> <span className="font-mono text-xs">{s.labelId || s.studentId}</span></span>
+                    <span className="flex items-center gap-1 flex-wrap">
+                      <strong>Status:</strong> {s.status || '—'}
+                      {s._dobMismatch && <Badge variant="outline" className="text-xs">Diff. DOB</Badge>}
+                      {s._similarity && !s._dobMismatch && (
+                        <Badge variant="outline" className="text-xs">{s._similarity}% match</Badge>
+                      )}
+                      {s._addressDriven && (
+                        <Badge variant="outline" className="text-xs">Same address</Badge>
+                      )}
+                    </span>
+                  </div>
+                  {s._addressMatch && (
+                    <div className="text-xs space-y-1 border-t border-dashed pt-2">
+                      <div className="flex flex-wrap items-center gap-1.5">
+                        <Badge
+                          variant="outline"
+                          title={addressMatchHint(s._addressMatch)}
+                          className={`text-[10px] ${addressMatchBadgeClass(s._addressMatch)}`}
+                        >
+                          {addressMatchLabel(s._addressMatch)}
+                        </Badge>
+                        {s._addressExistingVerified && (
+                          <span className="text-[10px] text-muted-foreground">NYC verified on file</span>
+                        )}
+                      </div>
+                      {s._addressExisting && (
+                        <p className="text-muted-foreground">
+                          <span className="text-foreground/80">On file:</span> {s._addressExisting}
+                        </p>
+                      )}
+                      {s._addressIncoming && s._addressMatch === 'different' && (
+                        <p className="text-muted-foreground">
+                          <span className="text-foreground/80">New entry:</span> {s._addressIncoming}
+                        </p>
+                      )}
+                      {s._addressMatch === 'different' && (
+                        <p className="text-[10px] text-sky-700 dark:text-sky-300 italic">
+                          Address changed — confirm with the student (possible move or sibling at a new home).
+                        </p>
+                      )}
+                    </div>
+                  )}
                 </div>
               ))}
             </div>
@@ -811,17 +1248,25 @@ export default function IntakePage() {
             </CardContent>
           </Card>
 
-          {/* ── Continuing Intake / Returning: student search ────────────── */}
-          {['Continuing Intake', 'RETURNING'].includes(form.intakeStudentStatus) && (
+          {form.intakeStudentStatus === 'RETURNING' && !selectedExistingStudent && (
+            <Alert className="border-blue-200 bg-blue-50/60 dark:bg-blue-950/20 dark:border-blue-800">
+              <Clock className="h-4 w-4 text-blue-700" />
+              <AlertTitle className="text-blue-900 dark:text-blue-100 text-sm">Log a returning visit</AlertTitle>
+              <AlertDescription className="text-xs text-blue-800 dark:text-blue-200">
+                Search for the student below, complete today&apos;s intake details on this screen, then submit to add the visit to their record.
+              </AlertDescription>
+            </Alert>
+          )}
+
+          {/* ── Returning: find student & log visit on same screen ───────── */}
+          {form.intakeStudentStatus === 'RETURNING' && (
             <Card className="border-blue-200 dark:border-blue-800 bg-blue-50/50 dark:bg-blue-950/20">
               <CardHeader className="pb-3">
                 <CardTitle className="text-sm flex items-center gap-2 text-blue-800 dark:text-blue-300">
                   <Users className="h-4 w-4" /> Find Existing Student
                 </CardTitle>
                 <CardDescription className="text-xs">
-                  {form.intakeStudentStatus === 'Continuing Intake'
-                    ? "Search for the student who started but didn't complete intake. This visit is added to their record."
-                    : "Search for the previously-enrolled student. This visit is added to their record (no duplicate)."}
+                  Search for a returning or continuing-intake student. Their visit history appears here after you select them.
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-3">
@@ -847,8 +1292,7 @@ export default function IntakePage() {
                           setSelectedExistingStudent(s);
                           setStudentSearch(`${s.firstName} ${s.lastName}`);
                           setStudentSearchResults([]);
-                          // Pre-fill ALL known fields from the existing record so the
-                          // intake member can review and complete what's missing.
+                          // Pre-fill identity only — today's visit fields start empty.
                           setForm(f => ({
                             ...f,
                             firstName: s.firstName ?? '',
@@ -858,16 +1302,9 @@ export default function IntakePage() {
                             phone: s.phone ?? f.phone,
                             gender: s.gender ?? f.gender,
                             originalStartDate: s.originalStartDate || s.startDate || f.originalStartDate,
-                            educationStatus: s.educationStatus ?? f.educationStatus,
-                            intakeActivity: Array.isArray(s.intakeActivity) ? s.intakeActivity : f.intakeActivity,
-                            placementClass: s.placementClass ?? f.placementClass,
-                            intakeSession: s.intakeSession ?? f.intakeSession,
-                            // Carry over the previously-entered time data
-                            timeIn: s.timeIn || f.timeIn,
-                            timeOut: s.timeOut ?? f.timeOut,
-                            isLeaving: s.isLeaving ?? f.isLeaving,
-                            notes: s.notes ?? f.notes,
+                            ...emptyReturningVisitFields(),
                           }));
+                          applyStudentAddressFromRecord(s);
                         }}
                         className="w-full text-left rounded-md border border-border bg-background px-3 py-2 text-sm hover:bg-accent transition-colors"
                       >
@@ -882,39 +1319,20 @@ export default function IntakePage() {
                     <div className="flex items-center gap-2 rounded-md border border-green-300 bg-green-50 dark:bg-green-950/30 px-3 py-2 text-sm">
                       <CheckCircle2 className="h-4 w-4 text-green-600 shrink-0" />
                       <span className="flex-1 font-medium">{selectedExistingStudent.firstName} {selectedExistingStudent.lastName}</span>
-                      <button type="button" onClick={() => { setSelectedExistingStudent(null); setStudentSearch(''); }} className="text-xs text-muted-foreground hover:text-foreground">Change</button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setSelectedExistingStudent(null);
+                          setStudentSearch('');
+                          setForm(f => ({ ...f, ...emptyReturningVisitFields() }));
+                        }}
+                        className="text-xs text-muted-foreground hover:text-foreground"
+                      >
+                        Change
+                      </button>
                     </div>
-                    {/* Prior visit history */}
                     {Array.isArray(selectedExistingStudent.intakeVisits) && selectedExistingStudent.intakeVisits.length > 0 && (
-                      <div className="rounded-md border border-border bg-background px-3 py-2.5 text-xs space-y-1.5">
-                        <div className="flex items-center justify-between">
-                          <span className="font-medium text-foreground flex items-center gap-1.5">
-                            <Clock className="h-3.5 w-3.5" />
-                            {selectedExistingStudent.intakeVisits.length} previous visit{selectedExistingStudent.intakeVisits.length !== 1 ? 's' : ''}
-                          </span>
-                          <Badge variant="outline" className="text-[10px]">
-                            Total so far: {fmtHM(totalVisitMinutes(selectedExistingStudent.intakeVisits))}
-                          </Badge>
-                        </div>
-                        <div className="space-y-1 max-h-32 overflow-y-auto">
-                          {selectedExistingStudent.intakeVisits.map((v: any, i: number) => {
-                            const mins = visitMinutes(v?.timeIn, v?.timeOut);
-                            return (
-                              <div key={i} className="flex items-center justify-between text-muted-foreground border-t border-dashed pt-1 first:border-0 first:pt-0">
-                                <span>
-                                  {v?.date ? new Date(v.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : '—'}
-                                  {' · '}
-                                  {v?.timeIn || '—'}{v?.timeOut ? ` → ${v.timeOut}` : ''}
-                                </span>
-                                <span className="font-medium">{mins != null ? fmtHM(mins) : '—'}</span>
-                              </div>
-                            );
-                          })}
-                        </div>
-                        <p className="text-[10px] text-muted-foreground italic pt-0.5">
-                          This new visit will be added to the history above.
-                        </p>
-                      </div>
+                      <ReturningVisitHistory visits={selectedExistingStudent.intakeVisits} />
                     )}
                   </div>
                 )}
@@ -922,21 +1340,49 @@ export default function IntakePage() {
             </Card>
           )}
 
+          {showMainIntakeFields && (
+          <>
           {/* ── 2. PERSONAL INFORMATION ──────────────────────── */}
           <Card>
             <CardHeader className="pb-3">
               <CardTitle className="flex items-center gap-2 text-base">
                 <User className="h-4 w-4" /> Personal Information
+                {profileLocked && (
+                  <Badge variant="outline" className="ml-auto text-xs font-normal gap-1 text-muted-foreground">
+                    <Lock className="h-3 w-3" /> From student record
+                  </Badge>
+                )}
               </CardTitle>
+              {profileLocked && (
+                <CardDescription className="text-xs">
+                  Name and dates cannot be changed here. Update on All Students if corrections are needed.
+                </CardDescription>
+              )}
             </CardHeader>
             <CardContent className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="firstName">First Name <span className="text-destructive">*</span></Label>
-                <Input id="firstName" value={form.firstName} onChange={e => setField('firstName', e.target.value)} placeholder="First name" required />
+                <Input
+                  id="firstName"
+                  value={form.firstName}
+                  onChange={e => setField('firstName', e.target.value)}
+                  placeholder="First name"
+                  required
+                  readOnly={profileLocked}
+                  className={lockedFieldClass}
+                />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="lastName">Last Name <span className="text-destructive">*</span></Label>
-                <Input id="lastName" value={form.lastName} onChange={e => setField('lastName', e.target.value)} placeholder="Last name" required />
+                <Input
+                  id="lastName"
+                  value={form.lastName}
+                  onChange={e => setField('lastName', e.target.value)}
+                  placeholder="Last name"
+                  required
+                  readOnly={profileLocked}
+                  className={lockedFieldClass}
+                />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="dob" className="flex items-center gap-1.5">
@@ -948,8 +1394,9 @@ export default function IntakePage() {
                     type="date"
                     value={form.dob}
                     onChange={e => setField('dob', e.target.value)}
-                    className="sm:max-w-[220px]"
+                    className={`sm:max-w-[220px] ${lockedFieldClass ?? ''}`}
                     required
+                    readOnly={profileLocked}
                   />
                   {form.dob && <DateHumanHint value={form.dob} />}
                 </div>
@@ -995,7 +1442,7 @@ export default function IntakePage() {
               )}
 
               {/* Original Start Date — RETURNING / CTE / Continuing */}
-              {['RETURNING', 'CTE Orientation', 'Continuing Intake'].includes(form.intakeStudentStatus) && (
+              {['RETURNING', 'CTE Orientation'].includes(form.intakeStudentStatus) && (
                 <div className="space-y-2 sm:col-span-2">
                   <Label htmlFor="originalStartDate">Original Start Date</Label>
                   <div className="flex flex-col gap-1.5 sm:flex-row sm:items-center sm:gap-3">
@@ -1004,7 +1451,8 @@ export default function IntakePage() {
                       type="date"
                       value={form.originalStartDate}
                       onChange={e => setField('originalStartDate', e.target.value)}
-                      className="sm:max-w-[220px]"
+                      className={`sm:max-w-[220px] ${lockedFieldClass ?? ''}`}
+                      readOnly={profileLocked}
                     />
                     {form.originalStartDate && <DateHumanHint value={form.originalStartDate} />}
                   </div>
@@ -1018,9 +1466,79 @@ export default function IntakePage() {
             </CardContent>
           </Card>
 
+          {/* ── 2b. CONTACT & ADDRESS ─────────────────────────── */}
+          {(form.intakeStudentStatus === 'NEW' || profileLocked) && (
+            <Card>
+              <CardHeader className="pb-3">
+                <CardTitle className="flex items-center gap-2 text-base">
+                  <MapPin className="h-4 w-4" /> Contact &amp; Address
+                  {profileLocked && (
+                    <Badge variant="outline" className="ml-auto text-xs font-normal gap-1 text-muted-foreground">
+                      <Lock className="h-3 w-3" /> From student record
+                    </Badge>
+                  )}
+                </CardTitle>
+                <CardDescription className="text-xs">
+                  {profileLocked
+                    ? 'Contact and address on file. Update on All Students if corrections are needed.'
+                    : 'Optional contact info. Verify the home address with NYC Geoclient before registering.'}
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="phone" className="flex items-center gap-1.5">
+                      <Phone className="h-3.5 w-3.5" /> Phone
+                    </Label>
+                    <Input
+                      id="phone"
+                      type="tel"
+                      value={form.phone}
+                      onChange={e => setField('phone', e.target.value)}
+                      placeholder="(555) 555-5555"
+                      readOnly={profileLocked}
+                      className={lockedFieldClass}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="email" className="flex items-center gap-1.5">
+                      <Mail className="h-3.5 w-3.5" /> Email
+                    </Label>
+                    <Input
+                      id="email"
+                      type="email"
+                      value={form.email}
+                      onChange={e => setField('email', e.target.value)}
+                      placeholder="student@email.com"
+                      readOnly={profileLocked}
+                      className={lockedFieldClass}
+                    />
+                  </div>
+                </div>
+                <IntakeAddressFields
+                  values={intakeAddress}
+                  onChange={setIntakeAddress}
+                  verification={addressVerification}
+                  onVerificationChange={setAddressVerification}
+                  geoclientConfigured={geoclientConfigured}
+                  readOnly={profileLocked}
+                />
+              </CardContent>
+            </Card>
+          )}
+
           {/* ── 3. INTAKE DETAILS (all except Other) ─────────── */}
           {form.intakeStudentStatus !== 'Other' && (
             <>
+              {profileLocked && (
+                <Alert className="border-primary/30 bg-primary/5">
+                  <ClipboardList className="h-4 w-4" />
+                  <AlertTitle className="text-sm">Today&apos;s visit</AlertTitle>
+                  <AlertDescription className="text-xs">
+                    Complete fresh intake details for this visit. Previous visits are saved in the accordion above and are not changed.
+                  </AlertDescription>
+                </Alert>
+              )}
               {/* BE or ESL */}
               <Card>
                 <CardHeader className="pb-3">
@@ -1233,15 +1751,13 @@ export default function IntakePage() {
                 <CardDescription className="text-xs">
                   {selectedExistingStudent && studentNeedsActiveDrawer(selectedExistingStudent)
                     ? 'Archived file — a new drawer will be assigned for the current school year.'
-                    : (form.intakeStudentStatus === 'Continuing Intake' ||
-                      (form.intakeStudentStatus === 'RETURNING' && selectedExistingStudent))
+                    : (form.intakeStudentStatus === 'RETURNING' && selectedExistingStudent)
                       ? 'Keeps the existing file — no new space is assigned.'
                       : 'Automatically assigned to the next available drawer space.'}
                 </CardDescription>
               </CardHeader>
               <CardContent>
-                {(form.intakeStudentStatus === 'Continuing Intake' ||
-                  (form.intakeStudentStatus === 'RETURNING' && selectedExistingStudent)) ? (
+                {(form.intakeStudentStatus === 'RETURNING' && selectedExistingStudent) ? (
                   selectedExistingStudent ? (
                     studentNeedsActiveDrawer(selectedExistingStudent) ? (
                       cabinetsLoading ? (
@@ -1364,6 +1880,8 @@ export default function IntakePage() {
               />
             </CardContent>
           </Card>
+          </>
+          )}
 
           {submitError && (
             <Alert variant="destructive">
@@ -1372,6 +1890,7 @@ export default function IntakePage() {
             </Alert>
           )}
 
+          {showMainIntakeFields && (
           <div className="flex justify-end gap-3 pb-8">
             <Button type="button" variant="outline" onClick={resetForm} disabled={submitting || cabinetsLoading}>
               <RotateCcw className="mr-2 h-4 w-4" /> Clear
@@ -1382,12 +1901,9 @@ export default function IntakePage() {
                 submitting ||
                 cabinetsLoading ||
                 beEslAgeBlocked ||
-                // Continuing Intake requires an existing record to be selected
-                (form.intakeStudentStatus === 'Continuing Intake' && !selectedExistingStudent) ||
-                // A free slot is only needed when creating a brand-new file:
-                // not for Other, and not when updating an existing Continuing/Returning record
+                (form.intakeStudentStatus === 'RETURNING' && !selectedExistingStudent) ||
                 (form.intakeStudentStatus !== 'Other' &&
-                  !(['Continuing Intake', 'RETURNING'].includes(form.intakeStudentStatus) && selectedExistingStudent) &&
+                  !(form.intakeStudentStatus === 'RETURNING' && selectedExistingStudent) &&
                   !nextSlot)
               }
               size="lg"
@@ -1395,11 +1911,14 @@ export default function IntakePage() {
             >
               {submitting ? (
                 <><Loader2 className="h-4 w-4 animate-spin" /> Saving…</>
+              ) : form.intakeStudentStatus === 'RETURNING' ? (
+                <><Clock className="h-4 w-4" /> Log Visit &amp; Save</>
               ) : (
-                <><UserPlus className="h-4 w-4" /> Register & Print Label</>
+                <><UserPlus className="h-4 w-4" /> Register &amp; Print Label</>
               )}
             </Button>
           </div>
+          )}
         </form>
           </TabsContent>
 
@@ -1461,6 +1980,19 @@ export default function IntakePage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {fixTarget && (
+        <IntakeHandoffFixDialog
+          studentId={fixTarget.id}
+          studentName={fixTarget.name}
+          open={Boolean(fixTarget)}
+          onOpenChange={open => { if (!open) setFixTarget(null); }}
+          onFixed={() => {
+            setIssuesRefresh(n => n + 1);
+            fetchHistory(historyFilter, historyScope);
+          }}
+        />
+      )}
     </div>
   );
 }
@@ -1557,6 +2089,10 @@ function AddVisitButton({
   onSaved: () => void;
 }) {
   const [open, setOpen] = useState(false);
+  const [visitDate, setVisitDate] = useState(() => {
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  });
   const [timeIn, setTimeIn] = useState(nowHHMM());
   const [leaving, setLeaving] = useState<'Leaving' | 'Staying' | ''>('');
   const [timeOut, setTimeOut] = useState('');
@@ -1567,11 +2103,21 @@ function AddVisitButton({
   const priorVisits: any[] = Array.isArray(student.intakeVisits) ? student.intakeVisits : [];
   const priorTotal = totalVisitMinutes(priorVisits);
 
+  function visitDateIso(date: string, time: string) {
+    const [h, m] = time.split(':').map(v => parseInt(v, 10));
+    const d = new Date(`${date}T00:00:00`);
+    if (!Number.isNaN(h) && !Number.isNaN(m)) d.setHours(h, m, 0, 0);
+    return d.toISOString();
+  }
+
   function reset() {
+    const d = new Date();
+    setVisitDate(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`);
     setTimeIn(nowHHMM()); setLeaving(''); setTimeOut(''); setActivities([]); setError('');
   }
 
   async function save() {
+    if (!visitDate) { setError('Please select the activity date.'); return; }
     if (!timeIn) { setError('Please enter a time in.'); return; }
     if (leaving === 'Leaving' && !timeOut) { setError('Please enter a time out — the student is leaving.'); return; }
     setSaving(true);
@@ -1582,12 +2128,8 @@ function AddVisitButton({
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          // Top-level reflects the latest visit
-          timeIn,
-          timeOut: out ?? null,
-          isLeaving: leaving || null,
           appendVisit: {
-            date: new Date().toISOString(),
+            date: visitDateIso(visitDate, timeIn),
             timeIn,
             timeOut: out ?? null,
             isLeaving: leaving || null,
@@ -1636,6 +2178,19 @@ function AddVisitButton({
           )}
 
           <div className="space-y-3 py-1">
+            <div className="space-y-1.5">
+              <Label className="text-xs flex items-center gap-1">
+                <CalendarDays className="h-3.5 w-3.5" />
+                Activity date
+              </Label>
+              <Input
+                type="date"
+                value={visitDate}
+                onChange={e => setVisitDate(e.target.value)}
+                className="max-w-[200px]"
+              />
+            </div>
+
             <div className="space-y-1.5">
               <Label className="text-xs">Time In</Label>
               <div className="flex items-center gap-2">
@@ -1695,232 +2250,6 @@ function AddVisitButton({
           <DialogFooter>
             <Button variant="outline" onClick={() => setOpen(false)} disabled={saving}>Cancel</Button>
             <Button onClick={save} disabled={saving} className="gap-2">
-              {saving ? <><Loader2 className="h-4 w-4 animate-spin" /> Saving…</> : <><Clock className="h-4 w-4" /> Add Visit</>}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-    </>
-  );
-}
-
-// ── Quick Add-Visit (from the Register tab): search a student, then log time ──
-function QuickAddVisit({
-  activityOptions,
-  recordedBy,
-  onSaved,
-}: {
-  activityOptions: string[];
-  recordedBy: { name: string; email: string };
-  onSaved?: () => void;
-}) {
-  const [open, setOpen] = useState(false);
-  const [query, setQuery] = useState('');
-  const [results, setResults] = useState<any[]>([]);
-  const [searching, setSearching] = useState(false);
-  const [selected, setSelected] = useState<any>(null);
-
-  const [timeIn, setTimeIn] = useState(nowHHMM());
-  const [leaving, setLeaving] = useState<'Leaving' | 'Staying' | ''>('');
-  const [timeOut, setTimeOut] = useState('');
-  const [activities, setActivities] = useState<string[]>([]);
-  const [saving, setSaving] = useState(false);
-  const [error, setError] = useState('');
-  const [savedName, setSavedName] = useState('');
-
-  const debounce = useRef<NodeJS.Timeout | null>(null);
-
-  function resetAll() {
-    setQuery(''); setResults([]); setSelected(null);
-    setTimeIn(nowHHMM()); setLeaving(''); setTimeOut(''); setActivities([]);
-    setError(''); setSavedName('');
-  }
-
-  function runSearch(q: string) {
-    setQuery(q);
-    if (debounce.current) clearTimeout(debounce.current);
-    if (!isStudentSearchQueryValid(q)) { setResults([]); return; }
-    debounce.current = setTimeout(async () => {
-      setSearching(true);
-      try {
-        const res = await fetch(`/api/students?search=${encodeURIComponent(q)}`);
-        const data = await res.json();
-        setResults(Array.isArray(data) ? data.slice(0, 10) : []);
-      } catch { setResults([]); }
-      finally { setSearching(false); }
-    }, 400);
-  }
-
-  const priorVisits: any[] = Array.isArray(selected?.intakeVisits) ? selected.intakeVisits : [];
-
-  async function save() {
-    if (!selected?._id) { setError('Select a student first.'); return; }
-    if (!timeIn) { setError('Please enter a time in.'); return; }
-    if (leaving === 'Leaving' && !timeOut) { setError('Please enter a time out — the student is leaving.'); return; }
-    setSaving(true);
-    setError('');
-    try {
-      const out = leaving === 'Leaving' ? timeOut : undefined;
-      const res = await fetch(`/api/students/${selected._id}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          timeIn,
-          timeOut: out ?? null,
-          isLeaving: leaving || null,
-          appendVisit: {
-            date: new Date().toISOString(),
-            timeIn,
-            timeOut: out ?? null,
-            isLeaving: leaving || null,
-            intakeActivity: activities,
-            recordedBy,
-          },
-        }),
-      });
-      if (!res.ok) {
-        const d = await res.json().catch(() => ({}));
-        setError(d.error || 'Failed to add visit.');
-        return;
-      }
-      setSavedName(`${selected.firstName} ${selected.lastName}`);
-      // Reset for the next quick entry but stay open to confirm
-      setSelected(null); setQuery(''); setResults([]);
-      setTimeIn(nowHHMM()); setLeaving(''); setTimeOut(''); setActivities([]);
-      onSaved?.();
-    } catch {
-      setError('Failed to add visit. Please try again.');
-    } finally {
-      setSaving(false);
-    }
-  }
-
-  return (
-    <>
-      <Button
-        type="button" variant="outline"
-        className="gap-2 border-blue-300 text-blue-700 hover:bg-blue-50 dark:border-blue-800 dark:text-blue-300 dark:hover:bg-blue-950/30"
-        onClick={() => { resetAll(); setOpen(true); }}
-      >
-        <Clock className="h-4 w-4" /> Add a visit (returning student)
-      </Button>
-      <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle>Add a Visit</DialogTitle>
-            <DialogDescription>Log time for a student who is already in the system.</DialogDescription>
-          </DialogHeader>
-
-          {savedName && (
-            <div className="rounded-md border border-green-300 bg-green-50 dark:bg-green-950/30 px-3 py-2 text-sm flex items-center gap-2">
-              <CheckCircle2 className="h-4 w-4 text-green-600 shrink-0" />
-              <span>Visit added for <strong>{savedName}</strong>. Add another below or close.</span>
-            </div>
-          )}
-
-          {/* Search */}
-          {!selected && (
-            <div className="space-y-2">
-              <div className="flex items-center gap-2">
-                <Input
-                  placeholder="Search by name, label ID, or DOB…"
-                  value={query}
-                  onChange={e => runSearch(e.target.value)}
-                  autoFocus
-                />
-                {searching && <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />}
-              </div>
-              {results.length > 0 && (
-                <div className="space-y-1.5 max-h-44 overflow-y-auto">
-                  {results.map(s => (
-                    <button
-                      key={s._id}
-                      type="button"
-                      onClick={() => { setSelected(s); setResults([]); setSavedName(''); }}
-                      className="w-full text-left rounded-md border border-border bg-background px-3 py-2 text-sm hover:bg-accent transition-colors"
-                    >
-                      <span className="font-medium">{s.firstName} {s.lastName}</span>
-                      <span className="ml-2 text-xs text-muted-foreground">
-                        DOB: {s.dob}
-                        {Array.isArray(s.intakeVisits) && s.intakeVisits.length ? ` · ${s.intakeVisits.length} visit(s)` : ''}
-                      </span>
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* Selected + time entry */}
-          {selected && (
-            <div className="space-y-3 py-1">
-              <div className="flex items-center gap-2 rounded-md border border-green-300 bg-green-50 dark:bg-green-950/30 px-3 py-2 text-sm">
-                <CheckCircle2 className="h-4 w-4 text-green-600 shrink-0" />
-                <span className="flex-1 font-medium">{selected.firstName} {selected.lastName}</span>
-                {priorVisits.length > 0 && (
-                  <Badge variant="outline" className="text-[10px]">{priorVisits.length} visit(s) · {fmtHM(totalVisitMinutes(priorVisits))}</Badge>
-                )}
-                <button type="button" onClick={() => setSelected(null)} className="text-xs text-muted-foreground hover:text-foreground">Change</button>
-              </div>
-
-              <div className="space-y-1.5">
-                <Label className="text-xs">Time In</Label>
-                <div className="flex items-center gap-2">
-                  <Input type="time" value={timeIn} onChange={e => setTimeIn(e.target.value)} className="max-w-[160px]" />
-                  <Button type="button" variant="outline" size="sm" onClick={() => setTimeIn(nowHHMM())} className="gap-1.5">
-                    <Clock className="h-3.5 w-3.5" /> Now
-                  </Button>
-                </div>
-              </div>
-
-              <div className="space-y-1.5">
-                <Label className="text-xs">Leaving or staying?</Label>
-                <div className="flex gap-4">
-                  {(['Leaving', 'Staying'] as const).map(opt => (
-                    <label key={opt} className="flex items-center gap-2 cursor-pointer select-none text-sm">
-                      <input
-                        type="radio" name="quickVisitLeaving" value={opt}
-                        checked={leaving === opt}
-                        onChange={() => { setLeaving(opt); if (opt === 'Staying') setTimeOut(''); }}
-                        className="accent-primary"
-                      />
-                      {opt}
-                    </label>
-                  ))}
-                </div>
-              </div>
-
-              {leaving === 'Leaving' && (
-                <div className="space-y-1.5 rounded-md border border-amber-300 bg-amber-50 dark:bg-amber-950/30 dark:border-amber-800 px-3 py-2.5">
-                  <Label className="text-xs text-amber-800 dark:text-amber-300 flex items-center gap-1.5">
-                    <Clock className="h-3.5 w-3.5" /> Time Out
-                  </Label>
-                  <div className="flex items-center gap-2">
-                    <Input type="time" value={timeOut} onChange={e => setTimeOut(e.target.value)} className="max-w-[160px] bg-background" />
-                    <Button type="button" variant="outline" size="sm" onClick={() => setTimeOut(nowHHMM())} className="gap-1.5 bg-background">
-                      <Clock className="h-3.5 w-3.5" /> Now
-                    </Button>
-                  </div>
-                  {timeIn && timeOut && (
-                    <p className="text-[11px] text-amber-700 dark:text-amber-400">This visit: {fmtHM(visitMinutes(timeIn, timeOut) ?? 0)}</p>
-                  )}
-                </div>
-              )}
-
-              <VisitActivityPicker
-                options={activityOptions}
-                value={activities}
-                onChange={setActivities}
-                idPrefix="quick-add-visit"
-              />
-            </div>
-          )}
-
-          {error && <p className="text-xs text-destructive">{error}</p>}
-
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setOpen(false)} disabled={saving}>Close</Button>
-            <Button onClick={save} disabled={saving || !selected} className="gap-2">
               {saving ? <><Loader2 className="h-4 w-4 animate-spin" /> Saving…</> : <><Clock className="h-4 w-4" /> Add Visit</>}
             </Button>
           </DialogFooter>

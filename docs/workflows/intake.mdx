@@ -1,44 +1,88 @@
 ---
 title: Intake workflow
-description: Register students, detect duplicates, and print labels at intake.
+description: Register new and returning students, verify addresses, detect duplicates, and print labels.
 ---
 
 ## Overview
 
-The Intake Form (`/intake`) is for front-desk registration. It includes live duplicate detection, cabinet assignment, and immediate label printing.
+The Intake Form (`/intake`) is for front-desk registration. It includes live duplicate detection (name **and** address), NYC address verification for new students, cabinet assignment, and immediate label printing.
 
 <Frame caption="Placeholder — Intake form (`/intake`). Replace via [screenshot checklist](/contributors/screenshot-checklist).">
   <img src="/images/placeholders/intake-form.svg" alt="Placeholder: Intake form" />
 </Frame>
 
-## Step-by-step
+## Student types
+
+| Type | When to use |
+| --- | --- |
+| **NEW** | First-time registration at your program |
+| **RETURNING** | Student already in the system — search by name/DOB, then record today's visit only |
+| **CTE Orientation** | CTE orientation intake |
+| **Other** | Special cases per school policy |
+
+<Note>
+  **Continuing Intake** was removed. Returning students use **RETURNING** on the same screen — no separate modal.
+</Note>
+
+## NEW student — step by step
 
 <Steps>
   <Step title="Open Intake">
-    Intake Members land on `/intake` after sign-in. Select the student type: **NEW**, **RETURNING**, **CTE Orientation**, **Continuing Intake**, or **Other**.
+    Intake Members land on `/intake` after sign-in. Select **NEW**.
   </Step>
   <Step title="Enter personal information">
     - First and last name (required)
-    - **Date of birth** — a human-readable date appears beside the picker so staff can catch typos
-    - **BE/ESL age rule** — students must be at least **21 years and 1 month** old for BE or ESL. If too young, the form shows how many days until they can register.
+    - **Date of birth** — a human-readable date appears beside the picker
+    - **BE/ESL age rule** — students must be at least **21 years and 1 month** old for BE or ESL
+  </Step>
+  <Step title="Contact and address">
+    - Phone and email
+    - **Paste full address** → **Parse**, or enter street, **Apt/Unit**, city, state, ZIP separately
+    - **Verify with NYC Geoclient** before submit (when configured)
+    - **View on Google Maps** after verify
   </Step>
   <Step title="Review duplicate matches">
-    For NEW students, the system fuzzy-matches same DOB + similar name. If a match appears:
-    - Stop if it is the same person
-    - Check **This is a different person** to flag a sibling for Data Lead review
-    - Use **Copy alert message** to notify your Data Lead in Teams or email
+    The system checks same DOB + similar name **and** compares home address:
+    - **Same address** — strong signal; confirm it is not the same person
+    - **Different address** — may be a sibling or someone who moved
+    - Check **This is a different person** to flag siblings for Data Lead review
+    - Use **Copy alert message** for Teams or email
   </Step>
   <Step title="Complete intake details">
     Choose **BE** or **ESL**, intake session, activities, placement class, and time in/out as required.
   </Step>
   <Step title="Submit and print">
-    On success, print the label with barcode (Label ID) and QR code. The QR opens the public student page — no login required.
+    On success, print the label with barcode (Label ID) and QR code.
   </Step>
 </Steps>
 
-<Frame caption="Placeholder — label preview after successful intake registration.">
-  <img src="/images/placeholders/intake-label-print.svg" alt="Placeholder: Intake label print success" />
-</Frame>
+## RETURNING student — step by step
+
+<Steps>
+  <Step title="Select RETURNING and search">
+    Search by name and date of birth. Select the matching record from results.
+  </Step>
+  <Step title="Review visit history">
+    An accordion shows prior intake visits (date, session, activities, times). Prior visit data is **not** overwritten.
+  </Step>
+  <Step title="Personal info and address are locked">
+    Name, DOB, phone, email, and address fields are **read-only** for returning students. Only **today's visit** fields are editable.
+  </Step>
+  <Step title="Record today's visit">
+    Enter fresh BE/ESL, session, activities, and time in/out for this visit. Submit appends a new visit snapshot.
+  </Step>
+</Steps>
+
+## Address fields on intake
+
+Street and apartment are stored separately:
+
+- **Street** — e.g. `690 Grand St`
+- **Apt/Unit** — e.g. `4B`
+
+NYC Geoclient standardizes the **building** only; the apartment is kept in the `apt` field.
+
+Details: [Address and NYC verification](/reference/address-and-verification)
 
 ## Returning archived students
 
@@ -46,5 +90,6 @@ When a previously archived student re-enrolls through Intake, the system reactiv
 
 ## Related pages
 
+- [Address and NYC verification](/reference/address-and-verification)
 - [Labels and scanning](/workflows/labels-and-scanning)
 - [Duplicates and siblings](/workflows/duplicates-and-siblings)

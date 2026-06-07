@@ -37,6 +37,8 @@ export default function AdminHeader() {
 
   const isAdmin = userRole === 'Admin';
   const isAdminOrDataLead = ['Admin', 'Data Lead'].includes(userRole as string);
+  const canViewEnrollment = ['Admin', 'Data Lead', 'Data Member'].includes(userRole as string);
+  const canViewAllStudents = canViewEnrollment;
 
   const isActive = (path: string) => pathname === path;
 
@@ -140,32 +142,6 @@ export default function AdminHeader() {
                     <MoveRight size={16} />
                     <span className="hidden sm:inline">Bulk Move</span>
                     <span className="sm:hidden">Move</span>
-                  </Link>
-                </Button>
-
-                <Button
-                  asChild
-                  variant={isActive('/admin/enrollment') ? 'default' : 'outline'}
-                  size="sm"
-                  className="gap-2"
-                >
-                  <Link href="/admin/enrollment">
-                    <UserPlus size={16} />
-                    <span className="hidden sm:inline">Enrollment</span>
-                    <span className="sm:hidden">Enroll</span>
-                  </Link>
-                </Button>
-
-                <Button
-                  asChild
-                  variant={isActive('/admin/students/all') ? 'default' : 'outline'}
-                  size="sm"
-                  className="gap-2"
-                >
-                  <Link href="/admin/students/all">
-                    <Users size={16} />
-                    <span className="hidden sm:inline">All Students</span>
-                    <span className="sm:hidden">Students</span>
                   </Link>
                 </Button>
 
@@ -281,6 +257,36 @@ export default function AdminHeader() {
                 )}
                 <Separator orientation="vertical" className="h-6 hidden md:block" />
               </>
+            )}
+
+            {canViewAllStudents && (
+              <Button
+                asChild
+                variant={isActive('/admin/students/all') ? 'default' : 'outline'}
+                size="sm"
+                className="gap-2"
+              >
+                <Link href="/admin/students/all">
+                  <Users size={16} />
+                  <span className="hidden sm:inline">All Students</span>
+                  <span className="sm:hidden">Students</span>
+                </Link>
+              </Button>
+            )}
+
+            {canViewEnrollment && (
+              <Button
+                asChild
+                variant={isActive('/admin/enrollment') ? 'default' : 'outline'}
+                size="sm"
+                className="gap-2"
+              >
+                <Link href="/admin/enrollment">
+                  <UserPlus size={16} />
+                  <span className="hidden sm:inline">Enrollment</span>
+                  <span className="sm:hidden">Enroll</span>
+                </Link>
+              </Button>
             )}
 
             <Button

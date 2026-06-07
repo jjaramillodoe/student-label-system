@@ -1,1 +1,1 @@
-firstName,lastName,dob,fiscalYear,status,startDate,email,studentId
+firstName,lastName,dob,fiscalYear,status,startDate,email,studentId,address,city,state,zip

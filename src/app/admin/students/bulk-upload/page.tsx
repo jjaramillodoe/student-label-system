@@ -15,7 +15,8 @@ import {
   Users,
   HelpCircle,
   Pencil,
-  Trash2
+  Trash2,
+  MapPin,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -50,6 +51,10 @@ import {
 } from '@/components/ui/dialog';
 import { parseCsvToObjects } from '@/lib/csv';
 import { generateStudentId, generateLabelId, resolveAgencyId } from '@/lib/studentId';
+import {
+  validateStudentAddress,
+  normalizeStudentAddress,
+} from '@/lib/addressValidation';
 
 const SAMPLE_DATA = [
   { firstName: 'Amelia', lastName: 'Rivera', dob: '2006-01-12', fiscalYear: '2025-2026', status: 'Active', startDate: '2025-09-04', email: 'amelia.rivera.test@example.com', studentId: '2006-AR-9000001' },
@@ -66,9 +71,13 @@ const SAMPLE_DATA = [
 
 const FISCAL_YEAR_OPTIONS = ['2024-2025', '2025-2026', '2026-2027', '2027-2028'];
 const STATUS_OPTIONS = ['Active', 'Inactive', 'Graduated', 'Withdrawn', 'Pending', 'Transferred', 'Other'];
-const EDITABLE_COLUMNS = ['firstName', 'lastName', 'dob', 'fiscalYear', 'status', 'startDate', 'email'];
+const EDITABLE_COLUMNS = [
+  'firstName', 'lastName', 'dob', 'fiscalYear', 'status', 'startDate', 'email',
+  'address', 'apt', 'city', 'state', 'zip',
+];
 const DATE_COLUMNS = ['dob', 'startDate'];
 const NAME_COLUMNS = ['firstName', 'lastName'];
+const ADDRESS_COLUMNS = ['address', 'city'];
 
 function downloadCsv(url: string, filename: string) {
   const link = document.createElement('a');
@@ -178,10 +187,54 @@ function cleanEmail(raw: string): string {
   return lower;
 }
 
+function pickUnitColumn(row: Record<string, string>): string {
+  const keys = [
+    'apt', 'Apt', 'APT', 'apartment', 'Apartment',
+    'unit', 'Unit', 'UNIT', 'suite', 'Suite',
+    'address2', 'Address2', 'addressLine2', 'AddressLine2',
+  ];
+  for (const key of keys) {
+    const value = String(row[key] ?? '').trim();
+    if (value) return value;
+  }
+  return '';
+}
+
+function mapAddressColumns(row: Record<string, string>) {
+  const mapped = { ...row };
+  if (mapped.Address && !mapped.address) mapped.address = mapped.Address;
+  if (mapped.City && !mapped.city) mapped.city = mapped.City;
+  if (mapped.State && !mapped.state) mapped.state = mapped.State;
+  if (mapped.Zip && !mapped.zip) mapped.zip = mapped.Zip;
+
+  const unit = pickUnitColumn(mapped);
+  const addrNormalized = normalizeStudentAddress({
+    address: mapped.address,
+    apt: unit || mapped.apt,
+    city: mapped.city,
+    state: mapped.state,
+    zip: mapped.zip,
+  });
+  mapped.address = addrNormalized.address;
+  mapped.apt = addrNormalized.apt;
+  mapped.city = addrNormalized.city;
+  mapped.state = addrNormalized.state;
+  mapped.zip = addrNormalized.zip;
+
+  const deleteKeys = [
+    'Address', 'City', 'State', 'Zip',
+    'apt', 'Apt', 'APT', 'apartment', 'Apartment',
+    'unit', 'Unit', 'UNIT', 'suite', 'Suite',
+    'address2', 'Address2', 'addressLine2', 'AddressLine2',
+  ];
+  deleteKeys.forEach(key => { delete mapped[key]; });
+  return mapped;
+}
+
 function normalizeUploadRows(rows: Record<string, string>[]) {
   return rows.map(row => {
     const normalized = Object.fromEntries(
-      Object.entries(row).map(([key, value]) => [key, String(value ?? '').trim()])
+      Object.entries(mapAddressColumns(row)).map(([key, value]) => [key, String(value ?? '').trim()])
     ) as Record<string, string>;
 
     DATE_COLUMNS.forEach((key) => {
@@ -190,7 +243,23 @@ function normalizeUploadRows(rows: Record<string, string>[]) {
     NAME_COLUMNS.forEach((key) => {
       normalized[key] = toProperCase(normalized[key]);
     });
+    ADDRESS_COLUMNS.forEach((key) => {
+      normalized[key] = toProperCase(normalized[key]);
+    });
     normalized.email = cleanEmail(normalized.email || '');
+
+    const addr = normalizeStudentAddress({
+      address: normalized.address,
+      apt: normalized.apt,
+      city: normalized.city,
+      state: normalized.state,
+      zip: normalized.zip,
+    });
+    normalized.address = addr.address;
+    normalized.apt = addr.apt;
+    normalized.city = addr.city;
+    normalized.state = addr.state;
+    normalized.zip = addr.zip;
 
     return normalized;
   });
@@ -212,6 +281,13 @@ export default function BulkUploadPage() {
   const [previewFilter, setPreviewFilter] = useState<'all' | 'ready' | 'issues'>('all');
   const [autoCreateCabinets, setAutoCreateCabinets] = useState(true);
   const [schoolAgencyId, setSchoolAgencyId] = useState<string>('');
+  const [geoclientConfigured, setGeoclientConfigured] = useState<boolean | null>(null);
+  const [geoclientVerifying, setGeoclientVerifying] = useState(false);
+  const [geoclientByIndex, setGeoclientByIndex] = useState<Record<number, {
+    status: string;
+    warnings: string[];
+    standardized?: { address: string; apt?: string; city: string; state: string; zip: string };
+  }>>({});
   const inputRef = useRef<HTMLInputElement>(null);
 
   // Fetch cabinets, existing students, and school agency ID on component mount
@@ -243,6 +319,10 @@ export default function BulkUploadPage() {
       }
     }
     fetchUploadContext();
+    fetch('/api/admin/addresses/verify')
+      .then(r => r.json())
+      .then(d => setGeoclientConfigured(Boolean(d.configured)))
+      .catch(() => setGeoclientConfigured(false));
   }, [status, session]);
 
   function isValidDate(value: any) {
@@ -368,6 +448,30 @@ export default function BulkUploadPage() {
       if (row.firstName && row.lastName && row.dob && existingNameDob.has(nameDob)) issues.push('Same name & DOB already in system');
       if (row.firstName && row.lastName && row.dob && (fileNameDob.get(nameDob) || 0) > 1) issues.push('Same name & DOB repeated in file');
 
+      const addressCheck = validateStudentAddress({
+        address: row.address,
+        apt: row.apt,
+        city: row.city,
+        state: row.state,
+        zip: row.zip,
+      });
+      if (addressCheck.status === 'warning') {
+        addressCheck.warnings.forEach(w => warnings.push(`Address: ${w}`));
+      }
+
+      const geo = geoclientByIndex[index];
+      if (geo) {
+        if (geo.status === 'verified') {
+          warnings.push('Geoclient: verified');
+        } else if (geo.status === 'not_found') {
+          warnings.push('Geoclient: address not found in NYC');
+        } else if (geo.status === 'warning') {
+          geo.warnings.forEach(w => warnings.push(`Geoclient: ${w}`));
+        } else if (geo.status === 'error') {
+          geo.warnings.forEach(w => warnings.push(`Geoclient: ${w}`));
+        }
+      }
+
       // ── Fuzzy "possible same person" warnings ──────────────────────────────
       // Only compare within same-DOB bucket — O(k) not O(n). Most DOBs are
       // unique so k ≈ 1–3, keeping this fast even for thousands of rows.
@@ -389,7 +493,7 @@ export default function BulkUploadPage() {
 
       return { row, index, labelId, studentId, issues, warnings };
     });
-  }, [preview, existingStudents, selectedCabinet, selectedDrawer]);
+  }, [preview, existingStudents, selectedCabinet, selectedDrawer, geoclientByIndex]);
 
   const issueCount = validationRows.reduce((sum, row) => sum + row.issues.length, 0);
   const rowsWithIssues = validationRows.filter(row => row.issues.length > 0);
@@ -442,6 +546,68 @@ export default function BulkUploadPage() {
     inputRef.current?.click();
   }
 
+  async function handleGeoclientVerify() {
+    setGeoclientVerifying(true);
+    setError('');
+    try {
+      const rows = preview
+        .map((row, index) => ({
+          index,
+          address: row.address,
+          apt: row.apt,
+          city: row.city,
+          state: row.state,
+          zip: row.zip,
+        }))
+        .filter(r => r.address || r.apt || r.city || r.zip);
+
+      if (rows.length === 0) {
+        setError('No address fields found in the preview to verify.');
+        return;
+      }
+
+      const res = await fetch('/api/admin/addresses/verify', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ mode: 'preview', rows, limit: 100 }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setError(data.error || 'NYC Geoclient verification failed.');
+        return;
+      }
+
+      const map: typeof geoclientByIndex = {};
+      for (const item of data.results || []) {
+        map[item.index] = {
+          status: item.status,
+          warnings: item.warnings || [],
+          standardized: item.standardized,
+        };
+      }
+      setGeoclientByIndex(map);
+    } catch {
+      setError('NYC Geoclient verification failed. Check API keys and try again.');
+    } finally {
+      setGeoclientVerifying(false);
+    }
+  }
+
+  function applyGeoclientStandardized() {
+    setPreview(current => current.map((row, index) => {
+      const geo = geoclientByIndex[index];
+      if (!geo?.standardized || !['verified', 'warning'].includes(geo.status)) return row;
+      return {
+        ...row,
+        address: geo.standardized.address || row.address,
+        apt: geo.standardized.apt || row.apt,
+        city: geo.standardized.city || row.city,
+        state: geo.standardized.state || row.state,
+        zip: geo.standardized.zip || row.zip,
+      };
+    }));
+  }
+
   function handleFile(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -454,6 +620,7 @@ export default function BulkUploadPage() {
       if (!data) return;
       try {
         setPreview(normalizeUploadRows(parseCsvToObjects(String(data))));
+        setGeoclientByIndex({});
       } catch (err) {
         setError('Failed to parse file. Please ensure it is a valid CSV file.');
         setPreview([]);
@@ -502,6 +669,31 @@ export default function BulkUploadPage() {
       }
       const studentsToUpload = readyRows.map((validationRow) => {
         const student = { ...validationRow.row };
+        const addressCheck = validateStudentAddress({
+          address: student.address,
+          apt: student.apt,
+          city: student.city,
+          state: student.state,
+          zip: student.zip,
+        });
+        student.address = addressCheck.normalized.address || undefined;
+        student.apt = addressCheck.normalized.apt || undefined;
+        student.city = addressCheck.normalized.city || undefined;
+        student.state = addressCheck.normalized.state || undefined;
+        student.zip = addressCheck.normalized.zip || undefined;
+        const geo = geoclientByIndex[validationRow.index];
+        student.addressFlags = [
+          ...(addressCheck.flags || []),
+          ...(geo?.warnings?.length ? ['geoclient_checked'] : []),
+        ];
+        student.addressValidationStatus = geo?.status === 'verified'
+          ? 'verified'
+          : geo?.status === 'not_found'
+            ? 'not_found'
+            : addressCheck.status;
+        if (geo?.standardized && ['verified', 'warning'].includes(geo.status)) {
+          student.addressStandardized = geo.standardized;
+        }
         // Always set labelId (barcode ID) and let the server generate the demographic studentId
         student.labelId = validationRow.labelId;
         // Remove any legacy studentId from the CSV so the server generates the new demographic one
@@ -729,7 +921,7 @@ export default function BulkUploadPage() {
               {issueCount > 0 && <Badge variant="destructive">{issueCount} issue(s)</Badge>}
               {warningCount > 0 && (
                 <Badge className="bg-amber-100 text-amber-800 border border-amber-300 hover:bg-amber-100 dark:bg-amber-900/40 dark:text-amber-300 dark:border-amber-700">
-                  ⚠ {warningCount} possible duplicate(s)
+                  ⚠ {warningCount} warning{warningCount !== 1 ? 's' : ''} (duplicates / addresses)
                 </Badge>
               )}
             </div>
@@ -801,6 +993,44 @@ export default function BulkUploadPage() {
                 </AlertDescription>
               </Alert>
             </div>
+            {geoclientConfigured === false && (
+              <Alert>
+                <MapPin className="h-4 w-4" />
+                <AlertTitle>NYC Geoclient not configured</AlertTitle>
+                <AlertDescription>
+                  Add <code className="text-xs">NYC_GEOCLIENT_SUBSCRIPTION_KEY</code> (or{' '}
+                  <code className="text-xs">NYC_GEOCLIENT_APP_KEY</code>) from the NYC API portal.
+                </AlertDescription>
+              </Alert>
+            )}
+            {geoclientConfigured && (
+              <div className="flex flex-wrap items-center gap-2 rounded-md border border-blue-200 bg-blue-50/60 dark:bg-blue-950/20 dark:border-blue-800 p-3">
+                <MapPin className="h-4 w-4 text-blue-600 shrink-0" />
+                <div className="flex-1 min-w-[200px]">
+                  <p className="text-sm font-medium text-blue-900 dark:text-blue-100">NYC Geoclient (Phase 2)</p>
+                  <p className="text-xs text-blue-800/90 dark:text-blue-200/90">
+                    Verify NYC addresses against official Geosupport data. Imports still save as entered unless you apply standardized values.
+                  </p>
+                </div>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="gap-1.5 bg-background"
+                  disabled={geoclientVerifying}
+                  onClick={handleGeoclientVerify}
+                >
+                  {geoclientVerifying
+                    ? <><Loader2 className="h-3.5 w-3.5 animate-spin" /> Verifying…</>
+                    : <><MapPin className="h-3.5 w-3.5" /> Verify addresses</>}
+                </Button>
+                {Object.keys(geoclientByIndex).length > 0 && (
+                  <Button type="button" size="sm" variant="secondary" onClick={applyGeoclientStandardized}>
+                    Apply standardized
+                  </Button>
+                )}
+              </div>
+            )}
             <div className="flex flex-wrap items-center gap-2 rounded-md border bg-muted/30 p-2">
               <span className="px-1 text-sm font-medium text-muted-foreground">Show:</span>
               <Button
@@ -1030,10 +1260,10 @@ export default function BulkUploadPage() {
                 </CardHeader>
                 <CardContent>
                   <pre className="overflow-x-auto rounded-lg bg-muted p-3 text-xs">
-{`firstName,lastName,dob,fiscalYear,status,startDate,email,studentId`}
+{`firstName,lastName,dob,fiscalYear,status,startDate,email,studentId,address,apt,city,state,zip`}
                   </pre>
                   <p className="text-sm text-muted-foreground mt-3">
-                    `studentId` is optional. If blank, the app generates one from DOB and initials.
+                    `studentId` is optional. Address columns are optional — imported as entered, with amber warnings for likely NYC/ZIP mismatches.
                   </p>
                 </CardContent>
               </Card>
@@ -1061,7 +1291,15 @@ export default function BulkUploadPage() {
                 </li>
                 <li className="flex gap-2">
                   <span className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-primary" />
-                  The preview checks duplicate student IDs, duplicate emails, same name + DOB, invalid dates, unknown statuses, and drawer capacity.
+                  The preview checks duplicate student IDs, duplicate emails, same name + DOB, invalid dates, unknown statuses, drawer capacity, and address/ZIP mismatches (warnings only — upload still proceeds).
+                </li>
+                <li className="flex gap-2">
+                  <span className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-primary" />
+                  Apartment/unit can be in the <code className="text-xs">address</code> column (e.g. <code className="text-xs">690 Grand St Apt 4B</code>) or a separate <code className="text-xs">apt</code>, <code className="text-xs">unit</code>, or <code className="text-xs">address2</code> column — it is stored in its own <code className="text-xs">apt</code> field and kept after NYC Geoclient verify.
+                </li>
+                <li className="flex gap-2">
+                  <span className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-primary" />
+                  Addresses import as entered. NYC ZIP/city checks flag likely errors (e.g. Queens address with Manhattan ZIP). Use Verify addresses to apply standardized building data while keeping the apt.
                 </li>
                 <li className="flex gap-2">
                   <span className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-primary" />

@@ -1,25 +1,62 @@
 ---
 title: Duplicates and siblings
-description: Review flagged and auto-detected duplicate student records.
+description: Review flagged and auto-detected duplicate student records with address comparison.
 ---
 
-Data Leads use **Admin → Duplicates** (`/admin/duplicates`) to resolve potential duplicate records.
+Data Leads use **Admin → Duplicates** (`/admin/duplicates`) to resolve potential duplicate records. Each pair shows **home addresses** and how they compare.
+
+## Who can access
+
+**Admin** and **Data Lead** only.
 
 ## Flagged section
 
 Students marked by Intake Members with **This is a different person** appear here for review.
 
+Intake may flag a pair when names and DOB are similar but the student insists they are a different person — often siblings.
+
 ## Auto-detected section
 
-The system scans all students for same DOB + similar name — no manual flagging required.
+The system scans students for:
+
+- **Same DOB + similar name** (fuzzy match, including middle-name omissions), **or**
+- **Same DOB + same home address** (even when names do not fuzzy-match)
+
+Pairs already confirmed as siblings, manually dismissed, or still flagged in the first section are excluded.
+
+## Address comparison
+
+Between each pair, a comparison block shows:
+
+| Badge | Meaning |
+| --- | --- |
+| **Same verified address** | NYC-standardized data matches |
+| **Same address** | Street, apt, city, and ZIP align |
+| **Same building** | Same building, different unit — likely siblings |
+| **Different address** | Different homes — sibling at new address or possible move |
+
+<Tip>
+  **Matched by address** appears when the pair was surfaced primarily by home address, not name similarity.
+</Tip>
+
+Each student card also shows their formatted address (street + apt on one line, city/state/ZIP below) and a **Verified** badge when NYC Geoclient confirmed the record.
 
 ## Actions
 
 | Action | Result |
 | --- | --- |
 | **Confirm Siblings** | Links both records bidirectionally; sibling badge appears on student pages |
-| **Merge Records** | Copies missing fields from secondary to primary and removes the duplicate |
+| **Merge Records** | Copies missing fields (including address and apt) from secondary to primary and removes the duplicate |
 | **Dismiss / Not a duplicate** | Hides the pair permanently |
+
+<Warning>
+  **Merge** permanently deletes the non-primary record and frees its drawer slot. Choose the record with the most complete data as primary.
+</Warning>
+
+## Related pages
+
+- [Intake workflow](/workflows/intake) — how intake flags siblings and runs address-aware duplicate checks
+- [Address and NYC verification](/reference/address-and-verification)
 
 <Frame caption="Placeholder — Admin → Duplicates with flagged and auto-detected pairs.">
   <img src="/images/placeholders/duplicates-page.svg" alt="Placeholder: Duplicates review page" />

@@ -1,6 +1,6 @@
 ---
 title: Bulk upload
-description: Import students from CSV with validation.
+description: Import students from CSV with address columns, apt field, and NYC Geoclient verification.
 ---
 
 **Admin → Bulk Upload** (`/admin/students/bulk-upload`)
@@ -10,16 +10,48 @@ description: Import students from CSV with validation.
 Cabinet and drawer are selected on the upload screen for the entire file.
 
 ```csv
-firstName, lastName, dob
-fiscalYear, status, startDate
-email, phone, gender, program
+firstName,lastName,dob,fiscalYear,status,startDate,email
 ```
+
+`studentId` in the CSV is optional — the server generates Label ID and demographic Student ID.
+
+## Optional address columns
+
+```csv
+address,apt,city,state,zip
+```
+
+| Column | Example | Notes |
+| --- | --- | --- |
+| `address` | `690 Grand St` | Street / building |
+| `apt` | `4B` | Also accepts `unit`, `suite`, `address2`, `AddressLine2` |
+| `city` | `Brooklyn` | Borough or city |
+| `state` | `NY` | |
+| `zip` | `11211` | |
+
+<Tip>
+  Apartment can live in `address` (e.g. `690 Grand St Apt 4B`) **or** a separate `apt` column. On import, the system normalizes into street + `apt` fields.
+</Tip>
 
 ## Features
 
 - Download CSV template or sample file from the upload page
 - Preview rows before saving with inline editing
 - Validates missing names, invalid dates, placeholder emails, and duplicates
+- **Address warnings** — NYC ZIP/borough mismatches flagged in amber (upload is not blocked)
+- **Verify addresses** — NYC Geoclient batch verify on preview; **Apply standardized** updates street while keeping apt
 - Auto-generates Label ID and Student ID for each row
 
+### CSV template
+
+```csv
+firstName,lastName,dob,fiscalYear,status,startDate,email,studentId,address,apt,city,state,zip
+```
+
 Sample files in the app: `/student_bulk_upload_template.csv` and `/student_bulk_upload_sample.csv`
+
+## After import
+
+Review and verify addresses school-wide on **Admin → All Students** (`/admin/students/all`).
+
+See [Address and NYC verification](/reference/address-and-verification) for the full verify workflow.

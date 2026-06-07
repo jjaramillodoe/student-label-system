@@ -6,9 +6,15 @@ import { useRouter } from 'next/navigation';
 import AdminHeader from '@/components/AdminHeader';
 import {
   Users, GitMerge, CheckCheck, X, RefreshCw, Loader2,
-  AlertTriangle, ChevronRight, Info,
+  AlertTriangle, ChevronRight, Info, MapPin,
   ArrowLeft,
 } from 'lucide-react';
+import {
+  addressMatchHint,
+  addressMatchLabel,
+  type AddressMatchKind,
+} from '@/lib/addressDuplicate';
+import { formatStudentAddressStacked } from '@/lib/addressValidation';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -19,6 +25,17 @@ import {
 } from '@/components/ui/dialog';
 import { Separator } from '@/components/ui/separator';
 import { Skeleton } from '@/components/ui/skeleton';
+
+interface AddressComparison {
+  match: AddressMatchKind;
+  flaggedDisplay?: string | null;
+  matchDisplay?: string | null;
+  flaggedVerified?: boolean;
+  matchVerified?: boolean;
+  label?: string;
+  hint?: string;
+  addressDriven?: boolean;
+}
 
 interface StudentRecord {
   _id: string;
@@ -38,6 +55,13 @@ interface StudentRecord {
   createdAt?: string;
   siblingFlag?: boolean;
   siblingConfirmed?: boolean;
+  address?: string;
+  apt?: string;
+  city?: string;
+  state?: string;
+  zip?: string;
+  addressValidationStatus?: string;
+  addressComparison?: AddressComparison;
 }
 
 interface DuplicatePair {
@@ -56,6 +80,98 @@ function Field({ label, value }: { label: string; value?: string | null }) {
     <div className="text-sm">
       <span className="text-muted-foreground">{label}: </span>
       <span className="font-medium">{value}</span>
+    </div>
+  );
+}
+
+function addressMatchBadgeClass(match?: AddressMatchKind): string {
+  switch (match) {
+    case 'same_verified':
+      return 'bg-green-100 text-green-800 border-green-300';
+    case 'same':
+    case 'similar':
+      return 'bg-emerald-50 text-emerald-800 border-emerald-300';
+    case 'different':
+      return 'bg-sky-50 text-sky-800 border-sky-300';
+    case 'incoming_missing':
+    case 'existing_missing':
+    case 'both_missing':
+      return 'bg-amber-50 text-amber-800 border-amber-300';
+    default:
+      return 'bg-slate-50 text-slate-600 border-slate-300';
+  }
+}
+
+function AddressBlock({ student }: { student: Pick<StudentRecord, 'address' | 'apt' | 'city' | 'state' | 'zip' | 'addressValidationStatus'> }) {
+  const stacked = formatStudentAddressStacked(student);
+  if (!stacked?.streetLine && !stacked?.cityStateZip) {
+    return (
+      <div className="text-sm text-muted-foreground flex items-center gap-1">
+        <MapPin className="h-3 w-3 shrink-0" />
+        <span>Address: —</span>
+      </div>
+    );
+  }
+
+  return (
+    <div className="text-sm space-y-0.5">
+      <div className="flex items-center gap-1 text-muted-foreground">
+        <MapPin className="h-3 w-3 shrink-0" />
+        <span>Address</span>
+        {student.addressValidationStatus === 'verified' && (
+          <Badge variant="outline" className="text-[9px] h-4 px-1 bg-green-50 text-green-700 border-green-300">
+            Verified
+          </Badge>
+        )}
+      </div>
+      {stacked.streetLine && (
+        <div className="font-medium text-foreground pl-4">{stacked.streetLine}</div>
+      )}
+      {stacked.cityStateZip && (
+        <div className="text-xs text-muted-foreground pl-4">{stacked.cityStateZip}</div>
+      )}
+    </div>
+  );
+}
+
+function AddressComparisonBlock({ comparison }: { comparison: AddressComparison }) {
+  return (
+    <div className="rounded-md border border-dashed bg-muted/40 px-3 py-2.5 text-xs space-y-2">
+      <div className="flex flex-wrap items-center gap-1.5">
+        <Badge
+          variant="outline"
+          title={comparison.hint || addressMatchHint(comparison.match)}
+          className={`text-[10px] ${addressMatchBadgeClass(comparison.match)}`}
+        >
+          {comparison.label || addressMatchLabel(comparison.match)}
+        </Badge>
+        {comparison.addressDriven && (
+          <Badge variant="outline" className="text-[10px]">Matched by address</Badge>
+        )}
+        {(comparison.flaggedVerified || comparison.matchVerified) && (
+          <span className="text-[10px] text-muted-foreground">NYC verified on file</span>
+        )}
+      </div>
+      {comparison.flaggedDisplay && (
+        <p className="text-muted-foreground">
+          <span className="text-foreground/80">Record A:</span> {comparison.flaggedDisplay}
+        </p>
+      )}
+      {comparison.matchDisplay && (
+        <p className="text-muted-foreground">
+          <span className="text-foreground/80">Record B:</span> {comparison.matchDisplay}
+        </p>
+      )}
+      {comparison.match === 'different' && (
+        <p className="text-[10px] text-sky-700 dark:text-sky-300 italic">
+          Addresses differ — may be siblings at different homes, or one student may have moved.
+        </p>
+      )}
+      {comparison.match === 'similar' && (
+        <p className="text-[10px] text-emerald-700 dark:text-emerald-300 italic">
+          Same building — likely siblings in different apartments.
+        </p>
+      )}
     </div>
   );
 }
@@ -105,6 +221,7 @@ function StudentCard({
       <div className="space-y-1">
         <Field label="DOB"      value={student.dob} />
         <Field label="School"   value={student.school} />
+        <AddressBlock student={student} />
         <Field label="Email"    value={student.email} />
         <Field label="Phone"    value={student.phone} />
         <Field label="Program"  value={student.program} />
@@ -175,6 +292,9 @@ function PairCard({
                 <StudentCard student={flagged} role={isAuto ? 'match' : 'flagged'} isPrimary={false} />
                 <StudentCard student={match} role="match" isPrimary={false} />
               </div>
+              {match.addressComparison && (
+                <AddressComparisonBlock comparison={match.addressComparison} />
+              )}
               <div className="flex flex-wrap gap-2 pt-1">
                 <Button size="sm" variant="outline"
                   className="gap-1.5 border-green-400 text-green-700 hover:bg-green-50 dark:hover:bg-green-950/20"
@@ -347,7 +467,8 @@ export default function DuplicatesPage() {
           <AlertDescription>
             <strong>Confirm Siblings</strong> — keeps both records and marks them as confirmed siblings. &nbsp;
             <strong>Merge</strong> — choose which record to keep; the other is deleted and its drawer space freed. &nbsp;
-            <strong>Dismiss</strong> — clears the flag; treats them as unrelated people.
+            <strong>Dismiss</strong> — clears the flag; treats them as unrelated people. &nbsp;
+            Home addresses are compared using NYC-standardized data when available — same address strengthens the match; different addresses may indicate siblings or a move.
           </AlertDescription>
         </Alert>
 
@@ -395,7 +516,7 @@ export default function DuplicatesPage() {
               <Users className="h-5 w-5 text-blue-500" />
               <h2 className="text-lg font-semibold">Auto-Detected Similar Records</h2>
               <Badge variant="outline" className="text-xs">{autoPairs.length}</Badge>
-              <span className="text-xs text-muted-foreground">— same DOB + similar name, not yet reviewed</span>
+              <span className="text-xs text-muted-foreground">— same DOB + similar name or same address, not yet reviewed</span>
             </div>
             {autoPairs.map(({ flagged, matches }) => (
               <PairCard

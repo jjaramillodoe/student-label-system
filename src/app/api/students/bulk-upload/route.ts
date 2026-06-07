@@ -35,6 +35,14 @@ type StudentUploadRow = {
   status: string;
   startDate: string;
   email?: string;
+  address?: string;
+  apt?: string;
+  city?: string;
+  state?: string;
+  zip?: string;
+  addressFlags?: string[];
+  addressValidationStatus?: string;
+  addressStandardized?: { address: string; apt?: string; city: string; state: string; zip: string };
   /** Barcode label ID supplied by the client preview (may be absent for legacy uploads) */
   labelId?: string;
   /** Legacy field — ignored on upload; server generates the new demographic ID */
@@ -310,12 +318,27 @@ export async function POST(req: NextRequest) {
         studentId,
         agencyId,
         email: student.email || null,
+        address: student.address || null,
+        apt: student.apt || null,
+        city: student.city || null,
+        state: student.state || null,
+        zip: student.zip || null,
+        addressFlags: student.addressFlags?.length ? student.addressFlags : undefined,
+        addressValidationStatus: student.addressValidationStatus || (student.address ? 'unverified' : 'empty'),
+        addressStandardized: student.addressStandardized,
+        addressVerifiedAt: student.addressValidationStatus === 'verified' ? now : undefined,
         endDate: null,
         archived: false,
         cabinet: slot.cabinet._id.toString(),
         drawer: slot.drawer._id,
         school,
         createdAt: now,
+        updatedAt: now,
+        createdBy: {
+          name: session.user.name || session.user.email || 'Unknown',
+          email: session.user.email || '',
+        },
+        importSource: 'bulk-upload',
       };
     });
 

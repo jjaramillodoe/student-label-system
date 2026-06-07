@@ -11,6 +11,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { getCurrentFiscalYear } from '@/lib/fiscalYear';
+import { leadershipToFormFields } from '@/lib/schoolLeadership';
 import { schoolNameToSlug } from '@/lib/schoolSlug';
 
 type SchoolConfig = {
@@ -22,6 +23,8 @@ type SchoolConfig = {
   intakeSessions?: string[];
   intakeActivities?: string[];
   currentFiscalYear?: string;
+  principal?: { name: string; email?: string; phone?: string } | null;
+  assistantPrincipals?: { name: string; email?: string; phone?: string }[];
   isDefault?: boolean;
 };
 
@@ -34,6 +37,7 @@ function schoolToForm(school: SchoolConfig): SchoolFormState {
     currentFiscalYear: school.currentFiscalYear || getCurrentFiscalYear(),
     intakeSessions: school.intakeSessions ?? [],
     intakeActivities: school.intakeActivities ?? [],
+    ...leadershipToFormFields(school),
   };
 }
 
@@ -50,6 +54,7 @@ export default function EditSchoolPage({ params }: { params: Promise<{ slug: str
     currentFiscalYear: getCurrentFiscalYear(),
     intakeSessions: [],
     intakeActivities: [],
+    ...leadershipToFormFields({}),
   });
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -122,6 +127,8 @@ export default function EditSchoolPage({ params }: { params: Promise<{ slug: str
                 intakeSessions: form.intakeSessions,
                 intakeActivities: form.intakeActivities,
                 currentFiscalYear: form.currentFiscalYear,
+                principal: form.principal,
+                assistantPrincipals: form.assistantPrincipals,
               }
             : persisted
               ? { _id: persisted._id, ...form }
@@ -133,7 +140,7 @@ export default function EditSchoolPage({ params }: { params: Promise<{ slug: str
 
       setSuccess(
         isDataLead
-          ? 'Intake settings saved.'
+          ? 'School settings saved.'
           : persisted
             ? 'School/program updated.'
             : 'School/program saved as a custom entry.',
@@ -192,12 +199,12 @@ export default function EditSchoolPage({ params }: { params: Promise<{ slug: str
         <div className="space-y-1">
           <h1 className="text-3xl font-bold flex items-center gap-2">
             <Building2 className="h-8 w-8" />
-            {isDataLead ? 'Edit Intake Settings' : 'Edit School/Program'}
+            {isDataLead ? 'Edit School Settings' : 'Edit School/Program'}
           </h1>
           <p className="text-muted-foreground">
             {isDataLead
-              ? `Configure intake options for ${school.name}.`
-              : 'Update how this option appears in dropdowns and on the intake form.'}
+              ? `Configure leadership contacts and intake options for ${school.name}.`
+              : 'Update school details, leadership, and intake form options.'}
           </p>
         </div>
 

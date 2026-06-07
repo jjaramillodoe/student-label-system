@@ -3,51 +3,128 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/authOptions';
 import clientPromise from '@/lib/mongodb';
 import { nameSim, matchPercent, isPossibleDuplicate } from '@/lib/fuzzyName';
+import {
+  boostMatchPercentForAddress,
+  compareStudentAddresses,
+  hasComparableAddress,
+  type IncomingAddressCheck,
+  type StudentAddressRecord,
+} from '@/lib/addressDuplicate';
+
+const STUDENT_PROJECTION = {
+  firstName: 1,
+  lastName: 1,
+  dob: 1,
+  labelId: 1,
+  studentId: 1,
+  school: 1,
+  status: 1,
+  email: 1,
+  cabinet: 1,
+  address: 1,
+  apt: 1,
+  city: 1,
+  state: 1,
+  zip: 1,
+  addressStandardized: 1,
+  addressGeoclient: 1,
+  addressValidationStatus: 1,
+};
+
+function annotateMatch(
+  student: Record<string, unknown>,
+  incoming: { firstName: string; lastName: string; dob: string },
+  incomingAddress: IncomingAddressCheck,
+  baseSimilarity?: number,
+) {
+  const address = compareStudentAddresses(
+    incomingAddress,
+    student as StudentAddressRecord,
+  );
+  const similarity = baseSimilarity != null
+    ? boostMatchPercentForAddress(baseSimilarity, address.match)
+    : undefined;
+
+  return {
+    ...student,
+    _addressMatch: address.match,
+    _addressIncoming: address.incomingDisplay,
+    _addressExisting: address.existingDisplay,
+    _addressExistingVerified: address.existingVerified,
+    ...(similarity != null ? { _similarity: similarity } : {}),
+  };
+}
+
+function isSameAddressMatch(match: string): boolean {
+  return match === 'same_verified' || match === 'same' || match === 'similar';
+}
 
 export async function POST(request: Request) {
   try {
     const session = await getServerSession(authOptions);
     if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
-    const { firstName, lastName, dob } = await request.json();
+    const body = await request.json();
+    const { firstName, lastName, dob } = body;
     if (!firstName || !lastName || !dob) {
       return NextResponse.json({ exact: [], fuzzy: [] });
     }
 
+    const incomingAddress: IncomingAddressCheck = {
+      address: body.address,
+      apt: body.apt,
+      city: body.city,
+      state: body.state,
+      zip: body.zip,
+      standardized: body.standardized ?? null,
+      geoclient: body.geoclient ?? null,
+    };
+
     const client = await clientPromise;
     const db = client.db('student-label');
 
-    const scopeQuery: Record<string, any> =
+    const scopeQuery: Record<string, unknown> =
       session.user.role !== 'Admin' && session.user.school
         ? { school: session.user.school }
         : {};
 
-    // ── Fast pre-filter: same DOB bucket ──────────────────────────────────────
+    const incoming = { firstName, lastName, dob };
+    const exact: Record<string, unknown>[] = [];
+    const fuzzy: Record<string, unknown>[] = [];
+    const seenIds = new Set<string>();
+
     const sameDobStudents = await db
       .collection('students')
       .find({ ...scopeQuery, dob })
-      .project({ firstName: 1, lastName: 1, dob: 1, labelId: 1, studentId: 1, school: 1, status: 1, email: 1, cabinet: 1 })
+      .project(STUDENT_PROJECTION)
       .toArray();
 
-    const incoming = { firstName, lastName, dob };
-    const exact: any[] = [];
-    const fuzzy: any[] = [];
-
     for (const s of sameDobStudents) {
+      const id = String(s._id);
+      seenIds.add(id);
       const fullIncoming = `${firstName} ${lastName}`.trim().toLowerCase();
       const fullExisting = `${s.firstName} ${s.lastName}`.trim().toLowerCase();
 
       if (fullIncoming === fullExisting) {
-        // Exact name + exact DOB
-        exact.push(s);
+        exact.push(annotateMatch(s, incoming, incomingAddress));
       } else if (isPossibleDuplicate(incoming, s)) {
-        // Fuzzy / partial-name match — compute display percentage
         const pct = matchPercent(incoming, s);
-        fuzzy.push({ ...s, _similarity: pct });
+        fuzzy.push(annotateMatch(s, incoming, incomingAddress, pct));
+      } else if (hasComparableAddress(incomingAddress)) {
+        const addressCmp = compareStudentAddresses(incomingAddress, s as StudentAddressRecord);
+        if (isSameAddressMatch(addressCmp.match)) {
+          const pct = boostMatchPercentForAddress(
+            Math.round(nameSim(`${firstName} ${lastName}`, `${s.firstName} ${s.lastName}`) * 100),
+            addressCmp.match,
+          );
+          fuzzy.push({
+            ...annotateMatch(s, incoming, incomingAddress, pct),
+            _addressDriven: true,
+          });
+        }
       }
     }
 
-    // ── Also check for exact name match across any DOB (DOB data-entry errors) ─
     const exactNameOtherDob = await db
       .collection('students')
       .find({
@@ -56,17 +133,24 @@ export async function POST(request: Request) {
         lastName: { $regex: new RegExp(`^${lastName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i') },
         dob: { $ne: dob },
       })
-      .project({ firstName: 1, lastName: 1, dob: 1, labelId: 1, studentId: 1, school: 1, status: 1, email: 1 })
+      .project(STUDENT_PROJECTION)
       .limit(5)
       .toArray();
 
-    const nameOnlyMatches = exactNameOtherDob.map(s => ({
-      ...s,
-      _dobMismatch: true,
-      _similarity: Math.round(nameSim(`${firstName} ${lastName}`, `${s.firstName} ${s.lastName}`) * 100),
-    }));
+    for (const s of exactNameOtherDob) {
+      const id = String(s._id);
+      if (seenIds.has(id)) continue;
+      seenIds.add(id);
+      const pct = Math.round(
+        nameSim(`${firstName} ${lastName}`, `${s.firstName} ${s.lastName}`) * 100,
+      );
+      fuzzy.push({
+        ...annotateMatch(s, incoming, incomingAddress, pct),
+        _dobMismatch: true,
+      });
+    }
 
-    return NextResponse.json({ exact, fuzzy: [...fuzzy, ...nameOnlyMatches] });
+    return NextResponse.json({ exact, fuzzy });
   } catch (error) {
     console.error('Intake check error:', error);
     return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });

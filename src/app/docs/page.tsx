@@ -2,7 +2,7 @@ import Link from 'next/link';
 import {
   Activity, Archive, Barcode, BookOpen, Boxes, Building2, CalendarRange,
   CheckCircle2, CopyCheck, FileSpreadsheet, HeartPulse,
-  KeyRound, Layers, Link2, Lock, Mail, MoveRight, PackageOpen, Printer,
+  KeyRound, Layers, Link2, Lock, Mail, MapPin, MoveRight, PackageOpen, Printer,
   QrCode, Search, Settings, Shield, ShieldCheck, Sparkles,
   Upload, UserPlus, Users, ClipboardList, TrendingUp,
 } from 'lucide-react';
@@ -67,7 +67,9 @@ const featureGroups = [
     isNew: true,
     items: [
       'Available only to Intake Members (and Admins/Data Leads for testing).',
-      'Live fuzzy duplicate check as you type — catches same DOB + similar name, even without a middle name.',
+      'NEW students: contact & address (street + separate Apt/Unit), paste/parse, NYC Geoclient verify, Google Maps link.',
+      'Live duplicate check uses name + home address — same address strengthens match; different address flags possible sibling or move.',
+      'RETURNING students: search on the same screen, visit history accordion, personal info and address locked; record today\'s visit only.',
       'Automatically assigns the next available cabinet/drawer slot.',
       'Prints a label (barcode + QR code) immediately after saving.',
       '"This is a different person" checkbox flags potential siblings for Data Lead review.',
@@ -82,9 +84,11 @@ const featureGroups = [
     isNew: true,
     items: [
       'Flagged section: students marked by Intake Members as potential duplicates.',
-      'Auto-detected section: system scans all students for same DOB + similar name — no manual flagging needed.',
+      'Auto-detected section: same DOB + similar name, or same DOB + same home address (even when names differ).',
+      'Each pair shows formatted addresses and comparison badges: Same verified / Same address / Same building / Different address.',
+      '"Matched by address" badge when the pair was found primarily by home address.',
       '"Confirm Siblings" links both records bidirectionally; sibling info appears on student detail page.',
-      '"Merge Records" copies missing fields from secondary to primary and removes the duplicate.',
+      '"Merge Records" copies missing fields (including address and apt) from secondary to primary and removes the duplicate.',
       '"Dismiss / Not a duplicate" hides the pair permanently (won\'t resurface on next load).',
     ],
   },
@@ -94,11 +98,26 @@ const featureGroups = [
     icon: Upload,
     items: [
       'Download a CSV template or sample CSV file.',
-      'Preview upload rows before creating records.',
+      'Optional address columns: address, apt, city, state, zip (apt also accepts unit, address2).',
+      'Preview upload rows before creating records; NYC Geoclient verify on preview with Apply standardized.',
       'Catches missing names, invalid dates, placeholder emails (n/a, na), and duplicate records.',
-      'Points out which existing student has a conflicting email.',
+      'Amber address warnings for likely NYC ZIP/borough mismatches — upload is not blocked.',
       'Edit preview rows inline before upload.',
       'Auto-generates Label ID and Student ID for every uploaded row.',
+    ],
+  },
+  {
+    title: 'Address Verification',
+    description: 'Street + apt fields, NYC Geoclient standardization, and address-aware duplicate matching.',
+    icon: MapPin,
+    isNew: true,
+    items: [
+      'Addresses stored as separate fields: street (address), apt, city, state, zip.',
+      'NYC Geoclient verifies the building; apartment/unit is preserved in the apt column.',
+      'Intake (NEW), bulk upload, All Students edit dialog, and batch verify on /admin/students/all.',
+      'Status badges: Verified, Warning, Not found, Unverified — filter and export by address status.',
+      'CSV export includes a separate Apt column for mail merge.',
+      'Legacy records with apt embedded in the street line are split automatically on read.',
     ],
   },
   {
@@ -221,6 +240,7 @@ const quickLinks = [
   { href: '/admin/school-year', label: 'School Year Rollover', icon: CalendarRange, isNew: true },
   { href: '/admin/cabinet-health', label: 'Cabinet Health', icon: HeartPulse },
   { href: '/admin/duplicates', label: 'Duplicates', icon: CopyCheck, isNew: true },
+  { href: '/admin/students/all', label: 'All Students', icon: Users, isNew: true },
   { href: '/admin/enrollment', label: 'Enrollment', icon: UserPlus, isNew: true },
   { href: '/admin/validation', label: 'Email Validation', icon: ShieldCheck, isNew: true },
   { href: '/admin/unassigned', label: 'Unassigned Queue', icon: Archive },
@@ -248,7 +268,10 @@ export default function DocsPage() {
                 Student Label System Guide
               </h1>
               <p className="text-muted-foreground mt-3 max-w-3xl">
-                A complete guide to all features, roles, scanning workflow, archive boxes, school year rollover, ID system, and admin tools.
+                A complete guide to all features, roles, intake, address verification, scanning workflow, archive boxes, school year rollover, ID system, and admin tools.
+              </p>
+              <p className="text-sm text-muted-foreground mt-2">
+                Long-form searchable docs (Mintlify) live in the <code className="text-xs bg-muted px-1 py-0.5 rounded">docs/</code> folder — preview locally with <code className="text-xs bg-muted px-1 py-0.5 rounded">mint dev</code> from that directory.
               </p>
             </div>
             <div className="flex flex-col sm:flex-row gap-2">
@@ -420,7 +443,8 @@ Agency IDs (set in Schools):
                 <pre className="overflow-x-auto rounded-lg bg-muted p-3 text-xs">
 {`firstName, lastName, dob
 fiscalYear, status, startDate
-email, phone, gender, program`}
+email, phone, gender, program
+address, apt, city, state, zip`}
                 </pre>
                 <div className="flex flex-wrap gap-2">
                   <Button variant="outline" size="sm" asChild>
@@ -472,13 +496,38 @@ email, phone, gender, program`}
             <CardContent className="pt-6">
               <ol className="space-y-3 text-sm">
                 {[
-                  { n: '1', label: 'Intake Member opens /intake and fills in the student\'s name and date of birth.' },
-                  { n: '2', label: 'The system runs a live fuzzy match — detects same DOB + similar name even without a middle name.' },
-                  { n: '3', label: 'If a match is found: review the record. If it\'s the same person, stop. If different (sibling/coincidence), check "This is a different person" to flag for Data Lead review.' },
-                  { n: '4', label: 'Use "Copy alert message" to instantly paste student details into Teams, email, or Slack to notify the Data Lead.' },
-                  { n: '5', label: 'Complete the form and submit. The system auto-assigns the next open cabinet/drawer slot.' },
-                  { n: '6', label: 'A label is printed on the spot with barcode (Label ID) and QR code.' },
-                  { n: '7', label: 'Data Lead reviews flagged records at /admin/duplicates: Confirm Siblings, Merge, or Dismiss.' },
+                  { n: '1', label: 'Intake Member opens /intake. Choose NEW (first visit) or RETURNING (search existing record).' },
+                  { n: '2', label: 'NEW: enter name, DOB, phone, email, and address (street + Apt/Unit). Verify with NYC Geoclient when available.' },
+                  { n: '3', label: 'Live duplicate check compares name and home address. Same address strengthens the match; different address may indicate siblings or a move.' },
+                  { n: '4', label: 'If a match is found: stop if same person; otherwise check "This is a different person" and use "Copy alert message" for the Data Lead.' },
+                  { n: '5', label: 'RETURNING: search, review visit history accordion, record today\'s visit only — personal info and address stay locked.' },
+                  { n: '6', label: 'Submit. The system auto-assigns the next open cabinet/drawer slot and prints a label (barcode + QR).' },
+                  { n: '7', label: 'Data Lead reviews /admin/duplicates with address comparison: Confirm Siblings, Merge, or Dismiss.' },
+                ].map(step => (
+                  <li key={step.n} className="flex gap-3">
+                    <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-primary text-xs font-bold text-primary-foreground">{step.n}</span>
+                    <span className="text-muted-foreground pt-0.5">{step.label}</span>
+                  </li>
+                ))}
+              </ol>
+            </CardContent>
+          </Card>
+        </section>
+
+        {/* Address verification workflow */}
+        <section>
+          <h2 className="text-2xl font-semibold mb-4 flex items-center gap-2">
+            <MapPin className="h-6 w-6 text-primary" /> Address Verification Workflow
+          </h2>
+          <Card>
+            <CardContent className="pt-6">
+              <ol className="space-y-3 text-sm">
+                {[
+                  { n: '1', label: 'Capture street and apt separately on Intake (NEW), bulk CSV (address + apt columns), or All Students edit dialog.' },
+                  { n: '2', label: 'NYC Geoclient verifies the building only — standardized street is saved; apt stays in its own field.' },
+                  { n: '3', label: 'On Admin → All Students, filter by address status and run Verify & save this page or Verify unverified batch.' },
+                  { n: '4', label: 'Use the pencil icon to fix typos, then re-verify. Export CSV includes Apt as a separate column for mail merge.' },
+                  { n: '5', label: 'Intake duplicate checks and Admin → Duplicates use the same address comparison (same building, different apt = likely siblings).' },
                 ].map(step => (
                   <li key={step.n} className="flex gap-3">
                     <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-primary text-xs font-bold text-primary-foreground">{step.n}</span>

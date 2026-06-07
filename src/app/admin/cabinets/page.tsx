@@ -439,7 +439,7 @@ export default function CabinetsPage() {
     
     const commonNames = ['Main Cabinet', 'Storage Cabinet', 'Archive Cabinet', 'Records Cabinet', 'Files Cabinet'];
     const drawerNames = ['Drawer A', 'Drawer B', 'Drawer C', 'Drawer D', 'Drawer E'];
-    const defaultCapacity = 100;
+    const defaultCapacity = 400;
     const defaultDrawerCount = 5;
     
     // Find a cabinet name that doesn't exist yet

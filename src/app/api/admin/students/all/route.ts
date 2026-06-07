@@ -10,8 +10,9 @@
  *   limit         number   (default 50, max 500)
  *   search        string   name / labelId / studentId / email
  *   school        string   Admin only — filter by school
- *   emailStatus   string   VALID | INVALID | CATCH_ALL | UNKNOWN | none | unvalidated | any
- *   format        csv      returns CSV text instead of JSON
+ *   emailStatus    string   VALID | INVALID | CATCH_ALL | UNKNOWN | none | unvalidated | any
+ *   addressStatus  string   empty | unverified | verified | warning | not_found | needs_review | any
+ *   format         csv      returns CSV text instead of JSON
  */
 
 import { NextRequest, NextResponse } from 'next/server';
@@ -33,8 +34,8 @@ async function buildCabinetMap(db: any) {
     const id   = c._id.toString();
     const name = c.name || c.label || id;
     const drawers = (c.drawers || []).map((d: any) => ({
-      id:   d._id?.toString() ?? '',
-      name: d.name || d._id?.toString() || '',
+      id:   String(d._id ?? d.id ?? ''),
+      name: d.name || String(d._id ?? d.id ?? ''),
     }));
     // Index by ObjectId string and by name
     map.set(id,   { name, drawers });
@@ -51,15 +52,17 @@ function resolveCabinetAndDrawer(
 ): { cabinetName: string; drawerName: string } {
   if (!cabinetRaw) return { cabinetName: '', drawerName: '' };
 
-  const entry = cabinetMap.get(cabinetRaw);
+  const cabinetKey = String(cabinetRaw);
+  const entry = cabinetMap.get(cabinetKey);
   if (!entry) return { cabinetName: cabinetRaw, drawerName: drawerRaw ?? '' };
 
   const cabinetName = entry.name;
   let drawerName = drawerRaw ?? '';
 
   if (drawerRaw) {
+    const drawerKey = String(drawerRaw);
     const match = entry.drawers.find(
-      d => d.id === drawerRaw || d.name === drawerRaw,
+      d => String(d.id) === drawerKey || d.name === drawerKey,
     );
     if (match) drawerName = match.name;
   }
@@ -82,6 +85,7 @@ function toCSV(rows: any[]): string {
   const headers = [
     'Label ID', 'Student ID', 'First Name', 'Last Name', 'DOB',
     'School', 'Cabinet', 'Drawer',
+    'Address', 'Apt', 'City', 'State', 'ZIP', 'Address Status', 'Address Verified At',
     'Email', 'Email Status', 'Email Validated At',
     'Sibling Confirmed', 'Created At', 'Created By',
   ];
@@ -96,6 +100,13 @@ function toCSV(rows: any[]): string {
       escapeCSV(r.school),
       escapeCSV(r.cabinetName || r.cabinet),
       escapeCSV(r.drawerName  || r.drawer),
+      escapeCSV(r.address),
+      escapeCSV(r.apt),
+      escapeCSV(r.city),
+      escapeCSV(r.state),
+      escapeCSV(r.zip),
+      escapeCSV(r.addressValidationStatus ?? ''),
+      escapeCSV(r.addressVerifiedAt ?? ''),
       escapeCSV(r.email),
       escapeCSV(r.emailValidationStatus ?? ''),
       escapeCSV(r.emailValidatedAt ?? ''),
@@ -123,7 +134,7 @@ export async function GET(req: NextRequest) {
   const session = await getServerSession(authOptions);
   const role = (session?.user as any)?.role;
   const userSchool = (session?.user as any)?.school;
-  if (!session || !['Admin', 'Data Lead'].includes(role)) {
+  if (!session || !['Admin', 'Data Lead', 'Data Member'].includes(role)) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
 
@@ -133,8 +144,9 @@ export async function GET(req: NextRequest) {
   const limit       = Math.min(Math.max(1, rawLimit), 500);
   const search      = searchParams.get('search')?.trim() ?? '';
   const schoolParam = searchParams.get('school')?.trim() ?? '';
-  const emailStatus = searchParams.get('emailStatus')?.trim() ?? '';
-  const format      = searchParams.get('format') ?? '';
+  const emailStatus   = searchParams.get('emailStatus')?.trim() ?? '';
+  const addressStatus = searchParams.get('addressStatus')?.trim() ?? '';
+  const format        = searchParams.get('format') ?? '';
 
   const client = await clientPromise;
   const db = client.db('student-label');
@@ -155,6 +167,33 @@ export async function GET(req: NextRequest) {
     filter.emailValidationStatus = { $in: [null, '', undefined] };
   } else if (['VALID', 'INVALID', 'CATCH_ALL', 'UNKNOWN'].includes(emailStatus)) {
     filter.emailValidationStatus = emailStatus;
+  }
+
+  if (addressStatus === 'empty') {
+    filter.$and = [
+      ...(Array.isArray(filter.$and) ? filter.$and : []),
+      {
+        $or: [
+          { address: { $in: [null, ''] } },
+          { address: { $exists: false } },
+        ],
+      },
+    ];
+  } else if (addressStatus === 'unverified') {
+    filter.address = { $exists: true, $nin: [null, ''] };
+    filter.$and = [
+      ...(Array.isArray(filter.$and) ? filter.$and : []),
+      {
+        $or: [
+          { addressValidationStatus: { $in: [null, '', 'unverified'] } },
+          { addressValidationStatus: { $exists: false } },
+        ],
+      },
+    ];
+  } else if (['verified', 'warning', 'not_found', 'error'].includes(addressStatus)) {
+    filter.addressValidationStatus = addressStatus;
+  } else if (addressStatus === 'needs_review') {
+    filter.addressValidationStatus = { $in: ['warning', 'not_found', 'error'] };
   }
 
   if (search) {

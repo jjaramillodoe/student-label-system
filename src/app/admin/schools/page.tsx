@@ -289,7 +289,7 @@ export default function SchoolsPage() {
             <CardTitle>{isDataLead ? 'Your School' : 'Allowed Schools And Programs'}</CardTitle>
             <CardDescription>
               {isDataLead
-                ? 'Edit intake sessions and activities for your assigned school.'
+                ? 'Edit principal, assistant principals, and intake settings for your assigned school.'
                 : 'Active options appear in school dropdowns. Click a school name or edit to open its settings page.'}
             </CardDescription>
           </CardHeader>
@@ -343,7 +343,7 @@ export default function SchoolsPage() {
                       <div className="flex justify-end gap-2">
                         <Button variant={isDataLead ? 'default' : 'ghost'} size="sm" onClick={() => openEditPage(school)}>
                           <Edit2 className="h-4 w-4" />
-                          {isDataLead && <span className="ml-2">Edit Intake Settings</span>}
+                          {isDataLead && <span className="ml-2">Edit settings</span>}
                         </Button>
                         {isAdmin && (
                           <Button

@@ -10,6 +10,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { getCurrentFiscalYear } from '@/lib/fiscalYear';
+import { leadershipToFormFields } from '@/lib/schoolLeadership';
 import { schoolNameToSlug } from '@/lib/schoolSlug';
 
 const EMPTY_FORM: SchoolFormState = {
@@ -20,6 +21,7 @@ const EMPTY_FORM: SchoolFormState = {
   currentFiscalYear: getCurrentFiscalYear(),
   intakeSessions: [],
   intakeActivities: [],
+  ...leadershipToFormFields({}),
 };
 
 export default function NewSchoolPage() {
