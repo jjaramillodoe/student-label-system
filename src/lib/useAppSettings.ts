@@ -7,6 +7,9 @@ export interface AppSettings {
   showSeedCabinets:   boolean;
   showClearAllData:   boolean;
   showMigrateDrawers: boolean;
+  notifyLowStockEmail: boolean;
+  notifyIntakeIssuesEmail: boolean;
+  notificationRecipients: string;
 }
 
 const DEFAULT: AppSettings = {
@@ -14,6 +17,9 @@ const DEFAULT: AppSettings = {
   showSeedCabinets:   false,
   showClearAllData:   false,
   showMigrateDrawers: false,
+  notifyLowStockEmail: true,
+  notifyIntakeIssuesEmail: true,
+  notificationRecipients: '',
 };
 
 // Simple module-level cache so parallel component mounts share one fetch

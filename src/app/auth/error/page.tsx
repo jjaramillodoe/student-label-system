@@ -18,7 +18,13 @@ function AuthErrorContent() {
           <p className="mt-2 text-center text-sm text-gray-600 dark:text-gray-400">
             {error === 'AccessDenied'
               ? 'You do not have permission to access this system. Please use your DOE email address.'
-              : 'An error occurred during authentication. Please try again.'}
+              : error === 'UserNotProvisioned'
+                ? 'Your Microsoft account is valid, but you are not provisioned in the Student Label System yet. Ask an Admin to add your @schools.nyc.gov email under User Management.'
+                : error === 'DomainNotAllowed'
+                  ? 'Only approved DOE email domains can sign in with Microsoft SSO.'
+                  : error === 'EmailRequired'
+                    ? 'Microsoft did not return an email address for this account.'
+                    : 'An error occurred during authentication. Please try again.'}
           </p>
         </div>
         <div className="mt-8">

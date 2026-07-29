@@ -75,6 +75,7 @@ export default function Dashboard() {
     cabinet: "",
     drawer: "",
     email: "",
+    phone: "",
   });
   const [clearForm, setClearForm] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -265,7 +266,7 @@ export default function Dashboard() {
       await logAudit('Add', payload);
       fetchStudents();
       // Clear form and show success message
-      setForm({ firstName: "", lastName: "", dob: "", fiscalYear: "", status: "", startDate: "", cabinet: "", drawer: "", email: "" });
+      setForm({ firstName: "", lastName: "", dob: "", fiscalYear: "", status: "", startDate: "", cabinet: "", drawer: "", email: "", phone: "" });
       // Clear success message after 3 seconds
       setTimeout(() => { setSuccess(""); }, 3000);
       // Trigger form clear

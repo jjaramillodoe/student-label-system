@@ -88,13 +88,13 @@ const ROLE_PERMISSION_PREVIEW = {
   },
   'Intake Member': {
     scope: 'Assigned school',
-    summary: 'Front-desk intake only — register new students and print their label on the spot.',
+    summary: 'Front-desk intake only — register students and log visits; labels are printed later in batches.',
     permissions: [
       'Access the Student Intake form only (no dashboard or admin pages)',
       'Limited to the intake sessions selected below',
       'Automatically checks the database for existing records before registering',
-      'Registers new students and generates a printable label immediately',
-      'Cannot view, edit, or export any other student records',
+      'Registers new students / logs returning visits and shows a success summary after save',
+      'Cannot print label batches, view the dashboard, or export student records',
     ],
   },
 } as const;

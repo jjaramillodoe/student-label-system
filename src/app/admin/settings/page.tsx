@@ -30,6 +30,7 @@ import {
   Server,
   Gauge,
   Zap,
+  Mail,
   GraduationCap,
   SlidersHorizontal,
 } from 'lucide-react';
@@ -40,12 +41,13 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Separator } from '@/components/ui/separator';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
+import { Input } from '@/components/ui/input';
 import { invalidateAppSettings } from '@/lib/useAppSettings';
 import type { AppSettings } from '@/lib/useAppSettings';
 import { formatBytes, type SystemStats } from '@/lib/systemStats.types';
 
 interface SettingToggle {
-  key: keyof AppSettings;
+  key: 'showSeedTestData' | 'showSeedCabinets' | 'showClearAllData' | 'showMigrateDrawers';
   label: string;
   description: string;
   icon: React.ReactNode;
@@ -90,6 +92,9 @@ export default function SettingsPage() {
     showSeedCabinets: false,
     showClearAllData: false,
     showMigrateDrawers: false,
+    notifyLowStockEmail: true,
+    notifyIntakeIssuesEmail: true,
+    notificationRecipients: '',
   });
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -98,6 +103,8 @@ export default function SettingsPage() {
   const [stats, setStats] = useState<SystemStats | null>(null);
   const [statsLoading, setStatsLoading] = useState(true);
   const [statsError, setStatsError] = useState('');
+  const [notifyBusy, setNotifyBusy] = useState(false);
+  const [notifyMessage, setNotifyMessage] = useState('');
 
   const fetchStats = useCallback(async () => {
     setStatsLoading(true);
@@ -155,6 +162,44 @@ export default function SettingsPage() {
       setError('Failed to save settings.');
     } finally {
       setSaving(false);
+    }
+  }
+
+  async function runNotificationAction(action: 'test' | 'intake-digest') {
+    setNotifyBusy(true);
+    setNotifyMessage('');
+    try {
+      // Persist toggles first so digest/test use latest preferences
+      await fetch('/api/admin/app-settings', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          notifyLowStockEmail: values.notifyLowStockEmail,
+          notifyIntakeIssuesEmail: values.notifyIntakeIssuesEmail,
+          notificationRecipients: values.notificationRecipients,
+        }),
+      });
+      const res = await fetch('/api/admin/notifications', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setNotifyMessage(data.error || 'Notification action failed.');
+        return;
+      }
+      if (action === 'test') {
+        setNotifyMessage(`Test email sent to ${data.to}.`);
+      } else if (data.ok) {
+        setNotifyMessage(`Intake digest sent (${data.issueCount} issue(s)) to ${data.recipientCount} recipient(s).`);
+      } else {
+        setNotifyMessage(data.reason || `No digest sent (${data.issueCount ?? 0} issue(s)).`);
+      }
+    } catch {
+      setNotifyMessage('Notification action failed.');
+    } finally {
+      setNotifyBusy(false);
     }
   }
 
@@ -685,6 +730,81 @@ export default function SettingsPage() {
                 </CardContent>
               </Card>
             )}
+
+        {/* Email notifications */}
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base flex items-center gap-2">
+              <Mail className="h-4 w-4 text-primary" />
+              Email notifications
+            </CardTitle>
+            <CardDescription>
+              Uses <code className="text-xs">EMAIL_SERVER</code> / <code className="text-xs">EMAIL_FROM</code>.
+              Low-stock alerts send when stock is updated at or below threshold (max once per template / 24h).
+              Intake digests can be sent manually or via weekday cron.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <Label htmlFor="notifyLowStockEmail" className="text-sm font-medium">Low label stock alerts</Label>
+                <p className="text-xs text-muted-foreground mt-0.5">Email Admins / Data Leads when stock hits the threshold.</p>
+              </div>
+              <Switch
+                id="notifyLowStockEmail"
+                checked={values.notifyLowStockEmail}
+                onCheckedChange={(v: boolean) => setValues(prev => ({ ...prev, notifyLowStockEmail: v }))}
+              />
+            </div>
+            <Separator />
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <Label htmlFor="notifyIntakeIssuesEmail" className="text-sm font-medium">Intake issues digest</Label>
+                <p className="text-xs text-muted-foreground mt-0.5">Email when session/handoff issues need review.</p>
+              </div>
+              <Switch
+                id="notifyIntakeIssuesEmail"
+                checked={values.notifyIntakeIssuesEmail}
+                onCheckedChange={(v: boolean) => setValues(prev => ({ ...prev, notifyIntakeIssuesEmail: v }))}
+              />
+            </div>
+            <Separator />
+            <div className="space-y-2">
+              <Label htmlFor="notificationRecipients">Recipients (optional)</Label>
+              <Input
+                id="notificationRecipients"
+                value={values.notificationRecipients}
+                onChange={(e) => setValues(prev => ({ ...prev, notificationRecipients: e.target.value }))}
+                placeholder="Leave blank = all Admin + Data Lead emails"
+              />
+              <p className="text-xs text-muted-foreground">Comma-separated DOE emails. Blank uses every Admin and Data Lead user.</p>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                disabled={notifyBusy}
+                onClick={() => runNotificationAction('test')}
+              >
+                {notifyBusy ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+                Send test email
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                disabled={notifyBusy}
+                onClick={() => runNotificationAction('intake-digest')}
+              >
+                Send intake digest now
+              </Button>
+            </div>
+            {notifyMessage && (
+              <p className="text-sm text-muted-foreground">{notifyMessage}</p>
+            )}
+          </CardContent>
+        </Card>
 
         {/* Dev tools card */}
         <Card>

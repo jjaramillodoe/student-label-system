@@ -5,11 +5,13 @@ import Barcode from 'react-barcode';
 import QRCode from './QRCode';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
-import { Download, FileText, Loader2, Printer, X, Info } from 'lucide-react';
+import { FileText, Loader2, Printer, X } from 'lucide-react';
 import { buildStudentQrPayload } from '@/lib/qrPayload';
 import Avery5163LabelContent from '@/components/Avery5163LabelContent';
 import Avery94205LabelContent from '@/components/Avery94205LabelContent';
+import AveryPrintGuidance from '@/components/AveryPrintGuidance';
 import { AVERY94205 } from '@/lib/avery94205Geometry';
+import { downloadAveryDocx, isAveryDocxLayout } from '@/lib/downloadAveryDocx';
 
 // Avery 5163 on Letter paper (8.5" × 11"):
 // 2 cols × 5 rows = 10 labels, each 4" wide × 2" tall
@@ -27,15 +29,65 @@ const AVERY5163 = {
   rows:       5,
 };
 
-const LABEL_TEMPLATES = [
-  { key: 'avery5160', name: 'Avery 5160 (3x10 Sheet)', cols: 3, rows: 10, width: 2.625, height: 1 },
+const AVERY_WORD_TEMPLATES: Array<{
+  key: string;
+  name: string;
+  cols: number;
+  rows: number;
+  width: number;
+  height: number;
+  printer?: string;
+  continuous?: boolean;
+}> = [
   { key: 'avery5163', name: 'Avery 5163 (2×5 — Letter 8.5"×11")', cols: AVERY5163.cols, rows: AVERY5163.rows, width: AVERY5163.labelW, height: AVERY5163.labelH },
   { key: 'avery94205', name: 'Avery 94205 (2×5 — 1.5"×3.75")', cols: AVERY94205.cols, rows: AVERY94205.rows, width: AVERY94205.labelW, height: AVERY94205.labelH },
+];
+
+const OTHER_TEMPLATES: Array<{
+  key: string;
+  name: string;
+  cols: number;
+  rows: number;
+  width: number;
+  height: number;
+  printer?: string;
+  continuous?: boolean;
+}> = [
+  { key: 'avery5160', name: 'Avery 5160 (3x10 Sheet)', cols: 3, rows: 10, width: 2.625, height: 1 },
   { key: 'brother1201', name: 'Brother DK-1201 (1.1" x 3.5")', cols: 1, rows: 1, width: 3.5, height: 1.1, printer: 'QL-800', continuous: true },
   { key: 'brother11208', name: 'Brother DK-11208 (1.1" x 2.1")', cols: 1, rows: 1, width: 2.1, height: 1.1, printer: 'QL-800', continuous: true },
   { key: 'brother2205', name: 'Brother DK-2205 (2.1" x 2.1")', cols: 1, rows: 1, width: 2.1, height: 2.1, printer: 'QL-800', continuous: true },
   { key: 'brother22208', name: 'Brother DK-22208 (2.1" x 2.8")', cols: 1, rows: 1, width: 2.8, height: 2.1, printer: 'QL-800', continuous: true },
 ];
+
+const LABEL_TEMPLATES = [...AVERY_WORD_TEMPLATES, ...OTHER_TEMPLATES];
+
+function LayoutSelect({
+  value,
+  onChange,
+}: {
+  value: string;
+  onChange: (layout: string) => void;
+}) {
+  return (
+    <select
+      value={value}
+      onChange={(e) => onChange(e.target.value)}
+      className="border p-2 rounded focus:outline-blue-400 focus:ring-2 text-sm"
+    >
+      <optgroup label="Avery — Download Word Doc">
+        {AVERY_WORD_TEMPLATES.map(t => (
+          <option key={t.key} value={t.key}>{t.name}</option>
+        ))}
+      </optgroup>
+      <optgroup label="Other — Browser print">
+        {OTHER_TEMPLATES.map(t => (
+          <option key={t.key} value={t.key}>{t.name}</option>
+        ))}
+      </optgroup>
+    </select>
+  );
+}
 
 interface Student {
   _id?: string;
@@ -73,29 +125,12 @@ export default function PrintView({
   const [downloadingDocx, setDownloadingDocx] = useState(false);
 
   async function handleDownloadDocx() {
-    const docxRoutes: Record<string, string> = {
-      avery5163: '/api/print/avery5163-docx',
-      avery94205: '/api/print/avery94205-docx',
-    };
-    const route = docxRoutes[printLayout];
-    if (!route) return;
+    if (!isAveryDocxLayout(printLayout)) return;
 
     setDownloadingDocx(true);
     try {
-      const res = await fetch(route, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ students }),
-      });
-      if (!res.ok) throw new Error('Failed to generate document');
-      const blob = await res.blob();
-      const url  = URL.createObjectURL(blob);
-      const a    = document.createElement('a');
-      a.href     = url;
-      a.download = `${printLayout}-labels-${new Date().toISOString().slice(0, 10)}.docx`;
-      a.click();
-      URL.revokeObjectURL(url);
-    } catch (e) {
+      await downloadAveryDocx(printLayout, students);
+    } catch {
       alert('Error generating Word document. Please try again.');
     } finally {
       setDownloadingDocx(false);
@@ -216,18 +251,10 @@ export default function PrintView({
         <div className="print:hidden flex flex-col sm:flex-row justify-between items-center mb-6 gap-4">
           <div className="flex items-center gap-2">
             <Label>Label Layout:</Label>
-            <select
-              value={printLayout}
-              onChange={(e) => onPrintLayoutChange(e.target.value)}
-              className="border p-2 rounded focus:outline-blue-400 focus:ring-2"
-            >
-              {LABEL_TEMPLATES.map(t => (
-                <option key={t.key} value={t.key}>{t.name}</option>
-              ))}
-            </select>
+            <LayoutSelect value={printLayout} onChange={onPrintLayoutChange} />
             {template.printer === 'QL-800' && (
               <div className="text-xs text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/20 px-2 py-1 rounded">
-                Brother QL-800 Mode
+                Brother QL-800 — use browser Print
               </div>
             )}
           </div>
@@ -290,19 +317,8 @@ export default function PrintView({
         <div className="print:hidden bg-white dark:bg-gray-800 border-b px-6 py-3 flex flex-col sm:flex-row justify-between items-center gap-3 shadow-sm">
           <div className="flex items-center gap-3 flex-wrap">
             <Label>Label Layout:</Label>
-            <select
-              value={printLayout}
-              onChange={(e) => onPrintLayoutChange(e.target.value)}
-              className="border p-2 rounded focus:outline-blue-400 focus:ring-2 text-sm"
-            >
-              {LABEL_TEMPLATES.map(t => (
-                <option key={t.key} value={t.key}>{t.name}</option>
-              ))}
-            </select>
-            <div className="flex items-center gap-1.5 text-xs bg-amber-50 border border-amber-200 text-amber-800 rounded px-2 py-1">
-              <Info size={13} />
-              Download the Word Doc, then print from Word on <strong>Letter&nbsp;(8.5"×11")</strong> at&nbsp;<strong>100%</strong>
-            </div>
+            <LayoutSelect value={printLayout} onChange={onPrintLayoutChange} />
+            <AveryPrintGuidance layout="avery5163" />
           </div>
           <div className="flex gap-2 flex-wrap">
             <Button
@@ -388,19 +404,8 @@ export default function PrintView({
         <div className="print:hidden bg-white dark:bg-gray-800 border-b px-6 py-3 flex flex-col sm:flex-row justify-between items-center gap-3 shadow-sm">
           <div className="flex items-center gap-3 flex-wrap">
             <Label>Label Layout:</Label>
-            <select
-              value={printLayout}
-              onChange={(e) => onPrintLayoutChange(e.target.value)}
-              className="border p-2 rounded focus:outline-blue-400 focus:ring-2 text-sm"
-            >
-              {LABEL_TEMPLATES.map(t => (
-                <option key={t.key} value={t.key}>{t.name}</option>
-              ))}
-            </select>
-            <div className="flex items-center gap-1.5 text-xs bg-amber-50 border border-amber-200 text-amber-800 rounded px-2 py-1">
-              <Info size={13} />
-              Avery 94205 — download Word Doc, print clear <strong>1.5"×3.75"</strong> labels from Word
-            </div>
+            <LayoutSelect value={printLayout} onChange={onPrintLayoutChange} />
+            <AveryPrintGuidance layout="avery94205" />
           </div>
           <div className="flex gap-2 flex-wrap">
             <Button
@@ -482,17 +487,14 @@ export default function PrintView({
   return (
     <div className="fixed inset-0 bg-white dark:bg-gray-900 z-50 p-8 overflow-auto print:p-0">
       <div className="print:hidden flex flex-col sm:flex-row justify-between items-center mb-6 gap-4">
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
           <Label>Label Layout:</Label>
-          <select
-            value={printLayout}
-            onChange={(e) => onPrintLayoutChange(e.target.value)}
-            className="border p-2 rounded focus:outline-blue-400 focus:ring-2"
-          >
-            {LABEL_TEMPLATES.map(t => (
-              <option key={t.key} value={t.key}>{t.name}</option>
-            ))}
-          </select>
+          <LayoutSelect value={printLayout} onChange={onPrintLayoutChange} />
+          {printLayout === 'avery5160' && (
+            <div className="text-xs bg-amber-50 border border-amber-200 text-amber-800 rounded px-2 py-1">
+              Avery 5160 — browser Print only (no Word Doc for this layout)
+            </div>
+          )}
         </div>
         <div className="flex gap-2">
           <Button onClick={handlePrint} className="gap-2">

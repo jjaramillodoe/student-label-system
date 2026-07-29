@@ -35,6 +35,7 @@ type StudentUploadRow = {
   status: string;
   startDate: string;
   email?: string;
+  phone?: string;
   address?: string;
   apt?: string;
   city?: string;
@@ -318,6 +319,7 @@ export async function POST(req: NextRequest) {
         studentId,
         agencyId,
         email: student.email || null,
+        phone: student.phone?.trim() || null,
         address: student.address || null,
         apt: student.apt || null,
         city: student.city || null,

@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import AdminHeader from '@/components/AdminHeader';
+import PrintView from '@/components/PrintView';
 import {
   AlertCircle,
   ArrowLeft,
@@ -55,8 +56,10 @@ interface PrintJob {
   time: string;
   students?: Array<{
     studentId?: string;
+    labelId?: string;
     firstName?: string;
     lastName?: string;
+    dob?: string;
   }>;
   labelCount?: number;
   layout?: string;
@@ -123,6 +126,7 @@ export default function PrintQueuePage() {
   const [statusFilter, setStatusFilter] = useState('all');
   const [layoutFilter, setLayoutFilter] = useState('all');
   const [reprintJob, setReprintJob] = useState<PrintJob | null>(null);
+  const [reprintLayout, setReprintLayout] = useState('avery5163');
 
   useEffect(() => {
     if (status === 'loading') return;
@@ -228,6 +232,8 @@ export default function PrintQueuePage() {
   }, [jobs, stock]);
 
   async function handleReprint(job: PrintJob) {
+    const layout = job.layout || 'avery5163';
+    setReprintLayout(layout);
     setReprintJob(job);
     await fetch('/api/print-history', {
       method: 'POST',
@@ -235,13 +241,12 @@ export default function PrintQueuePage() {
       body: JSON.stringify({
         students: job.students || [],
         labelCount: getStudentCount(job),
-        layout: job.layout,
+        layout,
         status: 'completed',
         reprintOf: job._id,
       }),
     }).catch(() => undefined);
-
-    // Open preview only — do not auto-trigger the browser print dialog
+    // Opens PrintView preview — Avery uses Download Word Doc; no auto print dialog
   }
 
   function exportHistory() {
@@ -563,19 +568,19 @@ export default function PrintQueuePage() {
       </div>
 
       {reprintJob && (
-        <div className="hidden print:block p-6">
-          <div className="space-y-4">
-            {(reprintJob.students || []).map((student, index) => (
-              <div key={`${student.studentId}-${index}`} className="border border-black p-4 break-inside-avoid">
-                <div className="text-lg font-bold">
-                  {student.firstName} {student.lastName}
-                </div>
-                <div>Student ID: {student.studentId || 'N/A'}</div>
-                <div className="text-sm">Reprint from {formatDateTime(reprintJob.time)}</div>
-              </div>
-            ))}
-          </div>
-        </div>
+        <PrintView
+          students={(reprintJob.students || []).map(s => ({
+            firstName: s.firstName || '',
+            lastName: s.lastName || '',
+            dob: s.dob || '',
+            labelId: s.labelId,
+            studentId: s.studentId,
+          }))}
+          printLayout={reprintLayout}
+          onPrintLayoutChange={setReprintLayout}
+          showQRCode
+          onClose={() => setReprintJob(null)}
+        />
       )}
     </div>
   );

@@ -2,6 +2,8 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
+import { useSession } from 'next-auth/react';
+import { useRouter } from 'next/navigation';
 import AdminHeader from '@/components/AdminHeader';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
@@ -55,6 +57,9 @@ function StatusBadge({ status }: { status: ChecklistItem['status'] }) {
 }
 
 export default function SchoolYearPage() {
+  const { data: session, status } = useSession();
+  const router = useRouter();
+  const userRole = (session?.user as { role?: string } | undefined)?.role;
   const [data, setData] = useState<RolloverData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -64,7 +69,10 @@ export default function SchoolYearPage() {
     setError('');
     try {
       const res = await fetch('/api/admin/school-year');
-      const json = await res.json();
+      const json = await res.json().catch(() => ({}));
+      if (res.status === 401 || res.status === 403) {
+        throw new Error('Sign in as Admin or Data Lead to view the school year rollover checklist.');
+      }
       if (!res.ok) throw new Error(json.error || 'Failed to load rollover checklist');
       setData(json);
     } catch (err) {
@@ -75,8 +83,17 @@ export default function SchoolYearPage() {
   }
 
   useEffect(() => {
+    if (status === 'loading') return;
+    if (status === 'unauthenticated') {
+      router.push('/auth/signin');
+      return;
+    }
+    if (userRole && userRole !== 'Admin' && userRole !== 'Data Lead') {
+      router.push('/');
+      return;
+    }
     load();
-  }, []);
+  }, [status, userRole, router]);
 
   const allReady = Boolean(
     data && data.summary.checklistComplete === data.summary.checklistTotal,
@@ -186,7 +203,8 @@ export default function SchoolYearPage() {
                 <AlertCircle className="h-4 w-4" />
                 <AlertTitle>Complete the steps below before peak intake</AlertTitle>
                 <AlertDescription>
-                  Returning students from archive boxes will automatically receive a new drawer when processed through intake.
+                  Returning students who are still in archive boxes keep their box location in Intake
+                  (no new drawer). Active returning students keep their existing cabinet/drawer.
                 </AlertDescription>
               </Alert>
             )}

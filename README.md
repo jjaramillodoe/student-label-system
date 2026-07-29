@@ -18,7 +18,8 @@ A comprehensive Next.js application for managing student records, cabinet/drawer
   - User activity reports
   - Grouping by day, week, month, user, or student
   - Export to PDF and CSV
-  - Cost tracking capabilities
+- **Label stock** (`/admin/label-stock`):
+  - Track sheets on hand and cost per sheet
 - **Activity report** (`/admin/activity-report`):
   - 7/30/90 day activity windows
   - Tracks who added, edited, printed, archived, or deleted records

@@ -33,13 +33,17 @@ export async function GET() {
     const db = client.db('student-label');
     const scopedQuery = userRole !== 'Admin' && userSchool ? { school: userSchool } : {};
 
+    const schoolConfigPromise = userSchool
+      ? db.collection('school_config').findOne({
+          name: { $regex: `^${escapeRegex(userSchool)}$`, $options: 'i' },
+        })
+      : db.collection('school_config').findOne({
+          name: { $regex: '^District 79$', $options: 'i' },
+        }).then(async (doc) => doc || db.collection('school_config').findOne({}));
+
     const [cabinets, schoolDoc, badAssignmentCount, activeWithoutDrawer] = await Promise.all([
       db.collection('cabinets').find(scopedQuery).toArray(),
-      userSchool
-        ? db.collection('school_config').findOne({
-            name: { $regex: `^${escapeRegex(userSchool)}$`, $options: 'i' },
-          })
-        : null,
+      schoolConfigPromise,
       db.collection('students').countDocuments({
         ...scopedQuery,
         $or: [
@@ -73,6 +77,7 @@ export async function GET() {
     const fullActiveCabinets = activeCabinets.filter(
       c => (c.totalCapacity || 0) > 0 && (c.currentCount || 0) >= (c.totalCapacity || 0),
     );
+    const nonEmptyActiveCabinets = activeCabinets.filter(c => (c.currentCount || 0) > 0);
     const openActiveCabinets = activeCabinets.filter(
       c => (c.currentCount || 0) < (c.totalCapacity || 0),
     );
@@ -106,13 +111,20 @@ export async function GET() {
         id: 'archive-full-cabinets',
         title: 'Archive cabinets from the ending year',
         description:
-          'Archive each cabinet for the closing school year — full or partially filled. Use end-of-year closeout when drawers are not full.',
-        status: fullActiveCabinets.length === 0 ? 'complete' : 'action',
+          'Archive each cabinet for the closing school year — full or partially filled. Use end-of-year closeout when drawers are not full. Leave at least one empty (or new) active cabinet for the incoming year.',
+        status:
+          fullActiveCabinets.length > 0
+            ? 'action'
+            : nonEmptyActiveCabinets.length > 0
+              ? 'warning'
+              : 'complete',
         href: '/admin/cabinets',
         detail:
-          fullActiveCabinets.length === 0
-            ? `${archivedCabinets.length} archived cabinet(s) on record`
-            : `${fullActiveCabinets.length} active cabinet(s) still at capacity`,
+          fullActiveCabinets.length > 0
+            ? `${fullActiveCabinets.length} active cabinet(s) at capacity — archive them first`
+            : nonEmptyActiveCabinets.length > 0
+              ? `${nonEmptyActiveCabinets.length} active cabinet(s) still hold files — archive with EOY closeout if they belong to the ending year (${archivedCabinets.length} already archived)`
+              : `${archivedCabinets.length} archived cabinet(s) on record; no active cabinets still holding files`,
       },
       {
         id: 'active-cabinet-space',
@@ -138,7 +150,7 @@ export async function GET() {
           : 'warning',
         href: '/admin/schools',
         detail: configuredFiscalYear
-          ? `Configured: ${configuredFiscalYear}${configuredFiscalYear !== systemFiscalYear ? ` (calendar default: ${systemFiscalYear})` : ''}`
+          ? `Configured${schoolDoc?.name ? ` (${schoolDoc.name})` : ''}: ${configuredFiscalYear}${configuredFiscalYear !== systemFiscalYear ? ` (calendar default: ${systemFiscalYear})` : ''}`
           : `Using calendar default: ${systemFiscalYear} — save an explicit year in School Settings`,
       },
       {
@@ -149,7 +161,7 @@ export async function GET() {
         href: '/admin/schools',
         detail:
           hasIntakeSessions && hasIntakeActivities
-            ? 'Custom intake sessions and activities are configured'
+            ? `Custom intake sessions and activities are configured${schoolDoc?.name ? ` for ${schoolDoc.name}` : ''}`
             : 'Using system defaults — customize in School Settings if needed',
       },
       {
@@ -181,13 +193,14 @@ export async function GET() {
     const readyCount = checklist.filter(item => item.status === 'complete').length;
 
     return NextResponse.json({
-      school: userSchool ?? null,
+      school: userSchool ?? (typeof schoolDoc?.name === 'string' ? schoolDoc.name : null),
       systemFiscalYear,
       configuredFiscalYear: configuredFiscalYear ?? systemFiscalYear,
       summary: {
         activeCabinets: activeCabinets.length,
         archivedCabinets: archivedCabinets.length,
         fullActiveCabinets: fullActiveCabinets.length,
+        nonEmptyActiveCabinets: nonEmptyActiveCabinets.length,
         openActiveCabinets: openActiveCabinets.length,
         pendingArchiveAssignments: pendingArchiveTotal,
         activeStudentsWithoutDrawer: activeWithoutDrawer,

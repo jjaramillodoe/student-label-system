@@ -1,7 +1,8 @@
 /**
  * Local US/NYC address validation and light normalization.
  * Import stores raw values; warnings flag likely errors without blocking upload.
- * Geocoding / USPS-standardization can be added later as a background job.
+ * NYC Geoclient standardization is available via intake, bulk upload, and
+ * Admin → All Students (batch verify of up to 50 unverified addresses at a time).
  */
 
 export interface StudentAddressInput {

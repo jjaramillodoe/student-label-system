@@ -87,6 +87,12 @@ export default function DashboardHeader({
               </Link>
             </DropdownMenuItem>
             <DropdownMenuItem asChild>
+              <Link href="/admin/thoughtspot-analytics">
+                <TrendingUp className="h-4 w-4 mr-2" />
+                ThoughtSpot Analytics
+              </Link>
+            </DropdownMenuItem>
+            <DropdownMenuItem asChild>
               <Link href="/audit">
                 <List className="h-4 w-4 mr-2" />
                 Audit Log

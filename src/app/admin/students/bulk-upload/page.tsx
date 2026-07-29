@@ -72,7 +72,7 @@ const SAMPLE_DATA = [
 const FISCAL_YEAR_OPTIONS = ['2024-2025', '2025-2026', '2026-2027', '2027-2028'];
 const STATUS_OPTIONS = ['Active', 'Inactive', 'Graduated', 'Withdrawn', 'Pending', 'Transferred', 'Other'];
 const EDITABLE_COLUMNS = [
-  'firstName', 'lastName', 'dob', 'fiscalYear', 'status', 'startDate', 'email',
+  'firstName', 'lastName', 'dob', 'fiscalYear', 'status', 'startDate', 'email', 'phone',
   'address', 'apt', 'city', 'state', 'zip',
 ];
 const DATE_COLUMNS = ['dob', 'startDate'];
@@ -1260,7 +1260,7 @@ export default function BulkUploadPage() {
                 </CardHeader>
                 <CardContent>
                   <pre className="overflow-x-auto rounded-lg bg-muted p-3 text-xs">
-{`firstName,lastName,dob,fiscalYear,status,startDate,email,studentId,address,apt,city,state,zip`}
+{`firstName,lastName,dob,fiscalYear,status,startDate,email,phone,studentId,address,apt,city,state,zip`}
                   </pre>
                   <p className="text-sm text-muted-foreground mt-3">
                     `studentId` is optional. Address columns are optional — imported as entered, with amber warnings for likely NYC/ZIP mismatches.

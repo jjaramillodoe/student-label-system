@@ -107,9 +107,11 @@ export async function POST(req: NextRequest) {
     state?: string;
     zip?: string;
   }[] = [];
+  let remainingUnverified: number | undefined;
+  let unverifiedQuery: Record<string, unknown> | undefined;
 
   if (body.mode === 'unverified') {
-    const unverifiedQuery: Record<string, unknown> = {
+    unverifiedQuery = {
       address: { $exists: true, $nin: [null, ''] },
       $or: [
         { addressValidationStatus: { $in: [null, '', 'unverified'] } },
@@ -123,6 +125,7 @@ export async function POST(req: NextRequest) {
       unverifiedQuery.school = body.school.trim();
     }
 
+    remainingUnverified = await db.collection('students').countDocuments(unverifiedQuery);
     students = await db.collection('students')
       .find(unverifiedQuery)
       .sort({ lastName: 1, firstName: 1 })
@@ -148,6 +151,7 @@ export async function POST(req: NextRequest) {
       mode: body.mode === 'unverified' ? 'unverified' : 'students',
       count: 0,
       applied: 0,
+      remainingUnverified: remainingUnverified ?? 0,
       results: [],
       message: body.mode === 'unverified'
         ? 'No unverified addresses found for the current scope.'
@@ -213,10 +217,18 @@ export async function POST(req: NextRequest) {
     };
   });
 
+  if (body.apply && unverifiedQuery) {
+    remainingUnverified = await db.collection('students').countDocuments(unverifiedQuery);
+  } else if (remainingUnverified != null) {
+    // Before apply: remaining includes this batch; after preview, still total unverified
+    remainingUnverified = Math.max(0, remainingUnverified);
+  }
+
   return NextResponse.json({
     mode: body.mode === 'unverified' ? 'unverified' : 'students',
     count: payload.length,
     applied: body.apply ? updated.length : 0,
+    remainingUnverified,
     results: payload,
   });
 }

@@ -1,73 +1,49 @@
-# Features Implementation Status
+# Features — Current Status
 
-## ✅ Completed Features
+Last updated: July 2026. This file replaces the older in-progress checklist (many items below were already shipped).
 
-### 1. QR Code Generation
-- ✅ QR code component created (`src/components/QRCode.tsx`)
-- ✅ Uses `qrcode.react` library
-- ⏳ Integration into labels (in progress)
+## Shipped
 
-### 2. Print History/Logs
-- ✅ API endpoint created (`/api/print-history`)
-- ✅ Print history component created (`src/components/PrintHistory.tsx`)
-- ✅ Tracks who printed what and when
-- ✅ Filtering by date, user, student
-- ⏳ Integration into print workflow (in progress)
+| Area | Status |
+| --- | --- |
+| Auth (credentials, MFA, force password change, roles) | Done |
+| Dashboard search, filters, saved searches, barcode/QR scan | Done |
+| Student CRUD, bulk CSV upload, dual Label/Student IDs | Done |
+| Intake (NEW / RETURNING), duplicates, Geoclient, session hours | Done |
+| Intake success = **summary** (not one-off label print) | Done |
+| Avery **5163 / 94205** via **Download Word Doc** on **Letter** | Done |
+| Brother QL layouts via browser print (when used) | Done |
+| Print history / print queue | Done |
+| Cabinets, drawers, cabinet health, unassigned, bulk move | Done |
+| Archive boxes + public box/student QR pages | Done |
+| School year rollover checklist | Done |
+| Duplicates & siblings admin | Done |
+| Enrollment dashboard, activity / audit, reports | Done |
+| Label stock tracking | Done |
+| Email validation (EmailAwesome) | Done |
+| Power Automate / Dataverse sync API | Done |
+| ThoughtSpot embed (env-gated) | Done |
+| In-app `/docs` + Mintlify docs site | Done |
 
-### 3. Dashboard Statistics
-- ✅ API endpoint created (`/api/dashboard-stats`)
-- ✅ Dashboard stats component created (`src/components/DashboardStats.tsx`)
-- ✅ Shows student counts, storage utilization, print stats, activity
-- ⏳ Integration into main dashboard (in progress)
+## Not planned unless requested
 
-### 4. Print Reports
-- ✅ API endpoint created (`/api/print-reports`)
-- ✅ Supports grouping by day, week, month, user, student
-- ⏳ Frontend component (pending)
+- Student photos on labels
+- Drag-and-drop custom label designer
+- Scheduled / queued batch printing jobs
+- Email notifications (low stock, handoffs)
+- DOE SSO (credentials + MFA only today)
 
-## 🚧 In Progress
+## Print reminder (staff)
 
-### 5. Print Preview
-- ⏳ Enhanced print preview before printing
+1. Intake registers / logs visits → success **summary** only.
+2. Dashboard / Print Queue: select students → print preview → **Download Word Doc**.
+3. Intake History: **Word Doc** downloads a single-student Avery sheet the same way.
+4. Print from Word on **Letter (8.5"×11")**, scale **100%**, margins **None**.
+5. Brother / Avery 5160 layouts still use browser Print (grouped under “Other” in the layout dropdown).
 
-## 📋 Pending Features
+## Integrity notes (Phase 4)
 
-### 6. Advanced Search & Filtering
-- Multiple criteria filtering
-- Date range filters
-- Saved searches
-
-### 7. Batch Label Printing
-- Print labels for filtered students
-- Batch operations
-
-### 8. Reprint Functionality
-- Quick reprint for selected students
-
-### 9. Student Photos
-- Photo upload
-- Display on labels
-
-### 10. Label Stock Tracking
-- Track label inventory
-- Low stock alerts
-
-### 11. Custom Label Designer
-- Drag-and-drop label builder
-
-### 12. Scheduled Printing
-- Schedule batch prints
-
-### 13. Email Notifications
-- Event notifications
-
-### 14. Mobile-Responsive Printing
-- Mobile-optimized interface
-
-## Next Steps
-
-1. Integrate completed components into main dashboard
-2. Add QR codes to labels
-3. Add print history tracking to print workflow
-4. Continue with remaining features
-
+- Phone is collected on Intake, Dashboard add/edit, and bulk CSV.
+- `src/middleware.ts` requires a session for non-public routes; `/student`, `/archive`, health, and sync stay public.
+- Address batch verify reports remaining unverified count (run again in batches of 50).
+- School Year rollover flags partial cabinets as Review and scopes Admin fiscal-year settings to District 79 / first config.

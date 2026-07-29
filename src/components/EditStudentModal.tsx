@@ -56,6 +56,7 @@ export default function EditStudentModal({
     cabinet: '',
     drawer: '',
     email: '',
+    phone: '',
   });
 
   useEffect(() => {
@@ -70,6 +71,7 @@ export default function EditStudentModal({
         cabinet: student.cabinet || '',
         drawer: student.drawer || '',
         email: student.email || '',
+        phone: student.phone || '',
       });
     }
   }, [student, open]);
@@ -154,6 +156,18 @@ export default function EditStudentModal({
                     value={form.email}
                     onChange={handleChange}
                     placeholder="Enter email address"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="edit-phone">Phone</Label>
+                  <Input
+                    id="edit-phone"
+                    name="phone"
+                    type="tel"
+                    value={form.phone}
+                    onChange={handleChange}
+                    placeholder="Enter phone number"
                   />
                 </div>
 

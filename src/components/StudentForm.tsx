@@ -40,6 +40,7 @@ export default function StudentForm({ onSubmit, loading, initialData, toast, cle
     cabinet: "",
     drawer: "",
     email: "",
+    phone: "",
   });
 
   const [cabinets, setCabinets] = useState<Cabinet[]>([]);
@@ -145,6 +146,7 @@ export default function StudentForm({ onSubmit, loading, initialData, toast, cle
       cabinet: "",
       drawer: "",
       email: "",
+      phone: "",
     });
     setCabinetSearch("");
     setSelectedDrawer(null);
@@ -348,7 +350,7 @@ export default function StudentForm({ onSubmit, loading, initialData, toast, cle
           )}
         </div>
 
-        <div className="space-y-2 md:col-span-2">
+        <div className="space-y-2">
           <Label htmlFor="email">Email (Optional)</Label>
           <Input
             id="email"
@@ -357,6 +359,18 @@ export default function StudentForm({ onSubmit, loading, initialData, toast, cle
             value={form.email}
             onChange={onChange}
             placeholder="Enter email address"
+          />
+        </div>
+
+        <div className="space-y-2">
+          <Label htmlFor="phone">Phone (Optional)</Label>
+          <Input
+            id="phone"
+            name="phone"
+            type="tel"
+            value={form.phone}
+            onChange={onChange}
+            placeholder="Enter phone number"
           />
         </div>
       </div>

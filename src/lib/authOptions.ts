@@ -1,13 +1,14 @@
 import { NextAuthOptions } from 'next-auth';
 import CredentialsProvider from 'next-auth/providers/credentials';
+import AzureADProvider from 'next-auth/providers/azure-ad';
 import clientPromise from './mongodb';
 import * as bcrypt from 'bcrypt';
 import { verifyMfaToken } from './mfa';
 
-type User = {
-  _id: any;
+type DbUser = {
+  _id: unknown;
   email: string;
-  password: string;
+  password?: string;
   name: string;
   role: string;
   school: string;
@@ -17,87 +18,139 @@ type User = {
   forcePasswordChange?: boolean;
 };
 
-const userRoles: Record<string, { name: string; role: 'Data Lead' | 'Data Member' | 'Admin'; school: string }> = {
-  'jjaramillo7@schools.nyc.gov': { name: 'Javier Jaramillo', role: 'Admin', school: 'District 79' },
-  'namachki@schools.nyc.gov': { name: 'Najat Amachki', role: 'Admin', school: 'District 79' },
-  'mpowers3@schools.nyc.gov': { name: 'Michael Powers', role: 'Admin', school: 'District 79' },
-  'helalaoui@schools.nyc.gov': { name: 'Hicham Elalaoui', role: 'Data Lead', school: 'School 8' },
-  'dmaxell@schools.nyc.gov': { name: 'Dion Maxwell', role: 'Data Member', school: 'School 8' },
-  'kboothe@schools.nyc.gov': { name: 'Kayla Boothe', role: 'Data Member', school: 'School 3' },
-  'pnicholson@schools.nyc.gov': { name: 'Philicia Nicholson', role: 'Data Member', school: 'School 4' },
-  'tfosterbrady@schools.nyc.gov': { name: 'Taneque Foster-Brady', role: 'Data Member', school: 'School 5' },
-};
+export function isAzureAdConfigured(): boolean {
+  return Boolean(
+    process.env.AZURE_AD_CLIENT_ID &&
+      process.env.AZURE_AD_CLIENT_SECRET &&
+      process.env.AZURE_AD_TENANT_ID,
+  );
+}
 
-export const authOptions: NextAuthOptions = {
-  providers: [
-    CredentialsProvider({
-      name: 'Credentials',
-      credentials: {
-        email: { label: 'Email', type: 'email', placeholder: 'user@schools.nyc.gov' },
-        password: { label: 'Password', type: 'password' },
-        mfaCode: { label: 'MFA Code', type: 'text' },
-      },
-      async authorize(credentials) {
-        if (!credentials?.email || !credentials?.password) {
-          return null;
+function isAllowedSsoEmail(email: string): boolean {
+  if (process.env.AZURE_AD_ALLOW_ANY_DOMAIN === 'true') return true;
+  const allowed = (process.env.AZURE_AD_ALLOWED_DOMAINS || 'schools.nyc.gov')
+    .split(',')
+    .map(d => d.trim().toLowerCase())
+    .filter(Boolean);
+  const domain = email.split('@')[1]?.toLowerCase() || '';
+  return allowed.includes(domain);
+}
+
+async function loadDbUserByEmail(email: string): Promise<DbUser | null> {
+  const client = await clientPromise;
+  const db = client.db('student-label');
+  return db.collection('users').findOne<DbUser>({ email: email.toLowerCase() });
+}
+
+async function touchLastLogin(userId: unknown) {
+  const client = await clientPromise;
+  const db = client.db('student-label');
+  await db.collection('users').updateOne(
+    { _id: userId as never },
+    { $set: { lastLogin: new Date().toISOString() } },
+  );
+}
+
+const providers: NextAuthOptions['providers'] = [
+  CredentialsProvider({
+    name: 'Credentials',
+    credentials: {
+      email: { label: 'Email', type: 'email', placeholder: 'user@schools.nyc.gov' },
+      password: { label: 'Password', type: 'password' },
+      mfaCode: { label: 'MFA Code', type: 'text' },
+    },
+    async authorize(credentials) {
+      if (!credentials?.email || !credentials?.password) {
+        return null;
+      }
+      const email = credentials.email.toLowerCase();
+      const user = await loadDbUserByEmail(email);
+      if (!user || !user.password) {
+        return null;
+      }
+      const isValid = await bcrypt.compare(credentials.password, user.password);
+      if (!isValid) {
+        return null;
+      }
+
+      if (user.mfaEnabled && user.mfaSecret) {
+        const rawMfaCode = credentials.mfaCode?.trim();
+        const mfaCode = rawMfaCode && rawMfaCode !== 'undefined' ? rawMfaCode : '';
+
+        if (!mfaCode) {
+          throw new Error('MFA_REQUIRED');
         }
-        const email = credentials.email.toLowerCase();
+
+        if (!(await verifyMfaToken(mfaCode, user.mfaSecret))) {
+          throw new Error('MFA_INVALID');
+        }
+      } else if (user.mfaEnabled && !user.mfaSecret) {
         const client = await clientPromise;
-        const db = client.db("student-label");
-        const user = await db.collection('users').findOne<User>({ email });
-        if (!user || !user.password) {
-          return null;
-        }
-        const isValid = await bcrypt.compare(credentials.password, user.password);
-        if (!isValid) {
-          return null;
-        }
-
-        if (user.mfaEnabled && user.mfaSecret) {
-          const rawMfaCode = credentials.mfaCode?.trim();
-          const mfaCode = rawMfaCode && rawMfaCode !== 'undefined' ? rawMfaCode : '';
-
-          if (!mfaCode) {
-            throw new Error('MFA_REQUIRED');
-          }
-
-          if (!(await verifyMfaToken(mfaCode, user.mfaSecret))) {
-            throw new Error('MFA_INVALID');
-          }
-        } else if (user.mfaEnabled && !user.mfaSecret) {
-          await db.collection('users').updateOne(
-            { _id: user._id },
-            {
-              $set: {
-                mfaEnabled: false,
-                updatedAt: new Date().toISOString(),
-              },
-              $unset: {
-                mfaPendingSecret: '',
-              },
-            }
-          );
-        }
-
-        // Update lastLogin timestamp
-        const now = new Date().toISOString();
+        const db = client.db('student-label');
         await db.collection('users').updateOne(
-          { _id: user._id },
-          { $set: { lastLogin: now } }
+          { _id: user._id as never },
+          {
+            $set: {
+              mfaEnabled: false,
+              updatedAt: new Date().toISOString(),
+            },
+            $unset: {
+              mfaPendingSecret: '',
+            },
+          },
         );
+      }
 
-        return {
-          id: (user._id as any)?.toString?.() ?? String(user._id),
-          name: user.name || userRoles[email]?.name || email,
-          email,
-          role: user.role || userRoles[email]?.role || 'Data Member',
-          school: user.school || userRoles[email]?.school || '',
-          forcePasswordChange: Boolean(user.forcePasswordChange),
-        };
+      await touchLastLogin(user._id);
+
+      return {
+        id: String(user._id),
+        name: user.name || email,
+        email,
+        role: user.role || 'Data Member',
+        school: user.school || '',
+        forcePasswordChange: Boolean(user.forcePasswordChange),
+      };
+    },
+  }),
+];
+
+if (isAzureAdConfigured()) {
+  providers.push(
+    AzureADProvider({
+      id: 'azure-ad',
+      name: 'Microsoft (DOE)',
+      clientId: process.env.AZURE_AD_CLIENT_ID!,
+      clientSecret: process.env.AZURE_AD_CLIENT_SECRET!,
+      tenantId: process.env.AZURE_AD_TENANT_ID!,
+      authorization: {
+        params: { scope: 'openid profile email User.Read' },
       },
     }),
-  ],
+  );
+}
+
+export const authOptions: NextAuthOptions = {
+  providers,
   callbacks: {
+    async signIn({ user, account }) {
+      if (account?.provider !== 'azure-ad') return true;
+
+      const email = (user.email || '').toLowerCase();
+      if (!email) return '/auth/error?error=EmailRequired';
+      if (!isAllowedSsoEmail(email)) return '/auth/error?error=DomainNotAllowed';
+
+      const dbUser = await loadDbUserByEmail(email);
+      if (!dbUser) return '/auth/error?error=UserNotProvisioned';
+
+      await touchLastLogin(dbUser._id);
+      user.id = String(dbUser._id);
+      user.name = dbUser.name || user.name || email;
+      user.role = dbUser.role || 'Data Member';
+      user.school = dbUser.school || '';
+      user.forcePasswordChange = false;
+      return true;
+    },
     async session({ session, token }) {
       if (session.user && token) {
         session.user.role = token.role as string;
@@ -108,10 +161,13 @@ export const authOptions: NextAuthOptions = {
       }
       return session;
     },
-    async jwt({ token, user, trigger, session }) {
-      if (trigger === 'update' && (session as any)?.forcePasswordChange !== undefined) {
-        token.forcePasswordChange = Boolean((session as any).forcePasswordChange);
+    async jwt({ token, user, account, trigger, session }) {
+      if (trigger === 'update' && (session as { forcePasswordChange?: boolean } | undefined)?.forcePasswordChange !== undefined) {
+        token.forcePasswordChange = Boolean(
+          (session as { forcePasswordChange?: boolean }).forcePasswordChange,
+        );
       }
+
       if (user) {
         token.role = user.role;
         token.name = user.name;
@@ -119,6 +175,21 @@ export const authOptions: NextAuthOptions = {
         token.school = user.school;
         token.forcePasswordChange = user.forcePasswordChange;
       }
+
+      // Azure AD: refresh role/school from DB on each sign-in (and if missing)
+      if (account?.provider === 'azure-ad' || (!token.role && token.email)) {
+        const email = String(token.email || '').toLowerCase();
+        if (email) {
+          const dbUser = await loadDbUserByEmail(email);
+          if (dbUser) {
+            token.role = dbUser.role || 'Data Member';
+            token.school = dbUser.school || '';
+            token.name = dbUser.name || token.name;
+            token.forcePasswordChange = Boolean(dbUser.forcePasswordChange);
+          }
+        }
+      }
+
       return token;
     },
   },
@@ -131,4 +202,4 @@ export const authOptions: NextAuthOptions = {
     maxAge: 30 * 24 * 60 * 60, // 30 days
   },
   secret: process.env.NEXTAUTH_SECRET,
-}; 
+};

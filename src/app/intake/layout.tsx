@@ -2,7 +2,7 @@ import type { Metadata } from 'next';
 
 export const metadata: Metadata = {
   title: 'Student Intake — Adult Education',
-  description: 'Register new students and print their label.',
+  description: 'Register new and returning students at the front desk.',
 };
 
 export default function IntakeLayout({ children }: { children: React.ReactNode }) {

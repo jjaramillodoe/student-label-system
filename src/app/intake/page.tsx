@@ -6,6 +6,8 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import GoogleTranslate from '@/components/GoogleTranslate';
 import Avery5163LabelContent from '@/components/Avery5163LabelContent';
+import Avery94205LabelContent from '@/components/Avery94205LabelContent';
+import AveryPrintGuidance from '@/components/AveryPrintGuidance';
 import { isStudentSearchQueryValid } from '@/lib/studentSearch';
 import { DEFAULT_INTAKE_ACTIVITIES, DEFAULT_INTAKE_SESSION_CONFIGS } from '@/lib/intakeDefaults';
 import {
@@ -43,7 +45,7 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Checkbox } from '@/components/ui/checkbox';
 import {
-  UserPlus, AlertCircle, CheckCircle2, Printer, RotateCcw,
+  UserPlus, AlertCircle, CheckCircle2, RotateCcw, FileText,
   Loader2, User, Calendar, Phone, Mail, ClipboardList, LogOut, Building2,
   FolderOpen, ChevronRight, List, RefreshCw, Clock, CalendarDays,
   Users, ShieldAlert, Copy, Check, MapPin, ExternalLink, Lock, ChevronDown, BookOpen,
@@ -132,15 +134,39 @@ function emptyReturningVisitFields() {
 }
 
 function IntakeMemberGuide() {
-  // keep this closed by default for now
+  const GUIDE_SEEN_KEY = 'intake-member-guide-seen';
   const [open, setOpen] = useState(false);
+
+  useEffect(() => {
+    try {
+      if (localStorage.getItem(GUIDE_SEEN_KEY) !== '1') {
+        setOpen(true);
+      }
+    } catch {
+      setOpen(true);
+    }
+  }, []);
+
+  function toggleOpen() {
+    setOpen(prev => {
+      const next = !prev;
+      if (!next) {
+        try {
+          localStorage.setItem(GUIDE_SEEN_KEY, '1');
+        } catch {
+          // ignore storage failures
+        }
+      }
+      return next;
+    });
+  }
 
   return (
     <Card className="border-primary/20 bg-primary/[0.02]">
       <CardHeader className="pb-3">
         <button
           type="button"
-          onClick={() => setOpen(v => !v)}
+          onClick={toggleOpen}
           className="w-full flex items-start gap-3 text-left"
         >
           <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary/10 border border-primary/20">
@@ -173,7 +199,7 @@ function IntakeMemberGuide() {
                 <li>Only check <strong className="text-foreground">“This is a different person”</strong> for a true sibling or coincidence — that flags the record for Data Lead review.</li>
                 <li>Complete <strong className="text-foreground">BE or ESL</strong>, intake activity, placement class, session, and <strong className="text-foreground">Time In</strong> (defaults to now).</li>
                 <li>Choose <strong className="text-foreground">Staying</strong> if another staff member will continue intake, or <strong className="text-foreground">Leaving</strong> with Time Out when the student is done for the day.</li>
-                <li>Click <strong className="text-foreground">Register &amp; Print Label</strong>, then print the Avery label.</li>
+                <li>Click <strong className="text-foreground">Register Student</strong> and review the success summary. Labels are printed later from the Dashboard via <strong className="text-foreground">Download Word Doc</strong> (Letter, 100%).</li>
               </ol>
             </div>
             <div className="space-y-2.5">
@@ -2080,34 +2106,72 @@ export default function IntakePage() {
 
 function ReprintHistoryLabel({ student }: { student: any }) {
   const [open, setOpen] = useState(false);
+  const [layout, setLayout] = useState<'avery5163' | 'avery94205'>('avery5163');
+  const [downloading, setDownloading] = useState(false);
+
+  async function handleDownload() {
+    setDownloading(true);
+    try {
+      const { downloadAveryDocx } = await import('@/lib/downloadAveryDocx');
+      await downloadAveryDocx(layout, [student]);
+    } catch {
+      alert('Error generating Word document. Please try again.');
+    } finally {
+      setDownloading(false);
+    }
+  }
+
   return (
     <>
       <Button variant="ghost" size="sm" className="gap-1.5 text-muted-foreground hover:text-foreground shrink-0"
-        onClick={() => setOpen(true)} title="Reprint label">
-        <Printer className="h-4 w-4" />
-        <span className="hidden sm:inline">Reprint</span>
+        onClick={() => setOpen(true)} title="Download Word label">
+        <FileText className="h-4 w-4" />
+        <span className="hidden sm:inline">Word Doc</span>
       </Button>
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent className="max-w-md">
           <DialogHeader>
-            <DialogTitle>Reprint Label</DialogTitle>
-            <DialogDescription>{student.firstName} {student.lastName}</DialogDescription>
+            <DialogTitle>Download Label (Word)</DialogTitle>
+            <DialogDescription>
+              {student.firstName} {student.lastName} — print from Word on Letter at 100%
+            </DialogDescription>
           </DialogHeader>
-          <div
-            className="mx-auto bg-white"
-            style={{
-              width: '4in',
-              height: '2in',
-              boxSizing: 'border-box',
-              padding: '0.07in 0.1in',
-              border: '1px dashed #bbb',
-            }}
-          >
-            <Avery5163LabelContent student={student} />
+          <div className="space-y-3">
+            <div className="space-y-1.5">
+              <Label className="text-xs">Layout</Label>
+              <Select value={layout} onValueChange={(v) => setLayout(v as 'avery5163' | 'avery94205')}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="avery5163">Avery 5163 (2"×4")</SelectItem>
+                  <SelectItem value="avery94205">Avery 94205 (1.5"×3.75")</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <AveryPrintGuidance layout={layout} />
+            <div
+              className="mx-auto bg-white"
+              style={{
+                width: layout === 'avery5163' ? '4in' : '3.75in',
+                height: layout === 'avery5163' ? '2in' : '1.5in',
+                boxSizing: 'border-box',
+                padding: '0.07in 0.1in',
+                border: '1px dashed #bbb',
+              }}
+            >
+              {layout === 'avery5163' ? (
+                <Avery5163LabelContent student={student} />
+              ) : (
+                <Avery94205LabelContent student={student} />
+              )}
+            </div>
           </div>
-          <DialogFooter>
-            <Button onClick={() => window.print()} className="gap-2 w-full">
-              <Printer className="h-4 w-4" /> Print
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button variant="outline" onClick={() => setOpen(false)}>Close</Button>
+            <Button onClick={handleDownload} disabled={downloading} className="gap-2">
+              {downloading ? <Loader2 className="h-4 w-4 animate-spin" /> : <FileText className="h-4 w-4" />}
+              {downloading ? 'Generating…' : 'Download Word Doc'}
             </Button>
           </DialogFooter>
         </DialogContent>

@@ -81,6 +81,15 @@ export async function PUT(req: NextRequest) {
       return NextResponse.json({ error: 'Stock not found' }, { status: 404 });
     }
 
+    // Fire-and-forget low-stock email (deduped 24h per template)
+    void import('@/lib/notifications')
+      .then(({ maybeNotifyLowStock }) => maybeNotifyLowStock(db, result as {
+        template?: string;
+        currentStock?: number;
+        lowStockThreshold?: number;
+      }))
+      .catch((err) => console.error('[label-stock] notify failed', err));
+
     return NextResponse.json(result);
   } catch (error) {
     console.error('Error updating label stock:', error);

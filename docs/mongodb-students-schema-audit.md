@@ -175,7 +175,8 @@ Or run a one-time backfill to set `updatedAt = createdAt` on legacy rows, then a
 | `isLeaving` | 1 | |
 | `intakeVisits` | 1 | Child table for Dynamics |
 | `gender` | 1 | |
-| `phone` | 0 | Schema supported, not yet populated |
+| `phone` | — | Collected on Intake, Dashboard add/edit, and bulk CSV upload |
+
 | `program` | 0 | |
 | `notes` | 0 | |
 | `intakeSession` | 0 | |

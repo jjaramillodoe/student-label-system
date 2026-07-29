@@ -286,15 +286,24 @@ export default function AllStudentsPage() {
 
       const applied = data.applied ?? 0;
       const count = data.count ?? 0;
+      const remaining = data.remainingUnverified;
+      const remainingNote =
+        typeof remaining === 'number'
+          ? remaining > 0
+            ? ` ${remaining} unverified address${remaining === 1 ? '' : 'es'} still remaining — run again to continue.`
+            : ' All addresses in scope are verified.'
+          : '';
       if (opts.apply) {
         setVerifyMessage(
           count === 0
             ? (data.message || 'No addresses to verify.')
-            : `Verified and saved ${applied} of ${count} address${count === 1 ? '' : 'es'}.`,
+            : `Verified and saved ${applied} of ${count} address${count === 1 ? '' : 'es'}.${remainingNote}`,
         );
         await fetchStudents();
       } else {
-        setVerifyMessage(`Verified ${count} address${count === 1 ? '' : 'es'} (preview only — not saved).`);
+        setVerifyMessage(
+          `Verified ${count} address${count === 1 ? '' : 'es'} (preview only — not saved).${remainingNote}`,
+        );
       }
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : 'Address verification failed');

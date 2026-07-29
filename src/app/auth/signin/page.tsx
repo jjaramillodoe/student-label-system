@@ -1,7 +1,7 @@
 'use client';
 
-import { signIn } from 'next-auth/react';
-import { useState } from 'react';
+import { signIn, getProviders } from 'next-auth/react';
+import { useEffect, useState } from 'react';
 import Image from 'next/image';
 import { Eye, EyeOff, Mail, Lock, Loader2, FileText, AlertCircle } from 'lucide-react';
 import { Input } from '@/components/ui/input';
@@ -9,6 +9,7 @@ import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Separator } from '@/components/ui/separator';
 
 export default function SignIn() {
   const [email, setEmail] = useState('');
@@ -17,8 +18,18 @@ export default function SignIn() {
   const [mfaRequired, setMfaRequired] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [ssoLoading, setSsoLoading] = useState(false);
   const [error, setError] = useState('');
   const [logoError, setLogoError] = useState(false);
+  const [azureEnabled, setAzureEnabled] = useState(false);
+
+  useEffect(() => {
+    getProviders()
+      .then(providers => {
+        setAzureEnabled(Boolean(providers?.['azure-ad']));
+      })
+      .catch(() => setAzureEnabled(false));
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -57,12 +68,23 @@ export default function SignIn() {
       } else if (result?.ok) {
         window.location.href = result.url || '/';
       }
-    } catch (error) {
+    } catch {
       setError('An error occurred. Please try again.');
     } finally {
       setIsLoading(false);
     }
   };
+
+  async function handleMicrosoftSignIn() {
+    setSsoLoading(true);
+    setError('');
+    try {
+      await signIn('azure-ad', { callbackUrl: '/' });
+    } catch {
+      setError('Microsoft sign-in failed. Please try again or use email/password.');
+      setSsoLoading(false);
+    }
+  }
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 via-white to-blue-100 dark:from-gray-900 dark:via-gray-950 dark:to-gray-900 py-12 px-4 sm:px-6 lg:px-8">
@@ -93,11 +115,42 @@ export default function SignIn() {
           <div className="text-center space-y-2">
             <CardTitle className="text-3xl">Student Label System</CardTitle>
             <CardDescription className="text-base">
-              Sign in with your DOE email and password
+              Sign in with your DOE email{azureEnabled ? ' or Microsoft SSO' : ' and password'}
             </CardDescription>
           </div>
         </CardHeader>
-        <CardContent>
+        <CardContent className="space-y-6">
+          {azureEnabled && (
+            <div className="space-y-3">
+              <Button
+                type="button"
+                variant="outline"
+                className="w-full gap-2"
+                size="lg"
+                disabled={ssoLoading || isLoading}
+                onClick={handleMicrosoftSignIn}
+              >
+                {ssoLoading ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <svg className="h-4 w-4" viewBox="0 0 21 21" aria-hidden="true">
+                    <rect x="1" y="1" width="9" height="9" fill="#f25022" />
+                    <rect x="11" y="1" width="9" height="9" fill="#7fba00" />
+                    <rect x="1" y="11" width="9" height="9" fill="#00a4ef" />
+                    <rect x="11" y="11" width="9" height="9" fill="#ffb900" />
+                  </svg>
+                )}
+                Sign in with Microsoft
+              </Button>
+              <div className="relative py-2">
+                <Separator />
+                <span className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 bg-card px-2 text-xs text-muted-foreground">
+                  or continue with email
+                </span>
+              </div>
+            </div>
+          )}
+
           <form className="space-y-6" onSubmit={handleSubmit}>
             <div className="space-y-4">
               <div className="space-y-2">
@@ -118,7 +171,7 @@ export default function SignIn() {
                     }}
                     placeholder="Enter your email"
                     className="pl-10"
-                    disabled={isLoading}
+                    disabled={isLoading || ssoLoading}
                   />
                 </div>
               </div>
@@ -141,15 +194,15 @@ export default function SignIn() {
                     }}
                     placeholder="Enter your password"
                     className="pl-10 pr-10"
-                    disabled={isLoading}
+                    disabled={isLoading || ssoLoading}
                   />
                   <Button
                     type="button"
                     variant="ghost"
                     size="sm"
-                    className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
-                    onClick={() => setShowPassword((v) => !v)}
-                    disabled={isLoading}
+                    className="absolute right-0 top-0 h-full px-3 hover:bg-transparent"
+                    onClick={() => setShowPassword(!showPassword)}
+                    disabled={isLoading || ssoLoading}
                   >
                     {showPassword ? (
                       <EyeOff className="h-4 w-4 text-muted-foreground" />
@@ -158,14 +211,11 @@ export default function SignIn() {
                     )}
                   </Button>
                 </div>
-                <p className="text-xs text-muted-foreground">
-                  If you use a password manager browser extension and see a hydration error, try disabling it for this page.
-                </p>
               </div>
 
               {mfaRequired && (
                 <div className="space-y-2">
-                  <Label htmlFor="mfaCode">Verification Code</Label>
+                  <Label htmlFor="mfaCode">Authenticator code</Label>
                   <Input
                     id="mfaCode"
                     name="mfaCode"
@@ -195,7 +245,7 @@ export default function SignIn() {
             <Button
               type="submit"
               className="w-full"
-              disabled={isLoading}
+              disabled={isLoading || ssoLoading}
               size="lg"
             >
               {isLoading ? (
@@ -204,10 +254,7 @@ export default function SignIn() {
                   Signing in...
                 </>
               ) : (
-                <>
-                  <Lock className="mr-2 h-4 w-4" />
-                  {mfaRequired ? 'Verify and sign in' : 'Sign in'}
-                </>
+                'Sign in'
               )}
             </Button>
           </form>
@@ -215,4 +262,4 @@ export default function SignIn() {
       </Card>
     </div>
   );
-} 
+}
