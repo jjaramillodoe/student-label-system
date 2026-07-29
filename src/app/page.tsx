@@ -1,5 +1,5 @@
 "use client";
-import React, { useEffect, useState } from "react";
+import React, { Suspense, useEffect, useRef, useState } from "react";
 import { Dialog as HeadlessDialog } from '@headlessui/react';
 import Barcode from 'react-barcode';
 import { FileDown, FileUp, Printer, Trash2, Edit, Eye, Moon, Sun, RotateCcw, List, Archive, X, Upload, History, Filter, TrendingUp, Package } from 'lucide-react';
@@ -21,10 +21,12 @@ import PrinterConfig from '@/components/PrinterConfig';
 import DashboardHeader from '@/components/DashboardHeader';
 import StudentFilters from '@/components/StudentFilters';
 import StudentActionsBar from '@/components/StudentActionsBar';
+import StudentEmptyState from '@/components/StudentEmptyState';
+import IntakePrintQueue from '@/components/IntakePrintQueue';
 import PrintView from '@/components/PrintView';
 import UndoSnackbar from '@/components/UndoSnackbar';
 import { Cabinet } from '../types/cabinet';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import {
   Dialog,
@@ -60,9 +62,18 @@ const LABEL_TEMPLATES = [
   { key: 'brother22208', name: 'Brother DK-22208 (2.1" x 2.8")', cols: 1, rows: 1, width: 2.8, height: 2.1, printer: 'QL-800', continuous: true },
 ];
 
-export default function Dashboard() {
+export default function DashboardPage() {
+  return (
+    <Suspense fallback={<main className="p-6 text-sm text-muted-foreground">Loading dashboard…</main>}>
+      <Dashboard />
+    </Suspense>
+  );
+}
+
+function Dashboard() {
   const { data: session, status } = useSession();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const userRole = (session?.user as any)?.role;
   const [students, setStudents] = useState<Student[]>([]);
   const [form, setForm] = useState({
@@ -105,6 +116,9 @@ export default function Dashboard() {
   const [showPrinterConfig, setShowPrinterConfig] = useState(false);
   const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
   const [showAddStudentForm, setShowAddStudentForm] = useState(false);
+  const [needsLabelMode, setNeedsLabelMode] = useState(false);
+  const [printedIds, setPrintedIds] = useState<Set<string>>(new Set());
+  const searchInputRef = useRef<HTMLInputElement | null>(null);
   const [advancedFilters, setAdvancedFilters] = useState({
     startDate: '',
     endDate: '',
@@ -127,7 +141,34 @@ export default function Dashboard() {
     }
     fetchStudents();
     fetchCabinets();
+    fetchPrintedIds();
   }, [status, session, router]);
+
+  // Deep-link from command palette: /?q=labelId
+  useEffect(() => {
+    const q = searchParams?.get('q');
+    if (q) setSearch(q);
+  }, [searchParams]);
+
+  async function fetchPrintedIds() {
+    try {
+      const res = await fetch('/api/print-history?limit=200');
+      if (!res.ok) return;
+      const logs = await res.json();
+      const ids = new Set<string>();
+      if (Array.isArray(logs)) {
+        for (const log of logs) {
+          for (const s of log.students || []) {
+            if (s.studentId) ids.add(s.studentId);
+            if (s.labelId) ids.add(s.labelId);
+          }
+        }
+      }
+      setPrintedIds(ids);
+    } catch (err) {
+      console.error('Failed to fetch print history for intake queue:', err);
+    }
+  }
 
   async function fetchStudents() {
     setLoading(true);
@@ -340,14 +381,30 @@ export default function Dashboard() {
   // Filtered students
   const filteredStudents = students.filter(student => {
     if (!showArchived && student.archived) return false;
-    const normalizedSearch = extractStudentIdFromQrPayload(search).toLowerCase();
+    const normalizedSearch = extractStudentIdFromQrPayload(search).toLowerCase().trim();
+    const dobDigits = (student.dob || '').replace(/[^0-9]/g, '');
+    const searchDigits = normalizedSearch.replace(/[^0-9]/g, '');
     const matchesSearch = normalizedSearch ? (
       (student.firstName?.toLowerCase() || '').includes(normalizedSearch) ||
       (student.lastName?.toLowerCase() || '').includes(normalizedSearch) ||
-      (student.studentId?.toLowerCase() || '').includes(normalizedSearch)
+      `${student.firstName || ''} ${student.lastName || ''}`.toLowerCase().includes(normalizedSearch) ||
+      (student.studentId?.toLowerCase() || '').includes(normalizedSearch) ||
+      (student.labelId?.toLowerCase() || '').includes(normalizedSearch) ||
+      (student.dob?.toLowerCase() || '').includes(normalizedSearch) ||
+      (searchDigits.length >= 4 && dobDigits.includes(searchDigits))
     ) : true;
     const matchesYear = filterYear && filterYear !== 'all' ? student.fiscalYear === filterYear : true;
     const matchesStatus = filterStatus && filterStatus !== 'all' ? student.status === filterStatus : true;
+
+    // Needs label: created in last 7 days and not in recent print history
+    let matchesNeedsLabel = true;
+    if (needsLabelMode) {
+      const created = student.createdAt ? Date.parse(student.createdAt) : NaN;
+      const recent = !Number.isNaN(created) && (Date.now() - created) <= 7 * 24 * 60 * 60 * 1000;
+      const keys = [student.labelId, student.studentId].filter(Boolean) as string[];
+      const alreadyPrinted = keys.some(k => printedIds.has(k));
+      matchesNeedsLabel = recent && !alreadyPrinted && !student.archived;
+    }
     
     // Advanced filters
     const matchesStartDate = advancedFilters.startDate ? 
@@ -361,10 +418,36 @@ export default function Dashboard() {
     const matchesEmail = advancedFilters.email ? 
       (student.email?.toLowerCase() || '').includes(advancedFilters.email.toLowerCase()) : true;
     
-    return matchesSearch && matchesYear && matchesStatus && 
+    return matchesSearch && matchesYear && matchesStatus && matchesNeedsLabel &&
            matchesStartDate && matchesEndDate && matchesCabinet && 
            matchesDrawer && matchesEmail;
   });
+
+  const hasActiveFilters = Boolean(
+    search ||
+    (filterYear && filterYear !== 'all') ||
+    (filterStatus && filterStatus !== 'all') ||
+    needsLabelMode ||
+    advancedFilters.startDate ||
+    advancedFilters.endDate ||
+    (advancedFilters.cabinet && advancedFilters.cabinet !== 'all') ||
+    (advancedFilters.drawer && advancedFilters.drawer !== 'all') ||
+    advancedFilters.email
+  );
+
+  function clearAllFilters() {
+    setSearch('');
+    setFilterYear('all');
+    setFilterStatus('all');
+    setNeedsLabelMode(false);
+    setAdvancedFilters({
+      startDate: '',
+      endDate: '',
+      cabinet: 'all',
+      drawer: 'all',
+      email: '',
+    });
+  }
 
   // Pagination logic
   const [page, setPage] = useState(1);
@@ -802,51 +885,24 @@ export default function Dashboard() {
           onShowPrintHistory={() => setShowPrintHistory(true)}
           onDownloadTemplate={handleDownloadTemplate}
         />
-        
-        {/* Dashboard Statistics */}
-        <DashboardStats />
-        
+
+        <IntakePrintQueue
+          students={students}
+          printedIds={printedIds}
+          onSelectForPrint={(ids) => {
+            setSelectedIds(ids);
+            setShowPrintPreview(true);
+            setPrintMode(true);
+          }}
+        />
+
         {/* Printer Configuration */}
         {showPrinterConfig && (
           <section className="mb-8">
             <PrinterConfig />
           </section>
         )}
-        
-        <section className="mb-8">
-          <Card>
-            <CardHeader className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-              <div>
-                <CardTitle className="flex items-center gap-2 text-blue-600">
-                  <UserPlus className="h-5 w-5" />
-                  Add New Student
-                </CardTitle>
-                <CardDescription>
-                  Keep this closed while reviewing or printing existing students.
-                </CardDescription>
-              </div>
-              <Button
-                type="button"
-                variant={showAddStudentForm ? 'outline' : 'default'}
-                onClick={() => setShowAddStudentForm((open) => !open)}
-                className="gap-2"
-              >
-                <UserPlus className="h-4 w-4" />
-                {showAddStudentForm ? 'Hide Form' : 'Add Student'}
-              </Button>
-            </CardHeader>
-            {showAddStudentForm && (
-              <CardContent>
-                <StudentForm
-                  onSubmit={handleSubmit}
-                  loading={loading}
-                  clearForm={clearForm}
-                  toast={success ? { message: success, type: 'success' } : error ? { message: error, type: 'error' } : null}
-                />
-              </CardContent>
-            )}
-          </Card>
-        </section>
+
         <section>
           <StudentFilters
             search={search}
@@ -863,6 +919,9 @@ export default function Dashboard() {
             statuses={statuses}
             cabinets={cabinets}
             drawers={cabinets.flatMap(cab => cab.drawers || [])}
+            needsLabelMode={needsLabelMode}
+            onNeedsLabelModeChange={setNeedsLabelMode}
+            searchInputRef={searchInputRef}
             onLoadSearch={(filters) => {
               setSearch(filters.search || '');
               setFilterYear(filters.filterYear || 'all');
@@ -928,20 +987,29 @@ export default function Dashboard() {
               Show Archived
             </label>
           </div>
-          <StudentTable
-            students={paginatedStudents}
-            selectedIds={selectedIds}
-            onSelect={toggleSelect}
-            onSelectAll={selectAll}
-            allSelected={allPageSelected}
-            someSelected={somePageSelected}
-            onEdit={openEditModal}
-            onDelete={handleDelete}
-            onDetails={setDetailsStudent}
-            userRole={userRole}
-            cabinetMap={cabinetMap}
-            drawerMap={drawerMap}
-          />
+          {filteredStudents.length === 0 && !loading ? (
+            <StudentEmptyState
+              userRole={userRole}
+              hasActiveFilters={hasActiveFilters}
+              onClearFilters={clearAllFilters}
+              onFocusSearch={() => searchInputRef.current?.focus()}
+            />
+          ) : (
+            <StudentTable
+              students={paginatedStudents}
+              selectedIds={selectedIds}
+              onSelect={toggleSelect}
+              onSelectAll={selectAll}
+              allSelected={allPageSelected}
+              someSelected={somePageSelected}
+              onEdit={openEditModal}
+              onDelete={handleDelete}
+              onDetails={setDetailsStudent}
+              userRole={userRole}
+              cabinetMap={cabinetMap}
+              drawerMap={drawerMap}
+            />
+          )}
           
           {/* Pagination Controls */}
           {filteredStudents.length > 0 && (
@@ -1036,6 +1104,43 @@ export default function Dashboard() {
             </div>
           )}
         </section>
+
+        <section className="mb-8 mt-8">
+          <Card>
+            <CardHeader className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+              <div>
+                <CardTitle className="flex items-center gap-2 text-blue-600">
+                  <UserPlus className="h-5 w-5" />
+                  Add New Student
+                </CardTitle>
+                <CardDescription>
+                  Prefer Intake for front-desk enrollments. Keep this closed while printing.
+                </CardDescription>
+              </div>
+              <Button
+                type="button"
+                variant={showAddStudentForm ? 'outline' : 'default'}
+                onClick={() => setShowAddStudentForm((open) => !open)}
+                className="gap-2"
+              >
+                <UserPlus className="h-4 w-4" />
+                {showAddStudentForm ? 'Hide Form' : 'Add Student'}
+              </Button>
+            </CardHeader>
+            {showAddStudentForm && (
+              <CardContent>
+                <StudentForm
+                  onSubmit={handleSubmit}
+                  loading={loading}
+                  clearForm={clearForm}
+                  toast={success ? { message: success, type: 'success' } : error ? { message: error, type: 'error' } : null}
+                />
+              </CardContent>
+            )}
+          </Card>
+        </section>
+
+        <DashboardStats defaultCollapsed />
 
         {/* Edit Modal */}
         <EditStudentModal

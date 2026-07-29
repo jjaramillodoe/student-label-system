@@ -53,6 +53,7 @@ export type Student = {
   archiveLocation?: string;
   archiveSchoolYear?: string;
   archiveBoxId?: string;
+  createdAt?: string;
 };
 
 interface StudentTableProps {

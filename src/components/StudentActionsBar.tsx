@@ -1,10 +1,17 @@
 'use client';
 
 import { Button } from '@/components/ui/button';
-import { FileDown, Edit, Archive, Trash2, Printer, ScanLine, AlertTriangle } from 'lucide-react';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import { FileDown, Edit, Archive, Trash2, Printer, ScanLine, AlertTriangle, MoreHorizontal, History } from 'lucide-react';
 import ReprintButton from './ReprintButton';
 
-// Labels-per-sheet for Avery sheet layouts
 const SHEET_SIZES: Record<string, number> = {
   avery5160: 30,
   avery5163: 10,
@@ -48,7 +55,6 @@ export default function StudentActionsBar({
 }: StudentActionsBarProps) {
   const hasSelection = selectedCount > 0;
 
-  // Sheet-count hint for Avery layouts
   const labelsPerSheet = SHEET_SIZES[printLayout] ?? 0;
   const sheetHint = (() => {
     if (!labelsPerSheet || !hasSelection) return null;
@@ -68,19 +74,20 @@ export default function StudentActionsBar({
   return (
     <div className="flex gap-2 mb-4 flex-wrap items-center">
       <Button
-        onClick={onExportCsv}
-        variant="outline"
-        className="gap-2"
-      >
-        <FileDown size={18} /> Export CSV
-      </Button>
-      <Button
         onClick={onPrintSelected}
         disabled={!hasSelection}
         variant="default"
         className="gap-2 bg-purple-600 hover:bg-purple-700"
       >
         <Printer size={18} /> Print Selected ({selectedCount})
+      </Button>
+      <Button
+        onClick={onPrintAllFiltered}
+        disabled={filteredCount === 0}
+        variant="outline"
+        className="gap-2"
+      >
+        <Printer size={18} /> Print All ({filteredCount})
       </Button>
       {sheetHint && (
         <span className={`inline-flex items-center gap-1.5 text-xs font-medium px-2 py-1 rounded-md border ${
@@ -92,67 +99,62 @@ export default function StudentActionsBar({
           {sheetHint.msg}
         </span>
       )}
-      <Button
-        onClick={onPrintAllFiltered}
-        disabled={filteredCount === 0}
-        variant="default"
-        className="gap-2 bg-indigo-600 hover:bg-indigo-700"
-      >
-        <Printer size={18} /> Print All Filtered ({filteredCount})
-      </Button>
-      <ReprintButton
-        onReprint={onReprint}
-        onReprintLast={onReprintLast}
-      />
-      <Button
-        onClick={onToggleQRCode}
-        variant="outline"
-        className="gap-2"
-      >
-        <ScanLine size={16} /> {showQRCode ? 'Hide' : 'Show'} QR
-      </Button>
-      {hasSelection && (
-        <div className="flex gap-2 flex-wrap items-center rounded-md border bg-muted/30 p-1">
-          <span className="px-2 text-xs font-medium text-muted-foreground">
-            {selectedCount} selected
-          </span>
-          <Button
-            onClick={onExportSelected}
-            variant="outline"
-            size="sm"
-            className="gap-2"
-          >
-            <FileDown size={16} /> Export CSV
+
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button variant="outline" className="gap-2">
+            <MoreHorizontal size={16} />
+            More actions
           </Button>
-          <Button
-            onClick={onBulkUpdate}
-            variant="outline"
-            size="sm"
-            className="gap-2"
-          >
-            <Edit size={16} /> Update
-          </Button>
-          <Button
-            onClick={onBulkArchive}
-            variant="outline"
-            size="sm"
-            className="gap-2"
-          >
-            <Archive size={16} /> Archive
-          </Button>
-          {['Data Lead', 'Admin'].includes(userRole || '') && (
-            <Button
-              onClick={onBulkDelete}
-              variant="destructive"
-              size="sm"
-              className="gap-2"
-            >
-              <Trash2 size={16} /> Delete
-            </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="start" className="w-56">
+          <DropdownMenuLabel>Export & display</DropdownMenuLabel>
+          <DropdownMenuItem onClick={onExportCsv}>
+            <FileDown className="h-4 w-4 mr-2" />
+            Export CSV (all)
+          </DropdownMenuItem>
+          <DropdownMenuItem onClick={onToggleQRCode}>
+            <ScanLine className="h-4 w-4 mr-2" />
+            {showQRCode ? 'Hide' : 'Show'} QR codes
+          </DropdownMenuItem>
+          <DropdownMenuItem onClick={onReprintLast}>
+            <History className="h-4 w-4 mr-2" />
+            Reprint last job
+          </DropdownMenuItem>
+          {hasSelection && (
+            <>
+              <DropdownMenuSeparator />
+              <DropdownMenuLabel>{selectedCount} selected</DropdownMenuLabel>
+              <DropdownMenuItem onClick={onExportSelected}>
+                <FileDown className="h-4 w-4 mr-2" />
+                Export selected CSV
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={onBulkUpdate}>
+                <Edit className="h-4 w-4 mr-2" />
+                Bulk update
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={onBulkArchive}>
+                <Archive className="h-4 w-4 mr-2" />
+                Archive selected
+              </DropdownMenuItem>
+              {['Data Lead', 'Admin'].includes(userRole || '') && (
+                <DropdownMenuItem onClick={onBulkDelete} className="text-destructive focus:text-destructive">
+                  <Trash2 className="h-4 w-4 mr-2" />
+                  Delete selected
+                </DropdownMenuItem>
+              )}
+            </>
           )}
-        </div>
+        </DropdownMenuContent>
+      </DropdownMenu>
+
+      <ReprintButton onReprint={onReprint} onReprintLast={onReprintLast} />
+
+      {hasSelection && (
+        <span className="text-xs text-muted-foreground px-1">
+          {selectedCount} selected
+        </span>
       )}
     </div>
   );
 }
-

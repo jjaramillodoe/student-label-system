@@ -12,6 +12,7 @@ import { Button } from '@/components/ui/button';
 import { Filter, X } from 'lucide-react';
 import BarcodeScanner from './BarcodeScanner';
 import SavedSearches from './SavedSearches';
+import { cn } from '@/lib/utils';
 
 interface StudentFiltersProps {
   search: string;
@@ -35,6 +36,10 @@ interface StudentFiltersProps {
   cabinets: any[];
   drawers?: any[];
   onLoadSearch: (filters: any) => void;
+  /** Quick chip: only active status */
+  needsLabelMode?: boolean;
+  onNeedsLabelModeChange?: (value: boolean) => void;
+  searchInputRef?: React.RefObject<HTMLInputElement | null>;
 }
 
 export default function StudentFilters({
@@ -53,11 +58,14 @@ export default function StudentFilters({
   cabinets,
   drawers,
   onLoadSearch,
+  needsLabelMode,
+  onNeedsLabelModeChange,
+  searchInputRef,
 }: StudentFiltersProps) {
   return (
     <>
       <div className="flex justify-between items-center mb-4 flex-wrap gap-2">
-        <h2 className="text-xl font-semibold text-blue-600">Student List</h2>
+        <h2 className="text-xl font-semibold text-blue-600">Find & print</h2>
         <div className="flex gap-2 flex-wrap">
           <BarcodeScanner
             onScan={(studentId) => {
@@ -84,6 +92,52 @@ export default function StudentFilters({
             <Filter size={16} /> {showAdvancedFilters ? 'Hide' : 'Show'} Advanced Filters
           </Button>
         </div>
+      </div>
+
+      {/* Quick filter chips for filing-desk rush */}
+      <div className="flex flex-wrap gap-2 mb-3">
+        <Button
+          type="button"
+          size="sm"
+          variant={filterStatus === 'Active' ? 'default' : 'outline'}
+          className="h-7 text-xs"
+          onClick={() => onFilterStatusChange(filterStatus === 'Active' ? 'all' : 'Active')}
+        >
+          Active
+        </Button>
+        {onNeedsLabelModeChange && (
+          <Button
+            type="button"
+            size="sm"
+            variant={needsLabelMode ? 'default' : 'outline'}
+            className="h-7 text-xs"
+            onClick={() => onNeedsLabelModeChange(!needsLabelMode)}
+          >
+            Needs label
+          </Button>
+        )}
+        {cabinets.slice(0, 6).map((cabinet: any) => {
+          const selected = advancedFilters.cabinet === cabinet._id;
+          return (
+            <Button
+              key={cabinet._id}
+              type="button"
+              size="sm"
+              variant={selected ? 'default' : 'outline'}
+              className={cn('h-7 text-xs max-w-[140px] truncate')}
+              onClick={() =>
+                onAdvancedFiltersChange({
+                  ...advancedFilters,
+                  cabinet: selected ? 'all' : cabinet._id,
+                  drawer: 'all',
+                })
+              }
+              title={cabinet.name}
+            >
+              {cabinet.identifier || cabinet.name}
+            </Button>
+          );
+        })}
       </div>
 
       {/* Advanced Filters */}
@@ -176,11 +230,12 @@ export default function StudentFilters({
       {/* Basic Filters */}
       <div className="flex flex-col sm:flex-row gap-2 mb-4 items-center">
         <Input
+          ref={searchInputRef as any}
           type="text"
-          placeholder="Search by name or ID..."
+          placeholder="Search name, Label ID, Student ID, or DOB…"
           value={search}
           onChange={(e) => onSearchChange(e.target.value)}
-          className="w-full sm:w-64"
+          className="w-full sm:w-80"
         />
         <Select value={filterYear} onValueChange={onFilterYearChange}>
           <SelectTrigger className="w-full sm:w-40">
@@ -208,4 +263,3 @@ export default function StudentFilters({
     </>
   );
 }
-

@@ -2,6 +2,7 @@
 
 import { useSession, signOut } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { 
   LogOut, 
@@ -24,6 +25,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Separator } from '@/components/ui/separator';
+import CommandPalette from '@/components/CommandPalette';
 
 export default function Header() {
   const { data: session, status } = useSession();
@@ -107,24 +109,25 @@ export default function Header() {
       <div className="w-full px-4 sm:px-6 py-4">
         <div className="flex justify-between items-center gap-4">
           {/* Left side - Logo and Title */}
-          <div className="flex items-center gap-3">
-            <div className="flex items-center justify-center h-10 w-10 rounded-lg bg-primary/10 border border-primary/20">
+          <Link href="/" className="flex items-center gap-3 min-w-0 hover:opacity-90 transition-opacity">
+            <div className="flex items-center justify-center h-10 w-10 rounded-lg bg-primary/10 border border-primary/20 shrink-0">
               <FileText className="h-5 w-5 text-primary" />
             </div>
-            <div className="flex flex-col">
-              <h1 className="text-xl font-bold text-foreground leading-tight">
+            <div className="flex flex-col min-w-0">
+              <h1 className="text-xl font-bold text-foreground leading-tight truncate">
                 Student Label System
               </h1>
               {session?.user?.school && (
-                <span className="text-xs text-muted-foreground hidden sm:inline">
+                <span className="text-xs text-muted-foreground hidden sm:inline truncate">
                   {session.user.school}
                 </span>
               )}
             </div>
-          </div>
+          </Link>
 
           {/* Right side - User Menu */}
           <div className="flex items-center gap-3">
+            <CommandPalette />
             <Button
               variant="outline"
               size="icon"

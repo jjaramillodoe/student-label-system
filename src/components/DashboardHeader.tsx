@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { BookOpen, FileDown, Upload, History, TrendingUp, Package, Printer, List, MoreHorizontal, Settings, ExternalLink } from 'lucide-react';
+import { BookOpen, FileDown, Upload, History, Printer, MoreHorizontal, Settings, ExternalLink } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import SeedTestData from './SeedTestData';
 import SeedCabinets from './SeedCabinets';
@@ -33,12 +33,15 @@ export default function DashboardHeader({
   const showAdminPanel = settings.showSeedTestData || settings.showSeedCabinets || settings.showClearAllData;
 
   return (
-    <div className="flex flex-col lg:flex-row justify-between gap-4 mb-6">
+    <div className="flex flex-col lg:flex-row justify-between gap-4 mb-4">
       <div>
         <p className="text-sm font-medium text-muted-foreground">Student Label System</p>
         <h1 className="text-3xl font-bold text-blue-700 dark:text-blue-200">
           {schoolName || 'Student Dashboard'}
         </h1>
+        <p className="text-sm text-muted-foreground mt-1">
+          Search, scan, and print labels. Use ⌘K / Ctrl+K to jump to tools.
+        </p>
       </div>
       <div className="flex gap-2 items-center flex-wrap justify-start lg:justify-end">
         <Link href="/admin/students/bulk-upload">
@@ -68,6 +71,7 @@ export default function DashboardHeader({
               <Printer className="h-4 w-4 mr-2" />
               Printer Setup
             </DropdownMenuItem>
+            <DropdownMenuSeparator />
             <DropdownMenuItem asChild>
               <a href={MINTLIFY_DOCS_URL} target="_blank" rel="noopener noreferrer">
                 <ExternalLink className="h-4 w-4 mr-2" />
@@ -80,37 +84,12 @@ export default function DashboardHeader({
                 In-app guide
               </Link>
             </DropdownMenuItem>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem asChild>
-              <Link href="/reports">
-                <TrendingUp className="h-4 w-4 mr-2" />
-                Reports
-              </Link>
-            </DropdownMenuItem>
-            <DropdownMenuItem asChild>
-              <Link href="/admin/label-stock">
-                <Package className="h-4 w-4 mr-2" />
-                Label Stock
-              </Link>
-            </DropdownMenuItem>
-            <DropdownMenuItem asChild>
-              <Link href="/admin/thoughtspot-analytics">
-                <TrendingUp className="h-4 w-4 mr-2" />
-                ThoughtSpot Analytics
-              </Link>
-            </DropdownMenuItem>
-            <DropdownMenuItem asChild>
-              <Link href="/audit">
-                <List className="h-4 w-4 mr-2" />
-                Audit Log
-              </Link>
-            </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
         {showAdminPanel && (
           <div className="flex gap-2 items-center flex-wrap rounded-md border bg-muted/30 p-1">
             <span className="px-2 text-xs font-medium text-muted-foreground flex items-center gap-1">
-              <Settings size={14} /> Admin
+              <Settings size={14} /> Dev
             </span>
             {settings.showSeedTestData && <SeedTestData />}
             {settings.showSeedCabinets && <SeedCabinets />}
@@ -121,4 +100,3 @@ export default function DashboardHeader({
     </div>
   );
 }
-
