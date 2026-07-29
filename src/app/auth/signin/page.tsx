@@ -43,18 +43,14 @@ export default function SignIn() {
     }
 
     try {
-      const credentials: Record<string, string | boolean> = {
+      const result = await signIn('credentials', {
         email: email.toLowerCase(),
         password,
+        ...(mfaRequired ? { mfaCode: mfaCode.trim() } : {}),
         redirect: false,
         callbackUrl: '/',
-      };
+      });
 
-      if (mfaRequired) {
-        credentials.mfaCode = mfaCode.trim();
-      }
-
-      const result = await signIn('credentials', credentials);
       if (result?.error) {
         if (result.error === 'MFA_REQUIRED') {
           setMfaRequired(true);
@@ -65,9 +61,16 @@ export default function SignIn() {
         } else {
           setError('Invalid email or password.');
         }
-      } else if (result?.ok) {
-        window.location.href = result.url || '/';
+        return;
       }
+
+      if (result?.ok) {
+        // Full navigation so the session cookie is sent on the next document request
+        window.location.assign('/');
+        return;
+      }
+
+      setError('Sign-in did not complete. Please try again.');
     } catch {
       setError('An error occurred. Please try again.');
     } finally {

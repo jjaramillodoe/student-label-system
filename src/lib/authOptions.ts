@@ -169,23 +169,27 @@ export const authOptions: NextAuthOptions = {
       }
 
       if (user) {
-        token.role = user.role;
+        token.role = user.role || 'Data Member';
         token.name = user.name;
         token.email = user.email;
-        token.school = user.school;
-        token.forcePasswordChange = user.forcePasswordChange;
+        token.school = user.school || '';
+        token.forcePasswordChange = Boolean(user.forcePasswordChange);
       }
 
-      // Azure AD: refresh role/school from DB on each sign-in (and if missing)
-      if (account?.provider === 'azure-ad' || (!token.role && token.email)) {
-        const email = String(token.email || '').toLowerCase();
+      // Only hit Mongo on Azure AD sign-in (not every credentials JWT refresh)
+      if (account?.provider === 'azure-ad') {
+        const email = String(token.email || user?.email || '').toLowerCase();
         if (email) {
-          const dbUser = await loadDbUserByEmail(email);
-          if (dbUser) {
-            token.role = dbUser.role || 'Data Member';
-            token.school = dbUser.school || '';
-            token.name = dbUser.name || token.name;
-            token.forcePasswordChange = Boolean(dbUser.forcePasswordChange);
+          try {
+            const dbUser = await loadDbUserByEmail(email);
+            if (dbUser) {
+              token.role = dbUser.role || 'Data Member';
+              token.school = dbUser.school || '';
+              token.name = dbUser.name || token.name;
+              token.forcePasswordChange = Boolean(dbUser.forcePasswordChange);
+            }
+          } catch (err) {
+            console.error('[auth] azure-ad jwt user lookup failed', err);
           }
         }
       }
