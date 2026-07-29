@@ -5,6 +5,7 @@ import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import AdminHeader from '@/components/AdminHeader';
 import PrintView from '@/components/PrintView';
+import { getStoredPrintLayout, setStoredPrintLayout } from '@/lib/printLayoutStorage';
 import {
   AlertCircle,
   ArrowLeft,
@@ -126,7 +127,16 @@ export default function PrintQueuePage() {
   const [statusFilter, setStatusFilter] = useState('all');
   const [layoutFilter, setLayoutFilter] = useState('all');
   const [reprintJob, setReprintJob] = useState<PrintJob | null>(null);
-  const [reprintLayout, setReprintLayout] = useState('avery5163');
+  const [reprintLayout, setReprintLayoutState] = useState('avery5163');
+
+  useEffect(() => {
+    setReprintLayoutState(getStoredPrintLayout('avery5163'));
+  }, []);
+
+  function setReprintLayout(layout: string) {
+    setReprintLayoutState(layout);
+    setStoredPrintLayout(layout);
+  }
 
   useEffect(() => {
     if (status === 'loading') return;

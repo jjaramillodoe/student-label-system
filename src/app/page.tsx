@@ -23,6 +23,7 @@ import StudentFilters from '@/components/StudentFilters';
 import StudentActionsBar from '@/components/StudentActionsBar';
 import StudentEmptyState from '@/components/StudentEmptyState';
 import IntakePrintQueue from '@/components/IntakePrintQueue';
+import SelectionPrintTray from '@/components/SelectionPrintTray';
 import PrintView from '@/components/PrintView';
 import UndoSnackbar from '@/components/UndoSnackbar';
 import { Cabinet } from '../types/cabinet';
@@ -43,6 +44,7 @@ import { User, Calendar, Mail, MapPin, FileText, Hash, ScanLine, UserPlus, Boxes
 import { buildStudentQrPayload, extractStudentIdFromQrPayload } from '@/lib/qrPayload';
 import { getStudentStorageDisplay } from '@/lib/studentLocation';
 import { downloadCsvFile, objectsToCsv } from '@/lib/csv';
+import { getStoredPrintLayout, setStoredPrintLayout } from '@/lib/printLayoutStorage';
 
 const FISCAL_YEAR_OPTIONS = [
   '2024-2025', '2025-2026', '2026-2027', '2027-2028'
@@ -108,7 +110,7 @@ function Dashboard() {
   const [showBulkUpdate, setShowBulkUpdate] = useState(false);
   const [bulkUpdate, setBulkUpdate] = useState({ status: '', fiscalYear: '' });
   const [showArchived, setShowArchived] = useState(false);
-  const [printLayout, setPrintLayout] = useState('avery5163');
+  const [printLayout, setPrintLayoutState] = useState('avery5163');
   const [cabinets, setCabinets] = useState<Cabinet[]>([]);
   const [showPrintHistory, setShowPrintHistory] = useState(false);
   const [showPrintPreview, setShowPrintPreview] = useState(false);
@@ -149,6 +151,16 @@ function Dashboard() {
     const q = searchParams?.get('q');
     if (q) setSearch(q);
   }, [searchParams]);
+
+  // Remember last-used Avery/Brother layout
+  useEffect(() => {
+    setPrintLayoutState(getStoredPrintLayout('avery5163'));
+  }, []);
+
+  function setPrintLayout(layout: string) {
+    setPrintLayoutState(layout);
+    setStoredPrintLayout(layout);
+  }
 
   async function fetchPrintedIds() {
     try {
@@ -1178,6 +1190,33 @@ function Dashboard() {
           open={showAudit}
           onOpenChange={setShowAudit}
           auditLog={auditLog}
+        />
+
+        {/* Sticky print tray while selecting (stays visible while scrolling) */}
+        <SelectionPrintTray
+          selectedCount={selectedIds.length}
+          minCount={1}
+          hidden={printMode}
+          sheetHint={(() => {
+            const labelsPerSheet =
+              printLayout === 'avery5160' ? 30 :
+              printLayout === 'avery5163' || printLayout === 'avery94205' ? 10 : 0;
+            if (!labelsPerSheet || selectedIds.length === 0) return null;
+            const remainder = selectedIds.length % labelsPerSheet;
+            if (remainder === 0) {
+              const sheets = selectedIds.length / labelsPerSheet;
+              return { ok: true, msg: `${sheets} full sheet${sheets !== 1 ? 's' : ''}` };
+            }
+            return {
+              ok: false,
+              msg: `Add ${labelsPerSheet - remainder} more to fill the last sheet`,
+            };
+          })()}
+          onClear={() => setSelectedIds([])}
+          onPrint={() => {
+            setShowPrintPreview(true);
+            setPrintMode(true);
+          }}
         />
 
         {/* Print View */}

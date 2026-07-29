@@ -64,7 +64,7 @@ function summarizeStudent(student: StudentDoc, issue: string, severity: 'error' 
   };
 }
 
-export async function GET() {
+export async function GET(req: Request) {
   try {
     const session = await getServerSession(authOptions);
     const userRole = session?.user?.role;
@@ -73,6 +73,9 @@ export async function GET() {
     if (!session || (userRole !== 'Admin' && userRole !== 'Data Lead')) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
+
+    const { searchParams } = new URL(req.url);
+    const summaryOnly = searchParams.get('summaryOnly') === '1' || searchParams.get('summaryOnly') === 'true';
 
     const client = await clientPromise;
     const db = client.db('student-label');
@@ -154,7 +157,11 @@ export async function GET() {
 
     return NextResponse.json({
       summary,
-      students: queue.sort((a, b) => a.issue.localeCompare(b.issue) || a.name.localeCompare(b.name)),
+      ...(summaryOnly
+        ? {}
+        : {
+            students: queue.sort((a, b) => a.issue.localeCompare(b.issue) || a.name.localeCompare(b.name)),
+          }),
     });
   } catch (error) {
     console.error('Error fetching unassigned student queue:', error);
