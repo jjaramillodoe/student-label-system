@@ -40,6 +40,7 @@ import { resolveSchoolIntakeSessions } from '@/lib/intakeIssues';
 import { canFixIntakeHandoff } from '@/lib/intakeVisitFix';
 import IntakeIssuesBanner from '@/components/IntakeIssuesBanner';
 import IntakeHandoffFixDialog from '@/components/IntakeHandoffFixDialog';
+import { formatFullName } from '@/lib/personName';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 interface Metrics {
@@ -814,7 +815,7 @@ export default function EnrollmentPage() {
                               {(e.firstName?.[0] ?? '?').toUpperCase()}
                             </div>
                             <div>
-                              <p className="text-sm font-medium whitespace-nowrap">{e.firstName} {e.lastName}</p>
+                              <p className="text-sm font-medium whitespace-nowrap">{formatFullName(e)}</p>
                               {e.school && <p className="text-xs text-muted-foreground">{e.school}</p>}
                             </div>
                           </div>
@@ -877,7 +878,7 @@ export default function EnrollmentPage() {
                                   className="h-6 text-[10px] px-2 gap-1"
                                   onClick={() => setFixTarget({
                                     id: e._id,
-                                    name: `${e.firstName} ${e.lastName}`,
+                                    name: formatFullName(e),
                                   })}
                                 >
                                   <Wrench className="h-3 w-3" />
@@ -942,7 +943,7 @@ export default function EnrollmentPage() {
                               <div className="flex flex-wrap items-center justify-between gap-2">
                                 <p className="text-sm font-medium flex items-center gap-2">
                                   <Clock className="h-4 w-4 text-primary" />
-                                  Intake visit history — {e.firstName} {e.lastName}
+                                  Intake visit history — {formatFullName(e)}
                                 </p>
                                 <Badge variant="outline" className="text-xs">
                                   Total: {fmtTotalHM(epeVisitsTotalMinutes(visits) ?? 0)}

@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation';
 import AdminHeader from '@/components/AdminHeader';
 import PrintView from '@/components/PrintView';
 import { getStoredPrintLayout, setStoredPrintLayout } from '@/lib/printLayoutStorage';
+import { formatFullName } from '@/lib/personName';
 import {
   AlertCircle,
   ArrowLeft,
@@ -194,7 +195,7 @@ export default function PrintQueuePage() {
         (job.user?.email || '').toLowerCase().includes(normalizedSearch) ||
         (job.user?.school || '').toLowerCase().includes(normalizedSearch) ||
         (job.students || []).some(student =>
-          `${student.firstName || ''} ${student.lastName || ''} ${student.studentId || ''}`
+          `${formatFullName(student)} ${student.studentId || ''}`
             .toLowerCase()
             .includes(normalizedSearch)
         )
@@ -269,7 +270,7 @@ export default function PrintQueuePage() {
       job.user?.school || '',
       getTemplateName(job.layout),
       getStudentCount(job),
-      (job.students || []).map(student => `${student.firstName || ''} ${student.lastName || ''} (${student.studentId || ''})`.trim()).join('; '),
+      (job.students || []).map(student => `${formatFullName(student)} (${student.studentId || ''})`.trim()).join('; '),
       job.error || '',
     ]);
 
@@ -494,7 +495,7 @@ export default function PrintQueuePage() {
                           <div className="flex flex-wrap gap-1">
                             {(job.students || []).slice(0, 3).map((student, index) => (
                               <Badge key={`${student.studentId}-${index}`} variant="secondary" className="text-xs">
-                                {student.firstName} {student.lastName}
+                                {formatFullName(student)}
                               </Badge>
                             ))}
                             {(job.students || []).length > 3 && (

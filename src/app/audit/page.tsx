@@ -52,6 +52,7 @@ import {
 } from '@/components/ui/dialog';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Separator } from '@/components/ui/separator';
+import { formatFullName } from '@/lib/personName';
 
 interface AuditLog {
   _id: string;
@@ -219,7 +220,7 @@ export default function AuditLogPage() {
     if (Array.isArray(student)) {
       return `${student.length} student(s)`;
     }
-    return `${student?.firstName || ''} ${student?.lastName || ''} (${student?.studentId || 'N/A'})`.trim();
+    return `${formatFullName(student)} (${student?.studentId || 'N/A'})`.trim();
   }
 
   function exportToCSV() {
@@ -232,7 +233,7 @@ export default function AuditLogPage() {
       log.user?.role || 'N/A',
       log.user?.school || 'N/A',
       Array.isArray(log.student) 
-        ? log.student.map((s: any) => `${s.firstName} ${s.lastName} (${s.studentId})`).join('; ')
+        ? log.student.map((s: any) => `${formatFullName(s)} (${s.studentId})`).join('; ')
         : formatStudentInfo(log.student),
       JSON.stringify(log.student || {})
     ]);
@@ -551,7 +552,7 @@ export default function AuditLogPage() {
                               <div className="text-xs text-muted-foreground">
                                 {log.student.slice(0, 2).map((s: any, i: number) => (
                                   <div key={i}>
-                                    {s.firstName} {s.lastName} ({s.studentId})
+                                    {formatFullName(s)} ({s.studentId})
                                   </div>
                                 ))}
                                 {log.student.length > 2 && (
@@ -562,7 +563,7 @@ export default function AuditLogPage() {
                           ) : (
                             <div className="text-sm">
                               <div className="font-medium">
-                                {log.student?.firstName} {log.student?.lastName}
+                                {formatFullName(log.student)}
                               </div>
                               <div className="text-xs text-muted-foreground font-mono">
                                 {log.student?.studentId}

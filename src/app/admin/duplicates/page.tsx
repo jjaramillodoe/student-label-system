@@ -15,6 +15,7 @@ import {
   type AddressMatchKind,
 } from '@/lib/addressDuplicate';
 import { formatStudentAddressStacked } from '@/lib/addressValidation';
+import { formatFullName } from '@/lib/personName';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -198,7 +199,7 @@ function StudentCard({
       <div className="flex items-start justify-between gap-2">
         <div>
           <p className="font-bold text-base">
-            {student.firstName} {student.lastName}
+            {formatFullName(student)}
           </p>
           <p className="text-xs text-muted-foreground font-mono mt-0.5">
             {student.labelId || student.studentId || '—'}
@@ -273,7 +274,7 @@ function PairCard({
           isAuto ? 'text-blue-700 dark:text-blue-400' : 'text-amber-700 dark:text-amber-400'
         }`}>
           {isAuto ? <Users className="h-4 w-4" /> : <AlertTriangle className="h-4 w-4" />}
-          {flagged.firstName} {flagged.lastName}
+          {formatFullName(flagged)}
           <span className="font-normal text-muted-foreground">
             · DOB {flagged.dob}{flagged.school && ` · ${flagged.school}`}
           </span>

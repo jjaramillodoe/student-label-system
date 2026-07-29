@@ -9,6 +9,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
+import { formatFullName } from '@/lib/personName';
 
 interface StudentDetail {
   _id: string;
@@ -115,7 +116,7 @@ export default function StudentDetailPage() {
 
   if (!student) return null;
 
-  const fullName = `${student.firstName} ${student.lastName}`;
+  const fullName = formatFullName(student);
   const initials = `${student.firstName?.[0] ?? ''}${student.lastName?.[0] ?? ''}`.toUpperCase();
 
   return (
@@ -184,7 +185,7 @@ export default function StudentDetailPage() {
                       href={`/student/${sib.labelId || sib.studentId}`}
                       className="text-xs bg-blue-50 border border-blue-200 rounded px-2 py-1 hover:bg-blue-100 transition-colors text-blue-800 font-medium flex items-center justify-between"
                     >
-                      <span>{sib.firstName} {sib.lastName}</span>
+                      <span>{formatFullName(sib)}</span>
                       <span className="font-mono text-blue-500">{sib.labelId || sib.studentId}</span>
                     </a>
                   ))}

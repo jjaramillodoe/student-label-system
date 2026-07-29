@@ -55,6 +55,7 @@ import {
   validateStudentAddress,
   normalizeStudentAddress,
 } from '@/lib/addressValidation';
+import { formatFullName } from '@/lib/personName';
 
 const SAMPLE_DATA = [
   { firstName: 'Amelia', lastName: 'Rivera', dob: '2006-01-12', fiscalYear: '2025-2026', status: 'Active', startDate: '2025-09-04', email: 'amelia.rivera.test@example.com', studentId: '2006-AR-9000001' },
@@ -382,7 +383,7 @@ export default function BulkUploadPage() {
     const existingByDob = new Map<string, any[]>();
     existingStudents.forEach(s => {
       const e = s.email?.toLowerCase();
-      if (e) existingEmailMap.set(e, `${s.firstName || ''} ${s.lastName || ''}`.trim());
+      if (e) existingEmailMap.set(e, formatFullName(s));
       if (s.dob) {
         const arr = existingByDob.get(s.dob) || [];
         arr.push(s);
@@ -401,7 +402,7 @@ export default function BulkUploadPage() {
       const email = row.email?.toLowerCase();
       const labelId = getLabelId(row, index);
       const nameDob = `${row.firstName || ''}|${row.lastName || ''}|${row.dob || ''}`.toLowerCase();
-      const name = `${row.firstName || ''} ${row.lastName || ''}`.trim() || `Row ${index + 1}`;
+      const name = formatFullName(row) || `Row ${index + 1}`;
       if (email) {
         const arr = fileEmailRows.get(email) || [];
         arr.push({ name, index });
@@ -479,14 +480,14 @@ export default function BulkUploadPage() {
         const sameDobFile = (fileByDob.get(row.dob) || []).filter(r => r.index !== index);
         sameDobFile.forEach(({ row: other }) => {
           if (isPossibleDuplicate(row, other)) {
-            warnings.push(`Possible same person (file): ${other.firstName} ${other.lastName}`);
+            warnings.push(`Possible same person (file): ${formatFullName(other)}`);
           }
         });
 
         const sameDobExisting = existingByDob.get(row.dob) || [];
         sameDobExisting.forEach(s => {
           if (isPossibleDuplicate(row, s)) {
-            warnings.push(`Possible same person (system): ${s.firstName} ${s.lastName}`);
+            warnings.push(`Possible same person (system): ${formatFullName(s)}`);
           }
         });
       }

@@ -16,6 +16,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { formatFullName } from '@/lib/personName';
 
 interface PrintHistoryProps {
   open: boolean;
@@ -163,7 +164,7 @@ export default function PrintHistory({ open, onOpenChange, onReprint }: PrintHis
                       <div className="flex flex-wrap gap-1">
                         {log.students?.slice(0, 3).map((s: any, i: number) => (
                           <Badge key={i} variant="outline" className="text-xs">
-                            {s.firstName} {s.lastName}
+                            {formatFullName(s)}
                           </Badge>
                         ))}
                         {log.students?.length > 3 && (

@@ -11,6 +11,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import Link from 'next/link';
 import ArchiveBoxPdfButton from '@/components/ArchiveBoxPdfButton';
 import type { BoxLabelArchive, BoxLabelBox, BoxLabelStudent } from '@/lib/boxLabel';
+import { formatFullName } from '@/lib/personName';
 
 interface BoxStudent {
   _id: string;
@@ -193,7 +194,7 @@ export default function ArchiveBoxPage() {
               {students.map(s => (
                 <li key={s._id} className="px-5 py-3 flex items-center justify-between gap-3">
                   <div className="min-w-0">
-                    <p className="font-medium truncate">{s.firstName} {s.lastName}</p>
+                    <p className="font-medium truncate">{formatFullName(s)}</p>
                     <p className="text-xs text-muted-foreground font-mono">{s.labelId || s.studentId || '—'}</p>
                   </div>
                   <Link

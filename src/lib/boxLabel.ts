@@ -1,4 +1,6 @@
 /** Absolute URL for archive box QR codes and printed labels. */
+import { formatFullName } from '@/lib/personName';
+
 export function getBoxPublicUrl(boxId: string, origin?: string): string {
   const base =
     (typeof process !== 'undefined' && process.env.NEXT_PUBLIC_APP_URL) ||
@@ -39,7 +41,7 @@ export function formatBoxCabinetLabel(archive: BoxLabelArchive) {
 }
 
 export function formatStudentLine(student: BoxLabelStudent, index: number) {
-  const name = `${student.lastName || ''}, ${student.firstName || ''}`.trim().replace(/^,\s*/, '');
+  const name = formatFullName(student) || '—';
   const id = student.labelId || student.studentId || '—';
   return `${String(index + 1).padStart(3, ' ')}. ${name}  ·  ${id}`;
 }

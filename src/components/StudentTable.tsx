@@ -26,6 +26,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
+import { formatFullName, formatFullNameLower } from "@/lib/personName";
 import { getStudentStorageDisplay } from "@/lib/studentLocation";
 
 export type Student = {
@@ -150,8 +151,8 @@ const StudentTable: React.FC<StudentTableProps> = ({
           bValue = b.labelId || b.studentId || '';
           break;
         case 'name':
-          aValue = `${a.firstName} ${a.lastName}`.toLowerCase();
-          bValue = `${b.firstName} ${b.lastName}`.toLowerCase();
+          aValue = formatFullNameLower(a);
+          bValue = formatFullNameLower(b);
           break;
         case 'dob':
           aValue = a.dob ? new Date(a.dob).getTime() : 0;
@@ -323,7 +324,7 @@ const StudentTable: React.FC<StudentTableProps> = ({
                       <Checkbox
                         checked={isSelected}
                         onCheckedChange={() => onSelect(student._id!)}
-                        aria-label={`Select ${student.firstName} ${student.lastName}`}
+                        aria-label={`Select ${formatFullName(student)}`}
                       />
                     </TableCell>
                     <TableCell>
@@ -373,7 +374,7 @@ const StudentTable: React.FC<StudentTableProps> = ({
                         className="font-medium text-primary hover:underline cursor-pointer text-left"
                       >
                         <div className="flex flex-col">
-                          <span>{student.firstName} {student.lastName}</span>
+                          <span>{formatFullName(student)}</span>
                           {student.email && (
                             <span className="text-xs text-muted-foreground font-normal truncate max-w-[200px]">
                               {student.email}

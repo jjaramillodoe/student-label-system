@@ -3,6 +3,7 @@ import { getServerSession } from 'next-auth';
 import { ObjectId } from 'mongodb';
 import clientPromise from '@/lib/mongodb';
 import { authOptions } from '@/lib/authOptions';
+import { formatFullName } from '@/lib/personName';
 
 type CleanupStudent = {
   _id: ObjectId;
@@ -38,7 +39,7 @@ function serializeStudent(student: CleanupStudent, issue: string) {
   return {
     _id: student._id.toString(),
     studentId: student.studentId || '',
-    name: `${student.firstName || ''} ${student.lastName || ''}`.trim() || 'Unnamed Student',
+    name: formatFullName(student) || 'Unnamed Student',
     email: student.email || '',
     dob: student.dob || '',
     startDate: student.startDate || '',

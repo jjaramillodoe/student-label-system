@@ -6,6 +6,7 @@ import { AlertTriangle, RefreshCw, Wrench } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { canFixIntakeHandoff } from '@/lib/intakeVisitFix';
+import { formatFullName } from '@/lib/personName';
 
 interface IntakeIssueSummary {
   studentId: string;
@@ -102,7 +103,7 @@ export default function IntakeIssuesBanner({
             {issues.slice(0, 5).map(issue => (
               <li key={issue.studentId} className="flex items-center justify-between gap-2">
                 <span>
-                  {issue.firstName} {issue.lastName}
+                  {formatFullName(issue)}
                   <span className="text-amber-700/80 dark:text-amber-300/80">
                     {' '}({issue.dayLabels.join(', ')})
                   </span>

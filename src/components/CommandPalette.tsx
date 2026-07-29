@@ -39,6 +39,7 @@ import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
 import { MINTLIFY_DOCS_URL } from '@/lib/docsUrl';
 import { extractStudentIdFromQrPayload } from '@/lib/qrPayload';
+import { formatFullName, formatFullNameLower } from '@/lib/personName';
 
 type ToolItem = {
   id: string;
@@ -159,7 +160,7 @@ export default function CommandPalette() {
     if (!normalized || normalized.length < 2) return [];
     return students
       .filter(s => {
-        const name = `${s.firstName || ''} ${s.lastName || ''}`.toLowerCase();
+        const name = formatFullNameLower(s);
         return (
           name.includes(normalized) ||
           (s.labelId || '').toLowerCase().includes(normalized) ||
@@ -304,7 +305,7 @@ export default function CommandPalette() {
                     >
                       <Boxes className="h-4 w-4 text-muted-foreground" />
                       <span className="flex-1">
-                        {item.firstName} {item.lastName}
+                        {formatFullName(item)}
                       </span>
                       <span className="font-mono text-xs text-muted-foreground">
                         {item.labelId || item.studentId || item.dob}

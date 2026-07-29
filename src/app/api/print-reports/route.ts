@@ -93,7 +93,7 @@ export async function GET(req: NextRequest) {
       case 'student':
         groupStage = {
           _id: "$students.studentId",
-          studentName: { $first: { $concat: ["$students.firstName", " ", "$students.lastName"] } },
+          studentName: { $first: { $concat: ["$students.lastName", " ", "$students.firstName"] } },
           count: { $sum: 1 }
         };
         projectStage = {

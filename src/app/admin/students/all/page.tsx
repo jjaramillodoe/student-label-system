@@ -24,6 +24,7 @@ import {
 import { formatStudentAddressStacked } from '@/lib/addressValidation';
 import { googleMapsSearchUrl } from '@/lib/googleMaps';
 import { getStudentStorageDisplay } from '@/lib/studentLocation';
+import { formatFullName } from '@/lib/personName';
 
 interface Student {
   _id: string;
@@ -720,7 +721,7 @@ export default function AllStudentsPage() {
                     </TableCell>
                     <TableCell>
                       <div className="font-medium">
-                        {[s.lastName, s.firstName].filter(Boolean).join(', ') || '—'}
+                        {formatFullName(s) || '—'}
                       </div>
                       {s.siblingConfirmed && (
                         <Badge variant="outline" className="text-[10px] mt-0.5 bg-purple-50 text-purple-700 border-purple-200">

@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/authOptions';
 import clientPromise from '@/lib/mongodb';
+import { formatFullName } from '@/lib/personName';
 
 type CabinetDoc = {
   _id: any;
@@ -49,7 +50,7 @@ function summarizeStudent(student: StudentDoc, issue: string, severity: 'error' 
   return {
     _id: student._id.toString(),
     studentId: student.studentId || '',
-    name: `${student.firstName || ''} ${student.lastName || ''}`.trim() || 'Unnamed Student',
+    name: formatFullName(student) || 'Unnamed Student',
     dob: student.dob || '',
     fiscalYear: student.fiscalYear || '',
     status: student.status || '',

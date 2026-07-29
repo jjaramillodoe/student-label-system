@@ -26,6 +26,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
+import { formatFullName, formatFullNameLower } from '@/lib/personName';
 
 type Student = {
   _id: string;
@@ -110,7 +111,7 @@ export default function BulkMovePage() {
       const matchesSearch =
         !query ||
         student.studentId?.toLowerCase().includes(query) ||
-        `${student.firstName || ''} ${student.lastName || ''}`.toLowerCase().includes(query) ||
+        formatFullNameLower(student).includes(query) ||
         student.email?.toLowerCase().includes(query);
 
       return matchesSource && matchesSearch;
@@ -331,7 +332,7 @@ export default function BulkMovePage() {
                           />
                         </TableCell>
                         <TableCell>
-                          <div className="font-medium">{`${student.firstName || ''} ${student.lastName || ''}`.trim() || 'Unnamed Student'}</div>
+                          <div className="font-medium">{formatFullName(student) || 'Unnamed Student'}</div>
                           <div className="text-xs font-mono text-muted-foreground">{student.studentId || student._id}</div>
                         </TableCell>
                         <TableCell>

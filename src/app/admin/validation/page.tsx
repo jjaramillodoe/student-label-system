@@ -24,6 +24,7 @@ import {
 import { Skeleton } from '@/components/ui/skeleton';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { formatFullName } from '@/lib/personName';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 interface Usage { used: number; quota: number; remaining: number; month: string; }
@@ -532,7 +533,7 @@ export default function ValidationPage() {
                         {jobs.map(j => (
                           <TableRow key={j._id}>
                             <TableCell>
-                              <div className="font-medium text-sm">{j.firstName} {j.lastName}</div>
+                              <div className="font-medium text-sm">{formatFullName(j)}</div>
                               {j.labelId && <div className="font-mono text-[10px] text-muted-foreground">{j.labelId}</div>}
                             </TableCell>
                             <TableCell className="font-mono text-xs">{j.email}</TableCell>
@@ -684,7 +685,7 @@ export default function ValidationPage() {
                               />
                             </TableCell>
                             <TableCell>
-                              <div className="font-medium text-sm">{s.firstName} {s.lastName}</div>
+                              <div className="font-medium text-sm">{formatFullName(s)}</div>
                               <div className="font-mono text-[10px] text-muted-foreground">{s.labelId || s.studentId}</div>
                             </TableCell>
                             <TableCell>

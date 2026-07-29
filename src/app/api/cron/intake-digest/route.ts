@@ -3,6 +3,7 @@ import clientPromise from '@/lib/mongodb';
 import { sendIntakeIssuesDigest } from '@/lib/notifications';
 import { detectIntakeIssuesFromStudent } from '@/lib/intakeIssues';
 import { normalizeIntakeSessions, type IntakeSession } from '@/lib/intakeSession';
+import { formatFullName } from '@/lib/personName';
 
 /**
  * Vercel Cron / external scheduler entrypoint.
@@ -60,7 +61,7 @@ export async function GET(req: NextRequest) {
     .map(doc => detectIntakeIssuesFromStudent(doc, { schoolSessionMap }))
     .filter((item): item is NonNullable<typeof item> => item !== null)
     .map(item => ({
-      studentName: `${item.firstName} ${item.lastName}`.trim(),
+      studentName: formatFullName(item),
       school: item.school,
       issues: [
         `${item.flagCount} flag(s)`,

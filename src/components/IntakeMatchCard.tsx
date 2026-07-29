@@ -11,6 +11,7 @@ import {
   addressMatchLabel,
   type AddressMatchKind,
 } from '@/lib/addressDuplicate';
+import { formatFullName } from '@/lib/personName';
 
 function addressMatchBadgeClass(kind: string): string {
   switch (kind) {
@@ -88,7 +89,7 @@ export default function IntakeMatchCard({
     <>
       <div className="flex flex-wrap items-center gap-2">
         <span className="font-medium text-sm">
-          {student.firstName} {student.lastName}
+          {formatFullName(student)}
         </span>
         <IntakeArchivedBadge student={student} />
         {student._dobMismatch && (

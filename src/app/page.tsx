@@ -45,6 +45,7 @@ import { buildStudentQrPayload, extractStudentIdFromQrPayload } from '@/lib/qrPa
 import { getStudentStorageDisplay } from '@/lib/studentLocation';
 import { downloadCsvFile, objectsToCsv } from '@/lib/csv';
 import { getStoredPrintLayout, setStoredPrintLayout } from '@/lib/printLayoutStorage';
+import { formatFullName, formatFullNameLower } from '@/lib/personName';
 
 const FISCAL_YEAR_OPTIONS = [
   '2024-2025', '2025-2026', '2026-2027', '2027-2028'
@@ -399,7 +400,7 @@ function Dashboard() {
     const matchesSearch = normalizedSearch ? (
       (student.firstName?.toLowerCase() || '').includes(normalizedSearch) ||
       (student.lastName?.toLowerCase() || '').includes(normalizedSearch) ||
-      `${student.firstName || ''} ${student.lastName || ''}`.toLowerCase().includes(normalizedSearch) ||
+      formatFullNameLower(student).includes(normalizedSearch) ||
       (student.studentId?.toLowerCase() || '').includes(normalizedSearch) ||
       (student.labelId?.toLowerCase() || '').includes(normalizedSearch) ||
       (student.dob?.toLowerCase() || '').includes(normalizedSearch) ||
@@ -851,7 +852,7 @@ function Dashboard() {
               
               if (!retryRes.ok) {
                 const retryErrorText = await retryRes.text();
-                throw new Error(`Failed to archive student ${student.firstName} ${student.lastName} after retry: ${retryErrorText}`);
+                throw new Error(`Failed to archive student ${formatFullName(student)} after retry: ${retryErrorText}`);
               }
               return; // Success on retry
             }
@@ -859,7 +860,7 @@ function Dashboard() {
             // If we can't parse the error, just throw the original error
           }
           
-          throw new Error(`Failed to archive student ${student.firstName} ${student.lastName}: ${errorText}`);
+          throw new Error(`Failed to archive student ${formatFullName(student)}: ${errorText}`);
         }
       });
       
@@ -1174,7 +1175,10 @@ function Dashboard() {
               setDeleteId(null);
             }
           }}
-          studentName={deleteId ? students.find(s => s._id === deleteId)?.firstName + ' ' + students.find(s => s._id === deleteId)?.lastName : undefined}
+          studentName={deleteId ? (() => {
+            const s = students.find(s => s._id === deleteId);
+            return s ? formatFullName(s) : undefined;
+          })() : undefined}
         />
 
         {/* Undo Delete Snackbar */}
@@ -1243,7 +1247,7 @@ function Dashboard() {
                     Student Details
                   </DialogTitle>
                   <DialogDescription>
-                    Complete information for {detailsStudent.firstName} {detailsStudent.lastName}
+                    Complete information for {formatFullName(detailsStudent)}
                   </DialogDescription>
                 </DialogHeader>
 

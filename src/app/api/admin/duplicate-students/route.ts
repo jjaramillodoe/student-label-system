@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/authOptions';
 import clientPromise from '@/lib/mongodb';
+import { formatFullName } from '@/lib/personName';
 
 type StudentDoc = {
   _id: any;
@@ -31,7 +32,7 @@ function summarizeStudent(student: StudentDoc) {
   return {
     _id: student._id.toString(),
     studentId: student.studentId || '',
-    name: `${student.firstName || ''} ${student.lastName || ''}`.trim() || 'Unnamed Student',
+    name: formatFullName(student) || 'Unnamed Student',
     firstName: student.firstName || '',
     lastName: student.lastName || '',
     dob: student.dob || '',
@@ -121,7 +122,7 @@ export async function GET() {
       },
       nameDobGroups: toDuplicateGroups(byNameDob, key => {
         const [firstName, lastName, dob] = key.split('|');
-        return `${firstName} ${lastName} / ${dob}`;
+        return `${formatFullName(firstName, lastName)} / ${dob}`;
       }),
       emailGroups: toDuplicateGroups(byEmail, key => key),
       exactStudentIdGroups,

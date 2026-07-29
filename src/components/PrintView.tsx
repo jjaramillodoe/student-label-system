@@ -12,6 +12,7 @@ import Avery94205LabelContent from '@/components/Avery94205LabelContent';
 import AveryPrintGuidance from '@/components/AveryPrintGuidance';
 import { AVERY94205 } from '@/lib/avery94205Geometry';
 import { downloadAveryDocx, isAveryDocxLayout } from '@/lib/downloadAveryDocx';
+import { formatFullName } from '@/lib/personName';
 
 // Avery 5163 on Letter paper (8.5" × 11"):
 // 2 cols × 5 rows = 10 labels, each 4" wide × 2" tall
@@ -282,7 +283,7 @@ export default function PrintView({
               className="brother-label"
             >
               <div className="font-bold text-base text-center w-full truncate mb-0.5">
-                {student.firstName} {student.lastName}
+                {formatFullName(student)}
               </div>
               <div className="text-[11px] text-center w-full truncate mb-0.5">DOB: {student.dob}</div>
               {getLabelId(student) && (
@@ -528,7 +529,7 @@ export default function PrintView({
                   {printLayout.startsWith('brother') ? (
                     <>
                       <div className="font-bold text-base text-center w-full truncate mb-0.5">
-                        {student.firstName} {student.lastName}
+                        {formatFullName(student)}
                       </div>
                       <div className="text-[11px] text-center w-full truncate mb-0.5">DOB: {student.dob}</div>
                       {getLabelId(student) && (
@@ -541,7 +542,7 @@ export default function PrintView({
                   ) : (
                     <>
                       <div className="font-bold text-lg mb-0.5 text-center w-full truncate">
-                        {student.firstName} {student.lastName}
+                        {formatFullName(student)}
                       </div>
                       <div className="mb-1 text-sm text-center w-full truncate">DOB: {student.dob}</div>
                       {getLabelId(student) && (

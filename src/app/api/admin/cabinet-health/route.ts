@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/authOptions';
 import clientPromise from '@/lib/mongodb';
+import { formatFullName } from '@/lib/personName';
 
 type CabinetDoc = {
   _id: any;
@@ -162,7 +163,7 @@ export async function GET() {
         badAssignments.push({
           studentId: student._id.toString(),
           studentNumber: student.studentId,
-          studentName: `${student.firstName || ''} ${student.lastName || ''}`.trim() || 'Unnamed Student',
+          studentName: formatFullName(student) || 'Unnamed Student',
           school: student.school,
           cabinet: cabinetId,
           drawer: drawerId,

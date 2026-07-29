@@ -12,6 +12,7 @@ import {
   LABEL_QR_SIZE_IN,
   labelNameFontSizePt,
 } from '@/lib/avery5163LabelStyle';
+import { formatFullName } from '@/lib/personName';
 
 export interface Avery5163LabelStudent {
   firstName: string;
@@ -27,7 +28,7 @@ function getLabelId(student: Avery5163LabelStudent) {
 
 /** Inner content for one Avery 5163 label: name/DOB/barcode left, QR right. */
 export default function Avery5163LabelContent({ student }: { student: Avery5163LabelStudent }) {
-  const fullName = `${student.firstName} ${student.lastName}`.trim();
+  const fullName = formatFullName(student);
   const labelId = getLabelId(student);
   const qrPayload = buildStudentQrPayload({ studentId: labelId });
   const nameSizePt = labelNameFontSizePt(fullName);

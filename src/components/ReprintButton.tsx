@@ -21,6 +21,7 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { Checkbox } from '@/components/ui/checkbox';
+import { formatFullName } from '@/lib/personName';
 
 interface ReprintButtonProps {
   onReprint: (studentIds: string[]) => void;
@@ -187,7 +188,7 @@ export default function ReprintButton({ onReprint, onReprintLast }: ReprintButto
                         </TableCell>
                         <TableCell>
                           <div className="font-medium">
-                            {student.firstName} {student.lastName}
+                            {formatFullName(student)}
                           </div>
                         </TableCell>
                         <TableCell className="font-mono text-xs">

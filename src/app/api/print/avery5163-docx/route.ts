@@ -62,6 +62,7 @@ import {
   LABEL_TEXT_COLUMN_RATIO,
   labelNameFontSizeHalfPt,
 } from '@/lib/avery5163LabelStyle';
+import { formatFullName } from '@/lib/personName';
 
 // ── Page geometry (twips: 1 inch = 1440) ─────────────────────────────────────
 const T              = 1440;
@@ -205,8 +206,8 @@ async function buildLabelCell(s: StudentData | null): Promise<TableCell> {
 
   const labelId = s.labelId || s.studentId || '';
   const appUrl  = process.env.NEXT_PUBLIC_APP_URL ?? '';
-  const qrText  = labelId ? `${appUrl}/student/${labelId}` : `${s.firstName} ${s.lastName}`;
-  const fullName = `${s.firstName} ${s.lastName}`.trim();
+  const qrText  = labelId ? `${appUrl}/student/${labelId}` : formatFullName(s);
+  const fullName = formatFullName(s);
   const nameSize = labelNameFontSizeHalfPt(fullName);
 
   const [qrBuf, barBuf] = await Promise.all([

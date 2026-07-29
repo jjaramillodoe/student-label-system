@@ -5,6 +5,7 @@ import { ClipboardList, Printer } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import type { Student } from '@/components/StudentTable';
+import { formatFullName } from '@/lib/personName';
 
 interface IntakePrintQueueProps {
   students: Student[];
@@ -74,7 +75,7 @@ export default function IntakePrintQueue({
               title="Select for print"
             >
               <span className="font-medium">
-                {s.firstName} {s.lastName}
+                {formatFullName(s)}
               </span>
               <span className="font-mono text-[10px] text-muted-foreground">
                 {s.labelId || s.studentId || '—'}

@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { ClipboardPaste, Loader2, MapPin } from 'lucide-react';
 import { parsePastedAddress } from '@/lib/addressValidation';
+import { formatFullName } from '@/lib/personName';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -107,9 +108,7 @@ export default function StudentAddressEditDialog({
     }
   }
 
-  const displayName = student
-    ? [student.lastName, student.firstName].filter(Boolean).join(', ')
-    : '';
+  const displayName = student ? formatFullName(student) : '';
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>

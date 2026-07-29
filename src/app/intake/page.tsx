@@ -68,6 +68,7 @@ import {
   addressMatchLabel,
   type AddressMatchKind,
 } from '@/lib/addressDuplicate';
+import { formatFullName } from '@/lib/personName';
 
 const INTAKE_STATUS_OPTIONS = [
   { value: 'NEW',             label: 'NEW',       description: 'First-time student' },
@@ -746,7 +747,7 @@ export default function IntakePage() {
       ...emptyReturningVisitFields(),
     }));
     setSelectedExistingStudent(s);
-    setStudentSearch(`${s.firstName || ''} ${s.lastName || ''}`.trim());
+    setStudentSearch(formatFullName(s));
     setStudentSearchResults([]);
     setSchoolLookupResults([]);
     setSchoolLookupDone(false);
@@ -1069,7 +1070,7 @@ export default function IntakePage() {
   function buildCopyMessage(): string {
     const matches = [...checkResult.exact, ...checkResult.fuzzy];
     const now = new Date().toLocaleString('en-US', { dateStyle: 'medium', timeStyle: 'short' });
-    const incomingName = `${form.firstName.trim()} ${form.lastName.trim()}`;
+    const incomingName = formatFullName(form.firstName.trim(), form.lastName.trim());
     const dobFormatted = form.dob
       ? new Date(form.dob + 'T00:00:00').toLocaleDateString('en-US', { month: '2-digit', day: '2-digit', year: 'numeric' })
       : form.dob;
@@ -1095,7 +1096,7 @@ export default function IntakePage() {
       const existingDob = s.dob
         ? new Date(s.dob + 'T00:00:00').toLocaleDateString('en-US', { month: '2-digit', day: '2-digit', year: 'numeric' })
         : s.dob;
-      lines.push(`  ${i + 1}. ${s.firstName} ${s.lastName}`);
+      lines.push(`  ${i + 1}. ${formatFullName(s)}`);
       lines.push(`     DOB: ${existingDob}   ID: ${s.labelId || s.studentId || '—'}   Status: ${s.status || '—'}`);
       if (s._similarity) lines.push(`     Match confidence: ${s._similarity}%`);
       if (s._dobMismatch) lines.push(`     ⚠ DOB differs from new record`);
@@ -1179,7 +1180,7 @@ export default function IntakePage() {
           refreshToken={issuesRefresh}
           onFixStudent={issue => setFixTarget({
             id: issue.studentId,
-            name: `${issue.firstName} ${issue.lastName}`,
+            name: formatFullName(issue),
           })}
         />
 
@@ -1461,7 +1462,7 @@ export default function IntakePage() {
                         studentIsArchived(selectedExistingStudent) ? 'text-amber-600' : 'text-green-600'
                       }`} />
                       <span className="flex-1 font-medium">
-                        {selectedExistingStudent.firstName} {selectedExistingStudent.lastName}
+                        {formatFullName(selectedExistingStudent)}
                       </span>
                       {studentIsArchived(selectedExistingStudent) && (
                         <Badge className="text-[10px] bg-amber-600 hover:bg-amber-600 text-white gap-1">
@@ -2146,7 +2147,7 @@ export default function IntakePage() {
           <div className="space-y-2 max-h-52 overflow-y-auto">
             {[...checkResult.exact, ...checkResult.fuzzy].map((s, i) => (
               <div key={s._id || i} className="rounded-md border px-3 py-2 text-sm grid grid-cols-2 gap-1 bg-muted/40">
-                <span><strong>Name:</strong> {s.firstName} {s.lastName}</span>
+                <span><strong>Name:</strong> {formatFullName(s)}</span>
                 <span><strong>DOB:</strong> {s.dob}</span>
                 <span><strong>ID:</strong> <span className="font-mono text-xs">{s.studentId}</span></span>
                 <span><strong>Status:</strong> {s.status || '—'}</span>
@@ -2216,7 +2217,7 @@ function ReprintHistoryLabel({ student }: { student: any }) {
           <DialogHeader>
             <DialogTitle>Download Label (Word)</DialogTitle>
             <DialogDescription>
-              {student.firstName} {student.lastName} — print from Word on Letter at 100%
+              {formatFullName(student)} — print from Word on Letter at 100%
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-3">
@@ -2393,7 +2394,7 @@ function AddVisitButton({
         <DialogContent className="max-w-md">
           <DialogHeader>
             <DialogTitle>Log Another Visit</DialogTitle>
-            <DialogDescription>{student.firstName} {student.lastName} · DOB {student.dob}</DialogDescription>
+            <DialogDescription>{formatFullName(student)} · DOB {student.dob}</DialogDescription>
           </DialogHeader>
 
           {priorVisits.length > 0 && (
@@ -2505,7 +2506,7 @@ function buildP2gReferralMessage(
   },
   user?: { name?: string | null; email?: string | null } | null,
 ): string {
-  const name = `${student.firstName ?? ''} ${student.lastName ?? ''}`.trim() || '—';
+  const name = formatFullName(student) || '—';
   const dobLabel = student.dob ? (formatHumanDate(student.dob) ?? student.dob) : '—';
   const phone = form.phone?.trim() || student.phone?.trim() || '—';
   const email = form.email?.trim() || student.email?.trim() || '—';
@@ -2592,7 +2593,7 @@ function IntakeSuccessSummary({
     <Card className="w-full max-w-lg shadow-lg">
       <CardHeader className="pb-3">
         <CardTitle className="text-lg">
-          {student.firstName} {student.lastName}
+          {formatFullName(student)}
         </CardTitle>
         <CardDescription>
           {savedAsVisit
@@ -2959,7 +2960,7 @@ function HistoryPanel({
                       {/* Name + details */}
                       <div className="flex-1 min-w-0">
                         <div className="font-medium text-sm truncate">
-                          {s.firstName} {s.lastName}
+                          {formatFullName(s)}
                         </div>
                         <div className="text-xs text-muted-foreground flex flex-wrap gap-x-3 gap-y-0.5 mt-0.5">
                           <span>DOB: {s.dob}</span>
