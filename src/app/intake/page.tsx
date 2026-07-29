@@ -50,7 +50,7 @@ import {
   Loader2, User, Calendar, Phone, Mail, ClipboardList, LogOut, Building2,
   FolderOpen, ChevronRight, List, RefreshCw, Clock, CalendarDays,
   Users, ShieldAlert, Copy, Check, MapPin, ExternalLink, Lock, ChevronDown, BookOpen,
-  Boxes, QrCode, Archive,
+  Boxes, QrCode, Archive, Database,
 } from 'lucide-react';
 import QRCode from '@/components/QRCode';
 import IntakeIssuesBanner from '@/components/IntakeIssuesBanner';
@@ -980,7 +980,7 @@ export default function IntakePage() {
         };
       }
 
-      if (siblingAcknowledged) {
+      if (siblingAcknowledged || assistsDifferentPersonAck) {
         payload.siblingFlag = true;
         payload.siblingFlagNote =
           'Intake member confirmed this is a different person with the same name (possible sibling or coincidence). Requires Data Lead review.';
@@ -992,6 +992,12 @@ export default function IntakePage() {
           payload.newAddressReviewNote =
             'Registered with a different home address than a possible name match on file — verify move or sibling.';
         }
+      }
+      if (assistsNotFoundAck) {
+        payload.assistsCheckedNotFound = true;
+      }
+      if (assistsLegacySameAck) {
+        payload.assistsLegacySamePerson = true;
       }
 
       const res = isUpdatingExisting
@@ -1324,82 +1330,300 @@ export default function IntakePage() {
 
         <IntakeMemberGuide />
 
-        {/* Always-on school roster check (active + archived) */}
-        <Card className="border-sky-200 dark:border-sky-900 bg-sky-50/40 dark:bg-sky-950/20">
-          <CardHeader className="pb-3">
-            <CardTitle className="text-sm flex items-center gap-2 text-sky-900 dark:text-sky-200">
-              <Users className="h-4 w-4" />
-              Check school records first
-            </CardTitle>
-            <CardDescription className="text-xs">
-              Search this system (active + archived) and the school ASISTS / legacy roster by name, Label ID, or DOB before registering as NEW.
-              Live matches can use <strong className="text-foreground">Same person — log returning</strong>.
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            <div className="flex gap-2">
-              <Input
-                placeholder="Name, Label ID, or DOB (MM/DD/YYYY)…"
-                value={schoolLookup}
-                onChange={e => {
-                  const v = e.target.value;
-                  setSchoolLookup(v);
-                  if (schoolLookupTimeout.current) clearTimeout(schoolLookupTimeout.current);
-                  schoolLookupTimeout.current = setTimeout(() => runSchoolLookup(v), 350);
-                }}
-                className="flex-1 bg-background"
-              />
-              {schoolLookupLoading && (
-                <Loader2 className="h-4 w-4 animate-spin self-center text-muted-foreground" />
-              )}
-            </div>
-            {schoolLookupDone && schoolLookupResults.length === 0 && isStudentSearchQueryValid(schoolLookup) && (
-              <Alert className="border-green-200 bg-green-50 dark:bg-green-950/30 dark:border-green-800">
-                <CheckCircle2 className="h-4 w-4 text-green-600" />
-                <AlertTitle className="text-green-800 dark:text-green-200 text-sm">No school match</AlertTitle>
-                <AlertDescription className="text-xs text-green-700 dark:text-green-300">
-                  No active, archived, or ASISTS/legacy match for this search. Safe to continue as NEW if name and DOB are correct.
-                </AlertDescription>
-              </Alert>
-            )}
-            {schoolLookupResults.length > 0 && (
-              <div className="space-y-2 max-h-64 overflow-y-auto">
-                {schoolLookupResults.map((s: any) => (
-                  <IntakeMatchCard
-                    key={s._id}
-                    student={s}
-                    onUseAsReturning={s._legacy ? undefined : selectAsReturning}
-                    showUseButton={!s._legacy}
+        <form onSubmit={handleSubmit} className="space-y-4">
+
+          {/* ── 1. INTAKE TYPE ──────────────────────────────── */}
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="flex items-center gap-2 text-base">
+                <ClipboardList className="h-4 w-4" /> Student Status
+                <span className="text-destructive text-sm font-normal">*</span>
+              </CardTitle>
+              <CardDescription className="text-xs text-amber-700 dark:text-amber-400 font-medium">
+                *MAKE SURE TO CHECK ASISTS*
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <Select value={form.intakeStudentStatus} onValueChange={v => setField('intakeStudentStatus', v)}>
+                <SelectTrigger className="font-semibold">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {INTAKE_STATUS_OPTIONS.map(opt => (
+                    <SelectItem key={opt.value} value={opt.value}>
+                      <span className="font-medium">{opt.label}</span>
+                      <span className="ml-2 text-xs text-muted-foreground">{opt.description}</span>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </CardContent>
+          </Card>
+
+          {/* ── NEW: required ASISTS / school records gate ── */}
+          {form.intakeStudentStatus === 'NEW' && (
+            <Card className="border-violet-300 dark:border-violet-800 bg-violet-50/40 dark:bg-violet-950/20">
+              <CardHeader className="pb-3">
+                <CardTitle className="text-sm flex items-center gap-2 text-violet-900 dark:text-violet-200">
+                  <Database className="h-4 w-4" />
+                  Check ASISTS first
+                  <Badge variant="outline" className="text-[10px] font-normal">Required for NEW</Badge>
+                </CardTitle>
+                <CardDescription className="text-xs">
+                  Search the school ASISTS / legacy roster and this system (active + archived) before collecting other personal information.
+                  If a match appears, confirm whether it is the student sitting with you.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  <div className="space-y-2">
+                    <Label htmlFor="assistsFirstName">First Name <span className="text-destructive">*</span></Label>
+                    <Input
+                      id="assistsFirstName"
+                      value={form.firstName}
+                      onChange={e => setField('firstName', e.target.value)}
+                      placeholder="First name"
+                      autoComplete="given-name"
+                      spellCheck={false}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="assistsLastName">Last Name <span className="text-destructive">*</span></Label>
+                    <Input
+                      id="assistsLastName"
+                      value={form.lastName}
+                      onChange={e => setField('lastName', e.target.value)}
+                      placeholder="Last name"
+                      autoComplete="family-name"
+                      spellCheck={false}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="assistsDob">Date of Birth <span className="text-destructive">*</span></Label>
+                    <Input
+                      id="assistsDob"
+                      type="date"
+                      value={form.dob}
+                      onChange={e => setField('dob', e.target.value)}
+                    />
+                  </div>
+                </div>
+                <p className="text-xs text-muted-foreground -mt-1">{USA_NAME_HINT}</p>
+                <Button
+                  type="button"
+                  className="gap-2"
+                  disabled={checkResult.status === 'checking' || !form.firstName.trim() || !form.lastName.trim() || !form.dob}
+                  onClick={runAssistsGateCheck}
+                >
+                  {checkResult.status === 'checking' ? (
+                    <><Loader2 className="h-4 w-4 animate-spin" /> Checking ASISTS…</>
+                  ) : (
+                    <><Database className="h-4 w-4" /> Check ASISTS</>
+                  )}
+                </Button>
+
+                {assistsGateChecked && !assistsHasMatches && (
+                  <div className="rounded-md border border-green-300 bg-green-50 dark:bg-green-950/30 dark:border-green-800 px-3 py-3 space-y-3">
+                    <Alert className="border-0 bg-transparent p-0">
+                      <CheckCircle2 className="h-4 w-4 text-green-600" />
+                      <AlertTitle className="text-green-800 dark:text-green-200 text-sm">No ASISTS / school match</AlertTitle>
+                      <AlertDescription className="text-xs text-green-700 dark:text-green-300">
+                        No active, archived, or ASISTS/legacy record matched this name and DOB.
+                      </AlertDescription>
+                    </Alert>
+                    <div className="flex items-start gap-3 rounded-md border border-green-300/80 bg-background/70 px-3 py-2.5">
+                      <Checkbox
+                        id="assistsNotFoundAck"
+                        checked={assistsNotFoundAck}
+                        onCheckedChange={v => {
+                          setAssistsNotFoundAck(Boolean(v));
+                          if (v) {
+                            setAssistsDifferentPersonAck(false);
+                            setAssistsLegacySameAck(false);
+                          }
+                        }}
+                        className="mt-0.5"
+                      />
+                      <label htmlFor="assistsNotFoundAck" className="text-sm cursor-pointer select-none">
+                        <span className="font-medium">I checked ASISTS — this student was not found</span>
+                        <span className="block text-xs text-muted-foreground mt-0.5">
+                          Required before gathering the rest of their personal information.
+                        </span>
+                      </label>
+                    </div>
+                  </div>
+                )}
+
+                {assistsGateChecked && assistsHasMatches && (
+                  <div className={`rounded-lg border-2 p-4 space-y-3 ${
+                    newAssistsUnlocked
+                      ? 'border-amber-400 bg-amber-50 dark:bg-amber-950/30 dark:border-amber-600'
+                      : 'border-violet-400 bg-background dark:border-violet-700'
+                  }`}>
+                    <div className="flex items-start gap-2">
+                      <AlertCircle className="h-5 w-5 text-violet-700 dark:text-violet-300 mt-0.5 shrink-0" />
+                      <div>
+                        <p className="font-semibold text-sm text-violet-900 dark:text-violet-100">
+                          Possible match — is this the student sitting with you?
+                        </p>
+                        <p className="text-xs mt-0.5 text-muted-foreground">
+                          Confirm same person, or acknowledge they are not the same before continuing as NEW.
+                        </p>
+                      </div>
+                    </div>
+
+                    {(checkResult.exact.length > 0 || checkResult.fuzzy.length > 0) && (
+                      <div className="space-y-1.5">
+                        <p className="text-xs font-medium text-muted-foreground">In this system</p>
+                        {[...checkResult.exact, ...checkResult.fuzzy].map((s, i) => (
+                          <IntakeMatchCard
+                            key={s._id || i}
+                            student={s}
+                            onUseAsReturning={selectAsReturning}
+                          />
+                        ))}
+                      </div>
+                    )}
+
+                    {(checkResult.legacyExact.length > 0 || checkResult.legacyFuzzy.length > 0) && (
+                      <div className="space-y-1.5">
+                        <p className="text-xs font-medium text-violet-800 dark:text-violet-300">ASISTS / legacy roster</p>
+                        {[...checkResult.legacyExact, ...checkResult.legacyFuzzy].map((s, i) => (
+                          <IntakeMatchCard
+                            key={s._id || `legacy-${i}`}
+                            student={s}
+                            showUseButton={false}
+                            onConfirmSameLegacy={confirmLegacySamePerson}
+                          />
+                        ))}
+                      </div>
+                    )}
+
+                    {assistsLegacySameAck && (
+                      <Alert className="border-violet-300 bg-violet-50/80 dark:bg-violet-950/40">
+                        <CheckCircle2 className="h-4 w-4 text-violet-700" />
+                        <AlertTitle className="text-sm">Same person from ASISTS</AlertTitle>
+                        <AlertDescription className="text-xs">
+                          Continue below to create their file in this system. They do not have a live RETURNING record here yet.
+                        </AlertDescription>
+                      </Alert>
+                    )}
+
+                    {!assistsLegacySameAck && (
+                      <div className={`rounded-md border px-3 py-3 flex items-start gap-3 ${
+                        assistsDifferentPersonAck
+                          ? 'border-amber-400 bg-amber-100/60 dark:bg-amber-900/20'
+                          : 'border-border bg-muted/30'
+                      }`}>
+                        <Checkbox
+                          id="assistsDifferentPerson"
+                          checked={assistsDifferentPersonAck}
+                          onCheckedChange={v => {
+                            const on = Boolean(v);
+                            setAssistsDifferentPersonAck(on);
+                            setSiblingAcknowledged(on);
+                            if (on) setAssistsLegacySameAck(false);
+                          }}
+                          className="mt-0.5"
+                        />
+                        <label htmlFor="assistsDifferentPerson" className="text-sm cursor-pointer select-none">
+                          <span className="font-medium">Not the same person sitting here</span>
+                          <span className="block text-xs text-muted-foreground mt-0.5">
+                            Check this if the match is a sibling, twin, or coincidence. The NEW registration will be flagged for Data Lead review.
+                          </span>
+                        </label>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {form.intakeStudentStatus === 'NEW' && !newAssistsUnlocked && (
+                  <p className="text-xs text-muted-foreground flex items-center gap-1.5">
+                    <Lock className="h-3.5 w-3.5" />
+                    Personal information and the rest of the form unlock after this ASISTS step.
+                  </p>
+                )}
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Optional school lookup for non-NEW statuses */}
+          {form.intakeStudentStatus !== 'NEW' && (
+            <Card className="border-sky-200 dark:border-sky-900 bg-sky-50/40 dark:bg-sky-950/20">
+              <CardHeader className="pb-3">
+                <CardTitle className="text-sm flex items-center gap-2 text-sky-900 dark:text-sky-200">
+                  <Users className="h-4 w-4" />
+                  Check school records
+                </CardTitle>
+                <CardDescription className="text-xs">
+                  Optional search of this system (active + archived) and the school ASISTS / legacy roster.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                <div className="flex gap-2">
+                  <Input
+                    placeholder="Name, Label ID, or DOB (MM/DD/YYYY)…"
+                    value={schoolLookup}
+                    onChange={e => {
+                      const v = e.target.value;
+                      setSchoolLookup(v);
+                      if (schoolLookupTimeout.current) clearTimeout(schoolLookupTimeout.current);
+                      schoolLookupTimeout.current = setTimeout(() => runSchoolLookup(v), 350);
+                    }}
+                    className="flex-1 bg-background"
                   />
-                ))}
-              </div>
-            )}
-          </CardContent>
-        </Card>
+                  {schoolLookupLoading && (
+                    <Loader2 className="h-4 w-4 animate-spin self-center text-muted-foreground" />
+                  )}
+                </div>
+                {schoolLookupDone && schoolLookupResults.length === 0 && isStudentSearchQueryValid(schoolLookup) && (
+                  <Alert className="border-green-200 bg-green-50 dark:bg-green-950/30 dark:border-green-800">
+                    <CheckCircle2 className="h-4 w-4 text-green-600" />
+                    <AlertTitle className="text-green-800 dark:text-green-200 text-sm">No school match</AlertTitle>
+                    <AlertDescription className="text-xs text-green-700 dark:text-green-300">
+                      No active, archived, or ASISTS/legacy match for this search.
+                    </AlertDescription>
+                  </Alert>
+                )}
+                {schoolLookupResults.length > 0 && (
+                  <div className="space-y-2 max-h-64 overflow-y-auto">
+                    {schoolLookupResults.map((s: any) => (
+                      <IntakeMatchCard
+                        key={s._id}
+                        student={s}
+                        onUseAsReturning={s._legacy ? undefined : selectAsReturning}
+                        showUseButton={!s._legacy}
+                      />
+                    ))}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          )}
 
-        {/* Duplicate check panel */}
-        {checkResult.status === 'checking' && (
-          <Alert>
-            <Loader2 className="h-4 w-4 animate-spin" />
-            <AlertDescription>Checking for existing records…</AlertDescription>
-          </Alert>
-        )}
+          {/* Duplicate check panel (after gate unlock — e.g. address-driven matches) */}
+          {newAssistsUnlocked && checkResult.status === 'checking' && (
+            <Alert>
+              <Loader2 className="h-4 w-4 animate-spin" />
+              <AlertDescription>Checking for existing records…</AlertDescription>
+            </Alert>
+          )}
 
-        {checkResult.status === 'clear' && form.intakeStudentStatus === 'NEW' && form.dob && (
-          <Alert className="border-green-200 bg-green-50 dark:bg-green-950/30 dark:border-green-800">
-            <CheckCircle2 className="h-4 w-4 text-green-600 dark:text-green-400" />
-            <AlertTitle className="text-green-800 dark:text-green-200">No existing records found</AlertTitle>
-            <AlertDescription className="text-green-700 dark:text-green-300">
-              This student does not appear in this system (including archived) or the school ASISTS / legacy roster. Safe to register.
-              {!intakeAddress.address.trim() && (
-                <span className="block mt-1 text-green-600/90">
-                  Tip: add and verify the home address for a stronger duplicate check.
-                </span>
-              )}
-            </AlertDescription>
-          </Alert>
-        )}
-        {checkResult.status === 'found' && (
+          {newAssistsUnlocked && checkResult.status === 'clear' && form.intakeStudentStatus === 'NEW' && form.dob && (
+            <Alert className="border-green-200 bg-green-50 dark:bg-green-950/30 dark:border-green-800">
+              <CheckCircle2 className="h-4 w-4 text-green-600 dark:text-green-400" />
+              <AlertTitle className="text-green-800 dark:text-green-200">No existing records found</AlertTitle>
+              <AlertDescription className="text-green-700 dark:text-green-300">
+                This student does not appear in this system (including archived) or the school ASISTS / legacy roster. Safe to register.
+                {!intakeAddress.address.trim() && (
+                  <span className="block mt-1 text-green-600/90">
+                    Tip: add and verify the home address for a stronger duplicate check.
+                  </span>
+                )}
+              </AlertDescription>
+            </Alert>
+          )}
+          {newAssistsUnlocked && checkResult.status === 'found' && form.intakeStudentStatus === 'NEW' && !assistsLegacySameAck && (
           <div className={`rounded-lg border-2 p-4 space-y-3 transition-colors ${
             siblingAcknowledged
               ? 'border-amber-400 bg-amber-50 dark:bg-amber-950/30 dark:border-amber-600'
@@ -1513,37 +1737,7 @@ export default function IntakePage() {
               </label>
             </div>
           </div>
-        )}
-
-        <form onSubmit={handleSubmit} className="space-y-4">
-
-          {/* ── 1. INTAKE TYPE ──────────────────────────────── */}
-          <Card>
-            <CardHeader className="pb-3">
-              <CardTitle className="flex items-center gap-2 text-base">
-                <ClipboardList className="h-4 w-4" /> Student Status
-                <span className="text-destructive text-sm font-normal">*</span>
-              </CardTitle>
-              <CardDescription className="text-xs text-amber-700 dark:text-amber-400 font-medium">
-                *MAKE SURE TO CHECK ASISTS*
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <Select value={form.intakeStudentStatus} onValueChange={v => setField('intakeStudentStatus', v)}>
-                <SelectTrigger className="font-semibold">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {INTAKE_STATUS_OPTIONS.map(opt => (
-                    <SelectItem key={opt.value} value={opt.value}>
-                      <span className="font-medium">{opt.label}</span>
-                      <span className="ml-2 text-xs text-muted-foreground">{opt.description}</span>
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </CardContent>
-          </Card>
+          )}
 
           {form.intakeStudentStatus === 'RETURNING' && !selectedExistingStudent && (
             <Alert className="border-blue-200 bg-blue-50/60 dark:bg-blue-950/20 dark:border-blue-800">
@@ -1647,6 +1841,11 @@ export default function IntakePage() {
               {profileLocked && (
                 <CardDescription className="text-xs">
                   Name and dates cannot be changed here. Update on All Students if corrections are needed.
+                </CardDescription>
+              )}
+              {form.intakeStudentStatus === 'NEW' && !profileLocked && (
+                <CardDescription className="text-xs">
+                  Name and DOB were checked against ASISTS. Complete gender and start date, then contact details below.
                 </CardDescription>
               )}
             </CardHeader>
