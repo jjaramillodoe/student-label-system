@@ -413,12 +413,10 @@ export default function Dashboard() {
     }
   }
 
-  // Print view effect
+  // Log when print preview opens — do not auto-open the browser print dialog
   React.useEffect(() => {
     if (printMode && selectedStudents.length > 0) {
-      // Log print history
       logPrintHistory(selectedStudents, printLayout);
-      setTimeout(() => window.print(), 200);
     }
   }, [printMode]);
 

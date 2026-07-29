@@ -241,7 +241,7 @@ export default function PrintQueuePage() {
       }),
     }).catch(() => undefined);
 
-    setTimeout(() => window.print(), 150);
+    // Open preview only — do not auto-trigger the browser print dialog
   }
 
   function exportHistory() {

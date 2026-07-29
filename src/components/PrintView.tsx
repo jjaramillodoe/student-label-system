@@ -176,18 +176,6 @@ export default function PrintView({
       );
       if (!confirmed) return;
     }
-    if (printLayout === 'avery5163' || printLayout === 'avery94205') {
-      const labelName = printLayout === 'avery94205' ? 'Avery 94205' : 'Avery 5163';
-      alert(
-        `${labelName} — Print Tips:\n\n` +
-        '1. Paper size → Letter (8.5" × 11")\n' +
-        '2. Margins → None\n' +
-        '3. Scale → 100%  (do NOT use "Fit to page")\n' +
-        '4. Background graphics → On\n\n' +
-        'Tip: Use "Download Word Doc" for easier alignment in Microsoft Word.\n\n' +
-        'Click OK, then print.'
-      );
-    }
     window.print();
   };
 
@@ -313,7 +301,7 @@ export default function PrintView({
             </select>
             <div className="flex items-center gap-1.5 text-xs bg-amber-50 border border-amber-200 text-amber-800 rounded px-2 py-1">
               <Info size={13} />
-              Print on <strong>Letter&nbsp;(8.5"×11")</strong>, scale&nbsp;<strong>100%</strong>, margins&nbsp;<strong>None</strong>
+              Download the Word Doc, then print from Word on <strong>Letter&nbsp;(8.5"×11")</strong> at&nbsp;<strong>100%</strong>
             </div>
           </div>
           <div className="flex gap-2 flex-wrap">
@@ -328,9 +316,6 @@ export default function PrintView({
                 : <FileText size={16} />
               }
               {downloadingDocx ? 'Generating…' : 'Download Word Doc'}
-            </Button>
-            <Button onClick={handlePrint} className="gap-2">
-              <Printer size={16} /> Print (CSS)
             </Button>
             <Button variant="outline" onClick={onClose} className="gap-2">
               <X size={16} /> Close
@@ -414,7 +399,7 @@ export default function PrintView({
             </select>
             <div className="flex items-center gap-1.5 text-xs bg-amber-50 border border-amber-200 text-amber-800 rounded px-2 py-1">
               <Info size={13} />
-              Avery 94205 — <strong>1.5"×3.75"</strong> clear labels, Letter&nbsp;<strong>100%</strong>
+              Avery 94205 — download Word Doc, print clear <strong>1.5"×3.75"</strong> labels from Word
             </div>
           </div>
           <div className="flex gap-2 flex-wrap">
@@ -429,9 +414,6 @@ export default function PrintView({
                 : <FileText size={16} />
               }
               {downloadingDocx ? 'Generating…' : 'Download Word Doc'}
-            </Button>
-            <Button onClick={handlePrint} className="gap-2">
-              <Printer size={16} /> Print (CSS)
             </Button>
             <Button variant="outline" onClick={onClose} className="gap-2">
               <X size={16} /> Close
