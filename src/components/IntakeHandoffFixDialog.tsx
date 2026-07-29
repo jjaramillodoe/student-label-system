@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
 } from '@/components/ui/dialog';
@@ -8,9 +8,24 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import {
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+} from '@/components/ui/select';
 import { Loader2, AlertTriangle, CheckCircle2, Wrench, CalendarDays, Clock } from 'lucide-react';
-import { validateIntakeVisits } from '@/lib/intakeVisitValidation';
+import {
+  validateIntakeVisits,
+  formatDayLabel,
+  visitDayKey,
+} from '@/lib/intakeVisitValidation';
 import { buildIntakeFixPreview, dayAfter, getLastVisitIndexForDay } from '@/lib/intakeVisitFix';
+import {
+  DEFAULT_INTAKE_SESSION_CONFIGS,
+  findIntakeSession,
+  formatSessionTimeRange,
+  getIntakeSessionTimeFieldErrors,
+  type IntakeSession,
+} from '@/lib/intakeSession';
+import { cn } from '@/lib/utils';
 
 interface IntakeVisitRecord {
   date?: string;
@@ -62,6 +77,8 @@ export default function IntakeHandoffFixDialog({
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const [visits, setVisits] = useState<IntakeVisitRecord[]>([]);
+  const [sessionConfigs, setSessionConfigs] = useState<IntakeSession[]>(DEFAULT_INTAKE_SESSION_CONFIGS);
+  const originalVisitsRef = useRef<string>('[]');
   const [finalClockOuts, setFinalClockOuts] = useState<Record<string, string>>({});
   const [fixModes, setFixModes] = useState<Record<string, FixMode>>({});
   const [closingDrafts, setClosingDrafts] = useState<Record<string, ClosingDraft>>({});
@@ -73,6 +90,12 @@ export default function IntakeHandoffFixDialog({
       const res = await fetch(`/api/students/${studentId}`);
       if (!res.ok) throw new Error('Failed to load student');
       const data = await res.json();
+      const sessions: IntakeSession[] = Array.isArray(data.schoolIntakeSessions)
+        && data.schoolIntakeSessions.length
+        ? data.schoolIntakeSessions
+        : DEFAULT_INTAKE_SESSION_CONFIGS;
+      setSessionConfigs(sessions);
+
       const list: IntakeVisitRecord[] = Array.isArray(data.intakeVisits) && data.intakeVisits.length
         ? [...data.intakeVisits].sort(
             (a, b) => new Date(a.date || 0).getTime() - new Date(b.date || 0).getTime(),
@@ -89,6 +112,7 @@ export default function IntakeHandoffFixDialog({
             }]
           : [];
       setVisits(list);
+      originalVisitsRef.current = JSON.stringify(list);
       setFinalClockOuts({});
       setFixModes({});
       setClosingDrafts({});
@@ -127,7 +151,26 @@ export default function IntakeHandoffFixDialog({
     [finalClockOuts, fixModes],
   );
 
-  const validation = useMemo(() => validateIntakeVisits(visits), [visits]);
+  const validation = useMemo(
+    () => validateIntakeVisits(visits, { sessionConfigs }),
+    [visits, sessionConfigs],
+  );
+
+  const handoffFlags = useMemo(
+    () => validation.flags.filter(f => f.type !== 'outside_session_window'),
+    [validation.flags],
+  );
+  const sessionFlags = useMemo(
+    () => validation.flags.filter(f => f.type === 'outside_session_window'),
+    [validation.flags],
+  );
+  const hasHandoffIssues = handoffFlags.length > 0;
+  const hasSessionIssues = sessionFlags.length > 0;
+
+  const sessionVisitIndices = useMemo(
+    () => [...new Set(sessionFlags.map(f => f.visitIndex))].sort((a, b) => a - b),
+    [sessionFlags],
+  );
 
   const preview = useMemo(
     () => buildIntakeFixPreview(visits, sameDayClockOuts, closingVisits),
@@ -135,6 +178,7 @@ export default function IntakeHandoffFixDialog({
   );
 
   const daysNeedingFinal = preview.stillNeedsFinalClockOut;
+  const visitsModified = JSON.stringify(visits) !== originalVisitsRef.current;
 
   const setMode = (dayKey: string, mode: FixMode) => {
     setFixModes(prev => ({ ...prev, [dayKey]: mode }));
@@ -157,6 +201,10 @@ export default function IntakeHandoffFixDialog({
       return Boolean(d?.visitDate?.trim() && d?.timeIn?.trim() && d?.timeOut?.trim());
     }
     return Boolean(finalClockOuts[dayKey]?.trim());
+  };
+
+  const updateVisit = (index: number, patch: Partial<IntakeVisitRecord>) => {
+    setVisits(prev => prev.map((visit, i) => (i === index ? { ...visit, ...patch } : visit)));
   };
 
   const handleSave = async () => {
@@ -185,8 +233,13 @@ export default function IntakeHandoffFixDialog({
     }
   };
 
-  const canSave = preview.changes.length > 0
-    && (daysNeedingFinal.length === 0 || daysNeedingFinal.every(d => dayIsResolved(d.dayKey)));
+  const handoffReady = !hasHandoffIssues || (
+    preview.changes.length > 0
+    && (daysNeedingFinal.length === 0 || daysNeedingFinal.every(d => dayIsResolved(d.dayKey)))
+  );
+  const sessionReady = !hasSessionIssues;
+  const hasSomethingToSave = preview.changes.length > 0 || visitsModified;
+  const canSave = handoffReady && sessionReady && hasSomethingToSave;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -194,11 +247,11 @@ export default function IntakeHandoffFixDialog({
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Wrench className="h-5 w-5 text-primary" />
-            Fix intake handoff — {studentName}
+            Fix intake issues — {studentName}
           </DialogTitle>
           <DialogDescription>
-            Handoff visits should be marked Staying with no Time Out. Close intake by setting
-            Time Out on the final same-day activity, or add a catch-up activity on a later date.
+            Correct session hours (Time In / Time Out must match the selected intake session)
+            or fix handoff visits — only the final same-day activity should record Time Out.
           </DialogDescription>
         </DialogHeader>
 
@@ -218,7 +271,10 @@ export default function IntakeHandoffFixDialog({
                 <ul className="list-disc list-inside text-sm mt-1 space-y-0.5">
                   {validation.dayIssues.map(issue => (
                     <li key={issue.dayKey}>
-                      {issue.dayLabel}: {issue.prematureCount > 0 && `${issue.prematureCount} early Time Out`}
+                      {issue.dayLabel}:
+                      {issue.outsideSessionCount > 0 && ` ${issue.outsideSessionCount} outside session hours`}
+                      {issue.outsideSessionCount > 0 && (issue.prematureCount > 0 || issue.missingFinalClockOut) && ' · '}
+                      {issue.prematureCount > 0 && `${issue.prematureCount} early Time Out`}
                       {issue.prematureCount > 0 && issue.missingFinalClockOut && ' · '}
                       {issue.missingFinalClockOut && 'no final Time Out'}
                     </li>
@@ -227,9 +283,103 @@ export default function IntakeHandoffFixDialog({
               </AlertDescription>
             </Alert>
 
+            {hasSessionIssues && (
+              <div className="space-y-3">
+                <p className="text-sm font-medium">Correct session hours</p>
+                {sessionVisitIndices.map(index => {
+                  const visit = visits[index];
+                  if (!visit) return null;
+                  const dayKey = visitDayKey(visit.date) || 'unknown';
+                  const session = findIntakeSession(sessionConfigs, visit.intakeSession);
+                  const fieldErrors = getIntakeSessionTimeFieldErrors({
+                    intakeSession: visit.intakeSession,
+                    timeIn: visit.timeIn,
+                    timeOut: visit.timeOut,
+                    sessions: sessionConfigs,
+                  });
+                  const visitFlags = sessionFlags.filter(f => f.visitIndex === index);
+
+                  return (
+                    <div key={index} className="rounded-md border p-3 space-y-3">
+                      <div>
+                        <p className="text-xs font-medium text-foreground">
+                          {formatDayLabel(dayKey)}
+                          {visit.intakeActivity?.length ? ` — ${visit.intakeActivity.join(', ')}` : ''}
+                        </p>
+                        <ul className="text-xs text-muted-foreground mt-1 space-y-0.5">
+                          {visitFlags.map(flag => (
+                            <li key={flag.message}>{flag.message}</li>
+                          ))}
+                        </ul>
+                      </div>
+
+                      <div className="space-y-1.5">
+                        <Label className="text-xs">Intake session</Label>
+                        <Select
+                          value={visit.intakeSession || ''}
+                          onValueChange={value => updateVisit(index, { intakeSession: value })}
+                        >
+                          <SelectTrigger className="h-8 text-sm">
+                            <SelectValue placeholder="Select session" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {sessionConfigs.map(s => (
+                              <SelectItem key={s.name} value={s.name}>
+                                {s.name} ({formatSessionTimeRange(s)})
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+
+                      <div className="grid gap-3 sm:grid-cols-2">
+                        <div className="space-y-1.5">
+                          <Label className="text-xs flex items-center gap-1">
+                            <Clock className="h-3.5 w-3.5" />
+                            Time In
+                          </Label>
+                          <Input
+                            type="time"
+                            className={cn('h-8 text-sm', fieldErrors.timeIn && 'border-destructive')}
+                            value={visit.timeIn || ''}
+                            onChange={e => updateVisit(index, { timeIn: e.target.value })}
+                          />
+                          {fieldErrors.timeIn && (
+                            <p className="text-xs text-destructive">{fieldErrors.timeIn}</p>
+                          )}
+                        </div>
+                        <div className="space-y-1.5">
+                          <Label className="text-xs flex items-center gap-1">
+                            <Clock className="h-3.5 w-3.5" />
+                            Time Out
+                          </Label>
+                          <Input
+                            type="time"
+                            className={cn('h-8 text-sm', fieldErrors.timeOut && 'border-destructive')}
+                            value={visit.timeOut || ''}
+                            onChange={e => updateVisit(index, { timeOut: e.target.value || null })}
+                          />
+                          {fieldErrors.timeOut && (
+                            <p className="text-xs text-destructive">{fieldErrors.timeOut}</p>
+                          )}
+                        </div>
+                      </div>
+
+                      {session && (
+                        <p className="text-xs text-muted-foreground">
+                          Allowed window for {session.name}:{' '}
+                          <strong>{formatSessionTimeRange(session)}</strong>
+                        </p>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+
             {preview.changes.length > 0 && (
               <div className="rounded-md border bg-muted/30 px-3 py-2 text-sm">
-                <p className="font-medium mb-1">Changes to apply</p>
+                <p className="font-medium mb-1">Handoff changes to apply</p>
                 <ul className="list-disc list-inside text-xs text-muted-foreground space-y-0.5">
                   {preview.changes.map(change => (
                     <li key={change}>{change}</li>
@@ -238,9 +388,9 @@ export default function IntakeHandoffFixDialog({
               </div>
             )}
 
-            {daysNeedingFinal.length > 0 && (
+            {hasHandoffIssues && daysNeedingFinal.length > 0 && (
               <div className="space-y-4">
-                <p className="text-sm font-medium">Close open intake (EPE)</p>
+                <p className="text-sm font-medium">Close open intake (handoff / EPE)</p>
                 {daysNeedingFinal.map(day => {
                   const idx = getLastVisitIndexForDay(visits, day.dayKey);
                   const visit = idx !== null ? visits[idx] : null;
@@ -376,7 +526,7 @@ export default function IntakeHandoffFixDialog({
         {!loading && !validation.hasIssues && (
           <Alert className="border-green-300 bg-green-50 dark:bg-green-950/20">
             <CheckCircle2 className="h-4 w-4 text-green-600" />
-            <AlertTitle>No handoff issues</AlertTitle>
+            <AlertTitle>No intake issues</AlertTitle>
             <AlertDescription>This student&apos;s intake visits look correct.</AlertDescription>
           </Alert>
         )}

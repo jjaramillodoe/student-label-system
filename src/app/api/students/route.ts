@@ -12,6 +12,7 @@ import {
 } from '@/lib/beEslEligibility';
 import { normalizeStudentAddress, validateStudentAddress } from '@/lib/addressValidation';
 import { verifyAddressWithGeoclient } from '@/lib/addressGeoclient';
+import { getSchoolIntakeSessions, validateIntakeSessionTimes } from '@/lib/intakeSession';
 
 // Helper function to validate ObjectId
 function isValidObjectId(id: string): boolean {
@@ -126,8 +127,21 @@ export async function POST(req: NextRequest) {
     const client = await clientPromise;
     const db = client.db("student-label");
 
-    // ── Resolve agency ID for this school ────────────────────────────────────
     const schoolName = body.school || userSchool || '';
+    if (intakeSession && timeIn) {
+      const sessions = await getSchoolIntakeSessions(db, schoolName);
+      const sessionTimeError = validateIntakeSessionTimes({
+        intakeSession,
+        timeIn,
+        timeOut,
+        sessions,
+      });
+      if (sessionTimeError) {
+        return NextResponse.json({ error: sessionTimeError }, { status: 400 });
+      }
+    }
+
+    // ── Resolve agency ID for this school ────────────────────────────────────
     let agencyId = body.agencyId || '';
     if (!agencyId && schoolName) {
       const schoolDoc = await db.collection('school_config').findOne({

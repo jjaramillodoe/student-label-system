@@ -13,6 +13,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { getCurrentFiscalYear } from '@/lib/fiscalYear';
 import { leadershipToFormFields } from '@/lib/schoolLeadership';
 import { schoolNameToSlug } from '@/lib/schoolSlug';
+import { normalizeIntakeSessions } from '@/lib/intakeSession';
 
 type SchoolConfig = {
   _id: string;
@@ -20,7 +21,7 @@ type SchoolConfig = {
   type: string;
   active: boolean;
   agencyId?: string;
-  intakeSessions?: string[];
+  intakeSessions?: unknown;
   intakeActivities?: string[];
   currentFiscalYear?: string;
   principal?: { name: string; email?: string; phone?: string } | null;
@@ -35,7 +36,7 @@ function schoolToForm(school: SchoolConfig): SchoolFormState {
     active: school.active,
     agencyId: school.agencyId || '',
     currentFiscalYear: school.currentFiscalYear || getCurrentFiscalYear(),
-    intakeSessions: school.intakeSessions ?? [],
+    intakeSessions: normalizeIntakeSessions(school.intakeSessions ?? []),
     intakeActivities: school.intakeActivities ?? [],
     ...leadershipToFormFields(school),
   };

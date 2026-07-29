@@ -37,16 +37,16 @@ function startOfDay(date: Date): Date {
   return new Date(date.getFullYear(), date.getMonth(), date.getDate());
 }
 
-/** Minimum age for BE / ESL intake: 21 years and 1 month. */
-export function getBeEslEligibilityDate(dob: Date): Date {
+/** Minimum age for BE / ESL intake (default 21 years old on birthday). */
+export function getBeEslEligibilityDate(dob: Date, minimumAge: number = 21): Date {
   const eligible = new Date(dob.getFullYear(), dob.getMonth(), dob.getDate());
-  eligible.setFullYear(eligible.getFullYear() + 21);
-  eligible.setMonth(eligible.getMonth() + 1);
+  eligible.setFullYear(eligible.getFullYear() + minimumAge);
   return eligible;
 }
 
 export function checkBeEslAgeEligibility(
   dobIso: string,
+  minimumAge: number = 21,
   referenceDate: Date = new Date(),
 ): BeEslAgeCheck {
   const dob = parseIsoDate(dobIso);
@@ -60,11 +60,11 @@ export function checkBeEslAgeEligibility(
     };
   }
 
-  const eligibleOn = getBeEslEligibilityDate(dob);
+  const eligibleOn = getBeEslEligibilityDate(dob, minimumAge);
   const today = startOfDay(referenceDate);
   const eligibleStart = startOfDay(eligibleOn);
   const eligibleOnIso = toIsoDate(eligibleOn);
-  const eligibleOnLabel = formatHumanDate(eligibleOnIso);
+  const eligibleOnLabel = `${minimumAge} years old`;
 
   if (today >= eligibleStart) {
     return {
@@ -92,34 +92,46 @@ export function checkBeEslAgeEligibility(
 export function requiresBeEslAgeCheck(input: {
   intakeStudentStatus?: string | null;
   educationStatus?: string | null;
+  minimumAge?: number;
 }): boolean {
   if (input.intakeStudentStatus === 'Other') return false;
   if (input.educationStatus === 'BE' || input.educationStatus === 'ESL') return true;
+  if (input.minimumAge && input.minimumAge < 21) return false;
   return Boolean(input.intakeStudentStatus && input.intakeStudentStatus !== 'Other');
 }
 
-export function beEslAgeErrorMessage(check: BeEslAgeCheck): string {
+export function beEslAgeErrorMessage(
+  check: BeEslAgeCheck,
+  minimumAge: number = 21,
+): string {
   if (!check.validDob) return 'Enter a valid date of birth.';
   if (check.eligible) return '';
 
   const days = check.daysUntilEligible ?? 0;
   const dayLabel = days === 1 ? '1 day' : `${days} days`;
-  const eligibleLabel = check.eligibleOnLabel || check.eligibleOnIso || 'the eligibility date';
+  const eligibleDateLabel = check.eligibleOnIso
+    ? formatHumanDate(check.eligibleOnIso)
+    : check.eligibleOnLabel || 'the eligibility date';
 
-  return `Student must be at least 21 years and 1 month old for BE or ESL enrollment. They can register in ${dayLabel} (${eligibleLabel}).`;
+  return `Student must be at least ${minimumAge} years old for BE or ESL enrollment. They can register in ${dayLabel} (${eligibleDateLabel}).`;
 }
 
-export function beEslAgeHintMessage(check: BeEslAgeCheck): string {
+export function beEslAgeHintMessage(
+  check: BeEslAgeCheck,
+  minimumAge: number = 21,
+): string {
   if (!check.validDob) {
-    return 'Students must be at least 21 years and 1 month old to enroll in BE (Basic Education) or ESL.';
+    return `Students must be at least ${minimumAge} years old to enroll in BE (Basic Education) or ESL.`;
   }
   if (check.eligible) {
-    return 'Eligible for BE or ESL enrollment (21 years and 1 month or older).';
+    return `Eligible for BE or ESL enrollment (${minimumAge} years old or older).`;
   }
 
   const days = check.daysUntilEligible ?? 0;
   const dayLabel = days === 1 ? '1 day' : `${days} days`;
-  const eligibleLabel = check.eligibleOnLabel || check.eligibleOnIso || 'the eligibility date';
+  const eligibleDateLabel = check.eligibleOnIso
+    ? formatHumanDate(check.eligibleOnIso)
+    : check.eligibleOnLabel || 'the eligibility date';
 
-  return `Not yet eligible for BE or ESL. Student can register in ${dayLabel} — on ${eligibleLabel}.`;
+  return `Not yet eligible for BE or ESL (${minimumAge} years old or older). Student can register in ${dayLabel} — on ${eligibleDateLabel}.`;
 }

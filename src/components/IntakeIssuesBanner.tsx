@@ -81,8 +81,9 @@ export default function IntakeIssuesBanner({
       </AlertTitle>
       <AlertDescription className="text-amber-800 dark:text-amber-200">
         <p className="mb-2">
-          Some students have multiple intake activities on the same day with incorrect Time Out
-          or Staying status. Please correct handoff visits so only the final activity records Time Out (EPE).
+          Some students have intake times outside their session window, or multiple same-day
+          activities with incorrect Time Out / Staying status. Use Fix to correct session hours
+          or handoff visits so only the final activity records Time Out (EPE).
         </p>
         <div className="flex flex-wrap items-center gap-2">
           <Button size="sm" variant="default" className="h-8 gap-1.5" asChild>

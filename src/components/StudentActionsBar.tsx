@@ -8,6 +8,7 @@ import ReprintButton from './ReprintButton';
 const SHEET_SIZES: Record<string, number> = {
   avery5160: 30,
   avery5163: 10,
+  avery94205: 10,
 };
 
 interface StudentActionsBarProps {

@@ -28,7 +28,7 @@ Student addresses are stored as separate fields — **street**, **apt**, **city*
   <Card title="Bulk upload" icon="file-spreadsheet" href="/reference/bulk-upload">
     Optional `address`, `apt`, `city`, `state`, `zip` columns in CSV.
   </Card>
-  <Card title="All Students" icon="users">
+  <Card title="All Students" icon="users" href="/admin/data-lead-tools">
     **Admin → All Students** (`/admin/students/all`) — edit address, verify batch, export with Apt column.
   </Card>
   <Card title="Duplicates review" icon="copy" href="/workflows/duplicates-and-siblings">
@@ -45,6 +45,10 @@ When `NYC_GEOCLIENT_SUBSCRIPTION_KEY` (or `NYC_GEOCLIENT_APP_KEY`) is configured
 3. **Saved metadata** — verification status, warnings, coordinates, and `addressStandardized` are stored on the student.
 
 ### Typical workflow (Data Lead)
+
+<Frame caption="All Students — NYC Geoclient banner, filters, and address status badges">
+  <img src="/images/screenshots/admin-all-students.png" alt="Admin All Students page with Verified, Warning, and Not found address badges" />
+</Frame>
 
 <Steps>
   <Step title="Filter unverified addresses">

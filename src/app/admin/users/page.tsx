@@ -36,6 +36,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Checkbox } from '@/components/ui/checkbox';
+import { DEFAULT_INTAKE_SESSIONS } from '@/lib/intakeDefaults';
+import { intakeSessionNames, normalizeIntakeSessions } from '@/lib/intakeSession';
 
 interface User {
   _id: string;
@@ -53,18 +55,8 @@ interface User {
 interface SchoolOption {
   name: string;
   active: boolean;
-  intakeSessions?: string[];
+  intakeSessions?: unknown;
 }
-
-const DEFAULT_INTAKE_SESSIONS = [
-  'MORNING 8am-4pm',
-  'EVENING 4pm-5pm',
-  'SATURDAY',
-  'MS265',
-  'SSHS',
-  'BUSHWICK-EVENING',
-  'RIDGEWOOD',
-];
 
 const ROLE_PERMISSION_PREVIEW = {
   Admin: {
@@ -179,7 +171,8 @@ export default function UsersPage() {
 
   const sessionsForSchool = (schoolName: string): string[] => {
     const school = configuredSchools.find(s => s.name === schoolName);
-    if (school?.intakeSessions?.length) return school.intakeSessions;
+    const sessions = normalizeIntakeSessions(school?.intakeSessions);
+    if (sessions.length) return intakeSessionNames(sessions);
     return DEFAULT_INTAKE_SESSIONS;
   };
 

@@ -35,6 +35,8 @@ import {
   type IntakeVisitValidation,
   type IntakeVisitFlag,
 } from '@/lib/intakeVisitValidation';
+import { DEFAULT_INTAKE_SESSION_CONFIGS, type IntakeSession } from '@/lib/intakeDefaults';
+import { resolveSchoolIntakeSessions } from '@/lib/intakeIssues';
 import { canFixIntakeHandoff } from '@/lib/intakeVisitFix';
 import IntakeIssuesBanner from '@/components/IntakeIssuesBanner';
 import IntakeHandoffFixDialog from '@/components/IntakeHandoffFixDialog';
@@ -206,16 +208,31 @@ function TrendBar({ trend }: { trend: TrendPoint[] }) {
   );
 }
 
+function validateEnrollmentVisits(
+  enrollment: Enrollment,
+  schoolSessionMap: Record<string, IntakeSession[]>,
+  defaultSessions: IntakeSession[],
+) {
+  return validateIntakeVisits(getVisitHistory(enrollment), {
+    sessionConfigs: resolveSchoolIntakeSessions(
+      enrollment.school,
+      schoolSessionMap,
+      defaultSessions,
+    ),
+  });
+}
+
 function IntakeFlagBadge({ flag }: { flag: IntakeVisitFlag }) {
-  const isEarly = flag.type === 'premature_clock_out';
+  const style =
+    flag.type === 'outside_session_window'
+      ? 'bg-sky-100 text-sky-900 border-sky-300 hover:bg-sky-100'
+      : flag.type === 'premature_clock_out'
+        ? 'bg-amber-100 text-amber-800 border-amber-300 hover:bg-amber-100'
+        : 'bg-rose-100 text-rose-800 border-rose-300 hover:bg-rose-100';
   return (
     <Badge
       title={flag.message}
-      className={`text-[10px] px-1.5 py-0 gap-1 ${
-        isEarly
-          ? 'bg-amber-100 text-amber-800 border-amber-300 hover:bg-amber-100'
-          : 'bg-rose-100 text-rose-800 border-rose-300 hover:bg-rose-100'
-      }`}
+      className={`text-[10px] px-1.5 py-0 gap-1 ${style}`}
     >
       <AlertTriangle className="h-2.5 w-2.5 shrink-0" />
       {INTAKE_FLAG_LABELS[flag.type]}
@@ -244,7 +261,7 @@ function IntakeVisitHistory({
         >
           <p className="font-medium flex items-center gap-1.5">
             <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
-            Intake handoff issue — {issue.dayLabel}
+            Intake issue — {issue.dayLabel}
           </p>
           <ul className="mt-1 list-disc list-inside space-y-0.5 text-amber-800/90 dark:text-amber-200/90">
             {issue.messages.map(msg => (
@@ -366,6 +383,10 @@ export default function EnrollmentPage() {
   const [staff, setStaff] = useState<StaffMember[]>([]);
   const [trend, setTrend] = useState<TrendPoint[]>([]);
   const [enrollments, setEnrollments] = useState<Enrollment[]>([]);
+  const [schoolSessionMap, setSchoolSessionMap] = useState<Record<string, IntakeSession[]>>({});
+  const [defaultIntakeSessions, setDefaultIntakeSessions] = useState<IntakeSession[]>(
+    DEFAULT_INTAKE_SESSION_CONFIGS,
+  );
   const [pagination, setPagination] = useState<Pagination | null>(null);
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [issuesOnly, setIssuesOnly] = useState(false);
@@ -411,6 +432,10 @@ export default function EnrollmentPage() {
       setStaff(data.staffBreakdown || []);
       setTrend(data.trend || []);
       setEnrollments(data.enrollments || []);
+      setSchoolSessionMap(data.schoolIntakeSessions || {});
+      if (Array.isArray(data.defaultIntakeSessions) && data.defaultIntakeSessions.length) {
+        setDefaultIntakeSessions(data.defaultIntakeSessions);
+      }
       setPagination(data.pagination);
     } catch {
       setError('Failed to load enrollment data.');
@@ -432,7 +457,9 @@ export default function EnrollmentPage() {
   if (authStatus === 'loading') return null;
 
   const displayedEnrollments = issuesOnly
-    ? enrollments.filter(e => validateIntakeVisits(getVisitHistory(e)).hasIssues)
+    ? enrollments.filter(e =>
+        validateEnrollmentVisits(e, schoolSessionMap, defaultIntakeSessions).hasIssues,
+      )
     : enrollments;
 
   const handleFixed = () => {
@@ -533,8 +560,8 @@ export default function EnrollmentPage() {
             </p>
               <p className="text-xs mt-1 text-blue-800/90 dark:text-blue-200/90">
                 Times and durations use EPE rules: :00–:14 → :00, :15–:44 → :30, :45–:59 → next hour.
-                Hover a rounded time to see the actual clock entry. Rows with multiple same-day activities are
-                flagged when Time Out is recorded too early or when every handoff is marked Staying with no final clock-out.
+                Hover a rounded time to see the actual clock entry.                 Rows with multiple same-day activities are flagged for early Time Out, missing final
+                clock-out, or Time In/Out outside the school&apos;s configured intake session hours.
               </p>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
@@ -746,7 +773,7 @@ export default function EnrollmentPage() {
                       <TableRow>
                         <TableCell colSpan={tableColSpan + 1} className="text-center py-12 text-muted-foreground">
                           {issuesOnly
-                            ? 'No intake handoff issues on this page. Try a wider period or search.'
+                            ? 'No intake issues on this page. Try a wider period or search.'
                             : 'No enrollments match the current filters.'}
                         </TableCell>
                       </TableRow>
@@ -754,7 +781,11 @@ export default function EnrollmentPage() {
                     {displayedEnrollments.map(e => {
                       const visits = getVisitHistory(e);
                       const latest = resolveLatestIntakeDisplay(e);
-                      const visitValidation = validateIntakeVisits(visits);
+                      const visitValidation = validateEnrollmentVisits(
+                        e,
+                        schoolSessionMap,
+                        defaultIntakeSessions,
+                      );
                       const hasHistory = visits.length > 0;
                       const isExpanded = expandedId === e._id;
                       return (
@@ -831,12 +862,14 @@ export default function EnrollmentPage() {
                             <div className="mt-1 flex flex-col items-start gap-1">
                               <Badge
                                 className="text-[10px] px-1.5 py-0 gap-1 bg-amber-100 text-amber-800 border-amber-300 hover:bg-amber-100"
-                                title={visitValidation.dayIssues.map(d => d.dayLabel).join(', ')}
+                                title={visitValidation.flags.map(f => f.message).join('\n')}
                               >
                                 <AlertTriangle className="h-2.5 w-2.5" />
-                                Intake handoff issue
+                                Intake issue
                               </Badge>
-                              {canFix && (
+                              {canFix && visitValidation.flags.some(f =>
+                                f.type === 'premature_clock_out' || f.type === 'missing_final_clock_out',
+                              ) && (
                                 <Button
                                   type="button"
                                   variant="outline"

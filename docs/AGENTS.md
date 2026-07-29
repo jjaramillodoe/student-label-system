@@ -36,5 +36,9 @@ Install Mintlify skill: `npm run docs:skill`
 
 - Document staff-facing workflows, not internal MongoDB schema
 - Do not document secrets, `.env` values, or production credentials
-- Age rule for intake: 21 years and 1 month for BE/ESL
+- Age rule for intake: **21 years old** (on birthday) for BE/ESL — under-21 → Pathways to Graduation ([p2g.nyc/contact](https://p2g.nyc/contact/))
+- Intake enforces **session start/end times**; Enrollment flags outside-session and handoff issues
+- Archived returning students keep archive box location + QR — do **not** auto-assign a new drawer
+- Intake success shows a **summary** (not single-label print); batch print Avery 5163 / 94205 from Dashboard
+- Real screenshots live in `docs/images/screenshots/`; see `contributors/screenshot-checklist.mdx`
 - **Platform architecture** (stack, AWS deployment, Docker) belongs under **Contributors** — see `contributors/system-architecture.mdx` and `contributors/aws-deployment.mdx`. The long-form export for AWS lives in `docs/aws-deployment-architecture.md` (repo markdown, not staff-facing).

@@ -5,10 +5,11 @@ import Barcode from 'react-barcode';
 import QRCode from './QRCode';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
-import { Input } from '@/components/ui/input';
 import { Download, FileText, Loader2, Printer, X, Info } from 'lucide-react';
 import { buildStudentQrPayload } from '@/lib/qrPayload';
 import Avery5163LabelContent from '@/components/Avery5163LabelContent';
+import Avery94205LabelContent from '@/components/Avery94205LabelContent';
+import { AVERY94205 } from '@/lib/avery94205Geometry';
 
 // Avery 5163 on Letter paper (8.5" × 11"):
 // 2 cols × 5 rows = 10 labels, each 4" wide × 2" tall
@@ -27,15 +28,13 @@ const AVERY5163 = {
 };
 
 const LABEL_TEMPLATES = [
-  { key: 'single', name: 'Single Label/Page', cols: 1, rows: 1, width: 1.75, height: 1.1 },
-  { key: 'double', name: 'Double Label/Page', cols: 2, rows: 1, width: 3.5, height: 1.1 },
   { key: 'avery5160', name: 'Avery 5160 (3x10 Sheet)', cols: 3, rows: 10, width: 2.625, height: 1 },
   { key: 'avery5163', name: 'Avery 5163 (2×5 — Letter 8.5"×11")', cols: AVERY5163.cols, rows: AVERY5163.rows, width: AVERY5163.labelW, height: AVERY5163.labelH },
+  { key: 'avery94205', name: 'Avery 94205 (2×5 — 1.5"×3.75")', cols: AVERY94205.cols, rows: AVERY94205.rows, width: AVERY94205.labelW, height: AVERY94205.labelH },
   { key: 'brother1201', name: 'Brother DK-1201 (1.1" x 3.5")', cols: 1, rows: 1, width: 3.5, height: 1.1, printer: 'QL-800', continuous: true },
   { key: 'brother11208', name: 'Brother DK-11208 (1.1" x 2.1")', cols: 1, rows: 1, width: 2.1, height: 1.1, printer: 'QL-800', continuous: true },
   { key: 'brother2205', name: 'Brother DK-2205 (2.1" x 2.1")', cols: 1, rows: 1, width: 2.1, height: 2.1, printer: 'QL-800', continuous: true },
   { key: 'brother22208', name: 'Brother DK-22208 (2.1" x 2.8")', cols: 1, rows: 1, width: 2.8, height: 2.1, printer: 'QL-800', continuous: true },
-  { key: 'custom', name: 'Custom', cols: 1, rows: 1, width: 3.0, height: 1.0 },
 ];
 
 interface Student {
@@ -56,8 +55,6 @@ interface PrintViewProps {
   students: Student[];
   printLayout: string;
   onPrintLayoutChange: (layout: string) => void;
-  customLabel: { width: number; height: number; cols: number; rows: number };
-  onCustomLabelChange: (label: { width: number; height: number; cols: number; rows: number }) => void;
   showQRCode: boolean;
   cabinetMap?: Record<string, string>;
   drawerMap?: Record<string, string>;
@@ -68,8 +65,6 @@ export default function PrintView({
   students,
   printLayout,
   onPrintLayoutChange,
-  customLabel,
-  onCustomLabelChange,
   showQRCode,
   cabinetMap = {},
   drawerMap = {},
@@ -78,9 +73,16 @@ export default function PrintView({
   const [downloadingDocx, setDownloadingDocx] = useState(false);
 
   async function handleDownloadDocx() {
+    const docxRoutes: Record<string, string> = {
+      avery5163: '/api/print/avery5163-docx',
+      avery94205: '/api/print/avery94205-docx',
+    };
+    const route = docxRoutes[printLayout];
+    if (!route) return;
+
     setDownloadingDocx(true);
     try {
-      const res = await fetch('/api/print/avery5163-docx', {
+      const res = await fetch(route, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ students }),
@@ -90,7 +92,7 @@ export default function PrintView({
       const url  = URL.createObjectURL(blob);
       const a    = document.createElement('a');
       a.href     = url;
-      a.download = `avery5163-labels-${new Date().toISOString().slice(0, 10)}.docx`;
+      a.download = `${printLayout}-labels-${new Date().toISOString().slice(0, 10)}.docx`;
       a.click();
       URL.revokeObjectURL(url);
     } catch (e) {
@@ -122,6 +124,23 @@ export default function PrintView({
           .avery5163-page {
             margin: 0 !important;
             box-shadow: none !important;
+          }
+        }
+      `;
+    } else if (printLayout === 'avery94205') {
+      style.textContent = `
+        @media print {
+          @page {
+            size: 8.5in 11in;
+            margin: 0;
+          }
+          body * { visibility: hidden !important; }
+          .avery94205-page, .avery94205-page * { visibility: visible !important; }
+          .avery94205-page {
+            margin: 0 !important;
+            box-shadow: none !important;
+            page-break-inside: avoid !important;
+            break-inside: avoid !important;
           }
         }
       `;
@@ -157,24 +176,26 @@ export default function PrintView({
       );
       if (!confirmed) return;
     }
-    if (printLayout === 'avery5163') {
+    if (printLayout === 'avery5163' || printLayout === 'avery94205') {
+      const labelName = printLayout === 'avery94205' ? 'Avery 94205' : 'Avery 5163';
       alert(
-        'Avery 5163 — Print Tips:\n\n' +
+        `${labelName} — Print Tips:\n\n` +
         '1. Paper size → Letter (8.5" × 11")\n' +
         '2. Margins → None\n' +
         '3. Scale → 100%  (do NOT use "Fit to page")\n' +
         '4. Background graphics → On\n\n' +
+        'Tip: Use "Download Word Doc" for easier alignment in Microsoft Word.\n\n' +
         'Click OK, then print.'
       );
     }
     window.print();
   };
 
-  const template = LABEL_TEMPLATES.find(t => t.key === printLayout) || LABEL_TEMPLATES[0];
-  const width = printLayout === 'custom' ? customLabel.width : template.width;
-  const height = printLayout === 'custom' ? customLabel.height : template.height;
-  const cols = printLayout === 'custom' ? customLabel.cols : template.cols;
-  const rows = printLayout === 'custom' ? customLabel.rows : template.rows;
+  const template = LABEL_TEMPLATES.find(t => t.key === printLayout) || LABEL_TEMPLATES.find(t => t.key === 'avery5163')!;
+  const width = template.width;
+  const height = template.height;
+  const cols = template.cols;
+  const rows = template.rows;
   const isBrotherLabel = template.printer === 'QL-800' || printLayout.startsWith('brother');
   // labelId is the barcode on the physical label; fall back to studentId for older records
   const getLabelId = (student: Student) => student.labelId || student.studentId || '';
@@ -264,7 +285,7 @@ export default function PrintView({
 
   // For sheet-based labels (Avery, etc.)
   let gridStudents = students;
-  if (printLayout === 'avery5160' || printLayout === 'custom') {
+  if (printLayout === 'avery5160') {
     const total = cols * rows;
     gridStudents = [...students];
     while (gridStudents.length < total) gridStudents.push({} as any);
@@ -373,6 +394,109 @@ export default function PrintView({
     );
   }
 
+  if (printLayout === 'avery94205') {
+    const sheetStudents = [...students];
+    while (sheetStudents.length % AVERY94205.labelsPerSheet !== 0) sheetStudents.push({} as Student);
+
+    return (
+      <div className="fixed inset-0 bg-gray-100 dark:bg-gray-900 z-50 overflow-auto print:overflow-hidden print:bg-white">
+        <div className="print:hidden bg-white dark:bg-gray-800 border-b px-6 py-3 flex flex-col sm:flex-row justify-between items-center gap-3 shadow-sm">
+          <div className="flex items-center gap-3 flex-wrap">
+            <Label>Label Layout:</Label>
+            <select
+              value={printLayout}
+              onChange={(e) => onPrintLayoutChange(e.target.value)}
+              className="border p-2 rounded focus:outline-blue-400 focus:ring-2 text-sm"
+            >
+              {LABEL_TEMPLATES.map(t => (
+                <option key={t.key} value={t.key}>{t.name}</option>
+              ))}
+            </select>
+            <div className="flex items-center gap-1.5 text-xs bg-amber-50 border border-amber-200 text-amber-800 rounded px-2 py-1">
+              <Info size={13} />
+              Avery 94205 — <strong>1.5"×3.75"</strong> clear labels, Letter&nbsp;<strong>100%</strong>
+            </div>
+          </div>
+          <div className="flex gap-2 flex-wrap">
+            <Button
+              onClick={handleDownloadDocx}
+              disabled={downloadingDocx}
+              variant="outline"
+              className="gap-2 border-blue-400 text-blue-700 hover:bg-blue-50"
+            >
+              {downloadingDocx
+                ? <Loader2 size={16} className="animate-spin" />
+                : <FileText size={16} />
+              }
+              {downloadingDocx ? 'Generating…' : 'Download Word Doc'}
+            </Button>
+            <Button onClick={handlePrint} className="gap-2">
+              <Printer size={16} /> Print (CSS)
+            </Button>
+            <Button variant="outline" onClick={onClose} className="gap-2">
+              <X size={16} /> Close
+            </Button>
+          </div>
+        </div>
+
+        {Array.from({ length: Math.ceil(sheetStudents.length / AVERY94205.labelsPerSheet) }).map((_, pageIdx) => {
+          const pageLabels = sheetStudents.slice(
+            pageIdx * AVERY94205.labelsPerSheet,
+            pageIdx * AVERY94205.labelsPerSheet + AVERY94205.labelsPerSheet,
+          );
+          return (
+            <div
+              key={pageIdx}
+              className="avery94205-page"
+              style={{
+                width:       `${AVERY94205.pageW}in`,
+                height:      `${AVERY94205.pageH}in`,
+                paddingTop:    `${AVERY94205.marginTop}in`,
+                paddingBottom: `${AVERY94205.marginBottom}in`,
+                paddingLeft:   `${AVERY94205.marginSide}in`,
+                paddingRight:  `${AVERY94205.marginSide}in`,
+                boxSizing:   'border-box',
+                background:  'white',
+                display:     'grid',
+                gridTemplateColumns: `repeat(${AVERY94205.cols}, ${AVERY94205.labelW}in)`,
+                gridTemplateRows:    `repeat(${AVERY94205.rows}, ${AVERY94205.rowPitch}in)`,
+                columnGap: `${AVERY94205.colGap}in`,
+                rowGap:    `${AVERY94205.rowGap}in`,
+                margin:    '0.5in auto',
+                boxShadow: '0 0 0 1px #ddd',
+                pageBreakInside: 'avoid',
+                breakInside: 'avoid',
+                pageBreakAfter: 'always',
+              }}
+            >
+              {pageLabels.map((student, idx) => (
+                <div
+                  key={idx}
+                  style={{
+                    width:      `${AVERY94205.labelW}in`,
+                    height:     `${AVERY94205.labelH}in`,
+                    boxSizing:  'border-box',
+                    background: 'white',
+                    overflow:   'hidden',
+                    alignSelf:  'start',
+                    padding: '0.04in 0.06in',
+                    borderRight:  idx % 2 === 0 ? '1px dashed #bbb' : 'none',
+                    borderBottom: '1px dashed #bbb',
+                  }}
+                  className="print:border-none"
+                >
+                  {student?.firstName ? (
+                    <Avery94205LabelContent student={student} />
+                  ) : null}
+                </div>
+              ))}
+            </div>
+          );
+        })}
+      </div>
+    );
+  }
+
   return (
     <div className="fixed inset-0 bg-white dark:bg-gray-900 z-50 p-8 overflow-auto print:p-0">
       <div className="print:hidden flex flex-col sm:flex-row justify-between items-center mb-6 gap-4">
@@ -387,46 +511,6 @@ export default function PrintView({
               <option key={t.key} value={t.key}>{t.name}</option>
             ))}
           </select>
-          {printLayout === 'custom' && (
-            <>
-              <Label className="ml-4">Width (in):</Label>
-              <Input
-                type="number"
-                min="0.5"
-                step="0.01"
-                value={customLabel.width}
-                onChange={(e) => onCustomLabelChange({ ...customLabel, width: parseFloat(e.target.value) })}
-                className="w-20"
-              />
-              <Label className="ml-2">Height (in):</Label>
-              <Input
-                type="number"
-                min="0.5"
-                step="0.01"
-                value={customLabel.height}
-                onChange={(e) => onCustomLabelChange({ ...customLabel, height: parseFloat(e.target.value) })}
-                className="w-20"
-              />
-              <Label className="ml-2">Cols:</Label>
-              <Input
-                type="number"
-                min="1"
-                max="10"
-                value={customLabel.cols}
-                onChange={(e) => onCustomLabelChange({ ...customLabel, cols: parseInt(e.target.value) })}
-                className="w-14"
-              />
-              <Label className="ml-2">Rows:</Label>
-              <Input
-                type="number"
-                min="1"
-                max="30"
-                value={customLabel.rows}
-                onChange={(e) => onCustomLabelChange({ ...customLabel, rows: parseInt(e.target.value) })}
-                className="w-14"
-              />
-            </>
-          )}
         </div>
         <div className="flex gap-2">
           <Button onClick={handlePrint} className="gap-2">
@@ -442,7 +526,7 @@ export default function PrintView({
         style={{ gridTemplateColumns: `repeat(${cols}, ${width}in)` }}
       >
         {gridStudents.map((student, idx) => {
-          const showDashed = !['avery5160', 'avery5163'].includes(printLayout);
+          const showDashed = !['avery5160', 'avery5163', 'avery94205'].includes(printLayout);
           return (
             <div
               key={idx}

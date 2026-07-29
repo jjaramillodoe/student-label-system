@@ -50,16 +50,14 @@ const STATUS_OPTIONS = [
 ];
 
 const LABEL_TEMPLATES = [
-  { key: 'single', name: 'Single Label/Page', cols: 1, rows: 1, width: 1.75, height: 1.1 },
-  { key: 'double', name: 'Double Label/Page', cols: 2, rows: 1, width: 3.5, height: 1.1 },
   { key: 'avery5160', name: 'Avery 5160 (3x10 Sheet)', cols: 3, rows: 10, width: 2.625, height: 1 },
   { key: 'avery5163', name: 'Avery 5163 (2x5 Sheet)', cols: 2, rows: 5, width: 4, height: 2 },
+  { key: 'avery94205', name: 'Avery 94205 (2x5 — 1.5"×3.75")', cols: 2, rows: 5, width: 3.75, height: 1.5 },
   // Brother QL-800 Compatible Labels (Continuous Feed)
   { key: 'brother1201', name: 'Brother DK-1201 (1.1" x 3.5")', cols: 1, rows: 1, width: 3.5, height: 1.1, printer: 'QL-800', continuous: true },
   { key: 'brother11208', name: 'Brother DK-11208 (1.1" x 2.1")', cols: 1, rows: 1, width: 2.1, height: 1.1, printer: 'QL-800', continuous: true },
   { key: 'brother2205', name: 'Brother DK-2205 (2.1" x 2.1")', cols: 1, rows: 1, width: 2.1, height: 2.1, printer: 'QL-800', continuous: true },
   { key: 'brother22208', name: 'Brother DK-22208 (2.1" x 2.8")', cols: 1, rows: 1, width: 2.8, height: 2.1, printer: 'QL-800', continuous: true },
-  { key: 'custom', name: 'Custom', cols: 1, rows: 1, width: 3.0, height: 1.0 },
 ];
 
 export default function Dashboard() {
@@ -99,7 +97,6 @@ export default function Dashboard() {
   const [bulkUpdate, setBulkUpdate] = useState({ status: '', fiscalYear: '' });
   const [showArchived, setShowArchived] = useState(false);
   const [printLayout, setPrintLayout] = useState('avery5163');
-  const [customLabel, setCustomLabel] = useState({ width: 3.0, height: 1.0, cols: 1, rows: 1 });
   const [cabinets, setCabinets] = useState<Cabinet[]>([]);
   const [showPrintHistory, setShowPrintHistory] = useState(false);
   const [showPrintPreview, setShowPrintPreview] = useState(false);
@@ -1085,295 +1082,11 @@ export default function Dashboard() {
             students={selectedStudents}
             printLayout={printLayout}
             onPrintLayoutChange={setPrintLayout}
-            customLabel={customLabel}
-            onCustomLabelChange={setCustomLabel}
             showQRCode={showQRCode}
             cabinetMap={cabinetMap}
             drawerMap={drawerMap}
             onClose={() => setPrintMode(false)}
           />
-        )}
-        
-        {/* Old Print View - Remove after testing */}
-        {false && printMode && (
-          <div className="fixed inset-0 bg-white dark:bg-gray-900 z-50 p-8 overflow-auto print:p-0">
-            <div className="print:hidden flex flex-col sm:flex-row justify-between items-center mb-6 gap-4">
-              <div className="flex items-center gap-2">
-                <label className="font-semibold">Label Layout:</label>
-                <select
-                  value={printLayout}
-                  onChange={e => setPrintLayout(e.target.value)}
-                  className="border p-2 rounded focus:outline-blue-400 focus:ring-2"
-                >
-                  {LABEL_TEMPLATES.map(t => (
-                    <option key={t.key} value={t.key}>{t.name}</option>
-                  ))}
-                </select>
-                {printLayout === 'custom' && (
-                  <>
-                    <label className="ml-4">Width (in):</label>
-                    <input type="number" min="0.5" step="0.01" value={customLabel.width} onChange={e => setCustomLabel({ ...customLabel, width: parseFloat(e.target.value) })} className="border p-1 rounded w-20" />
-                    <label className="ml-2">Height (in):</label>
-                    <input type="number" min="0.5" step="0.01" value={customLabel.height} onChange={e => setCustomLabel({ ...customLabel, height: parseFloat(e.target.value) })} className="border p-1 rounded w-20" />
-                    <label className="ml-2">Cols:</label>
-                    <input type="number" min="1" max="10" value={customLabel.cols} onChange={e => setCustomLabel({ ...customLabel, cols: parseInt(e.target.value) })} className="border p-1 rounded w-14" />
-                    <label className="ml-2">Rows:</label>
-                    <input type="number" min="1" max="30" value={customLabel.rows} onChange={e => setCustomLabel({ ...customLabel, rows: parseInt(e.target.value) })} className="border p-1 rounded w-14" />
-                  </>
-                )}
-              </div>
-              <div className="flex items-center gap-2">
-                {LABEL_TEMPLATES.find(t => t.key === printLayout)?.printer === 'QL-800' && (
-                  <div className="text-xs text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/20 px-2 py-1 rounded">
-                    Brother QL-800 Mode
-                  </div>
-                )}
-                <button
-                  onClick={() => {
-                    // Show print instructions for Brother labels
-                    const template = LABEL_TEMPLATES.find(t => t.key === printLayout);
-                    if (template?.printer === 'QL-800') {
-                      const confirmed = confirm(
-                        'Brother QL-800 Print Settings:\n\n' +
-                        '1. Select your Brother QL-800 printer\n' +
-                        '2. Set Paper Size: Custom (' + template.width + '" x ' + template.height + '")\n' +
-                        '3. Set Margins: None (0mm)\n' +
-                        '4. Set Scale: 100%\n' +
-                        '5. Enable Background Graphics\n\n' +
-                        'Click OK to continue printing...'
-                      );
-                      if (!confirmed) return;
-                    }
-                    window.print();
-                  }}
-                  className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 font-semibold print:hidden"
-                >
-                  Print
-                </button>
-              </div>
-              <button
-                onClick={() => setPrintMode(false)}
-                className="px-4 py-2 bg-gray-300 dark:bg-gray-700 rounded hover:bg-gray-400 dark:hover:bg-gray-600 print:hidden"
-              >
-                Close Print View
-              </button>
-            </div>
-            {/* Ruler for WYSIWYG accuracy */}
-            <div className="print:hidden flex items-center gap-2 mb-4">
-              <div className="h-4 w-[96px] border-b-2 border-black relative">
-                <span className="absolute left-0 -top-6 text-xs">0 in</span>
-                <span className="absolute right-0 -top-6 text-xs">1 in</span>
-              </div>
-              <div className="h-4 w-[192px] border-b-2 border-black relative">
-                <span className="absolute left-0 -top-6 text-xs">0 in</span>
-                <span className="absolute right-0 -top-6 text-xs">2 in</span>
-              </div>
-              <div className="h-4 w-[288px] border-b-2 border-black relative">
-                <span className="absolute left-0 -top-6 text-xs">0 in</span>
-                <span className="absolute right-0 -top-6 text-xs">3 in</span>
-              </div>
-            </div>
-            {/* Print grid based on layout/template */}
-            {(() => {
-              const template = LABEL_TEMPLATES.find(t => t.key === printLayout) || LABEL_TEMPLATES[0];
-              const width = printLayout === 'custom' ? customLabel.width : template.width;
-              const height = printLayout === 'custom' ? customLabel.height : template.height;
-              const cols = printLayout === 'custom' ? customLabel.cols : template.cols;
-              const rows = printLayout === 'custom' ? customLabel.rows : template.rows;
-              const isBrotherLabel = template.printer === 'QL-800' || printLayout.startsWith('brother');
-              const labelStyle = {
-                width: `${width}in`,
-                height: `${height}in`,
-                boxSizing: 'border-box' as const,
-                pageBreakInside: 'avoid' as const,
-                breakInside: 'avoid' as const,
-                border: '2px dashed #888',
-                margin: isBrotherLabel ? '0' : '0 auto',
-                background: 'white',
-                display: 'flex',
-                flexDirection: 'column' as const,
-                alignItems: 'center',
-                justifyContent: 'center',
-                padding: '0.1in',
-                ...(isBrotherLabel && {
-                  pageBreakAfter: 'always' as const,
-                  pageBreakBefore: 'always' as const,
-                }),
-              };
-              
-              // For Brother continuous feed labels, stack vertically
-              if (isBrotherLabel) {
-                return (
-                  <div className="w-full flex flex-col gap-0 print:gap-0">
-                    {selectedStudents.map((student, idx) => (
-                      <div
-                        key={idx}
-                        style={{
-                          ...labelStyle,
-                          border: 'none',
-                          width: `${width}in`,
-                          height: `${height}in`,
-                          margin: '0',
-                          padding: '0.08in',
-                        }}
-                        className="brother-label"
-                      >
-                        {student && student.firstName ? (
-                          <>
-                            <div className="font-bold text-sm text-center w-full truncate mb-1">{student.firstName} {student.lastName}</div>
-                            <div className="text-xs text-center w-full truncate mb-1">DOB: {student.dob}</div>
-                            {student.studentId && (
-                              <div className="w-full flex flex-col items-center justify-center gap-1">
-                                <div className="flex items-center gap-2">
-                                  <Barcode value={student.studentId} width={1.5} height={24} fontSize={8} margin={0} />
-                                  {showQRCode && (
-                                    <div className="scale-75">
-                                      <QRCode value={getQrPayload(student)} size={50} level="L" />
-                                    </div>
-                                  )}
-                                </div>
-                                <div className="mt-1 break-all text-center text-[6px] text-gray-700 dark:text-gray-200 w-full truncate">{student.studentId}</div>
-                              </div>
-                            )}
-                          </>
-                        ) : null}
-                      </div>
-                    ))}
-                  </div>
-                );
-              }
-              
-              // Arrange students in grid for sheet layouts
-              let gridStudents = selectedStudents;
-              if (printLayout === 'avery5160' || printLayout === 'custom') {
-                const total = cols * rows;
-                gridStudents = [...selectedStudents];
-                while (gridStudents.length < total) gridStudents.push({} as any);
-              }
-              if (printLayout === 'avery5163') {
-                // For Avery 5163, set up a fixed grid and page size
-                return (
-                  <div
-                    className="mx-auto"
-                    style={{
-                      display: 'grid',
-                      gridTemplateColumns: 'repeat(2, 4in)',
-                      gridTemplateRows: 'repeat(5, 2in)',
-                      width: '8.5in',
-                      height: '11in',
-                      margin: '0 auto',
-                      pageBreakInside: 'avoid',
-                      background: 'white',
-                    }}
-                  >
-                    {gridStudents.map((student, idx) => (
-                      <div
-                        key={idx}
-                        style={{
-                          width: '4in',
-                          height: '2in',
-                          boxSizing: 'border-box',
-                          background: 'white',
-                          display: 'flex',
-                          flexDirection: 'column',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          padding: '0.18in 0.1in',
-                          overflow: 'hidden',
-                          border: 'none',
-                        }}
-                        className="relative print:break-inside-avoid"
-                      >
-                        {student && student.firstName ? (
-                          <>
-                            <div className="font-bold text-[17px] text-center w-full truncate" style={{margin: 0}}>{student.firstName} {student.lastName}</div>
-                            <div className="text-[12px] text-center w-full truncate" style={{margin: 0}}>DOB: {student.dob}</div>
-                            {student.studentId && (
-                              <div className="w-full flex flex-col items-center justify-center gap-1" style={{margin: 0}}>
-                                <div className="flex items-center gap-2">
-                                  <Barcode value={student.studentId} width={1.0} height={16} fontSize={8} margin={0} />
-                                  {showQRCode && (
-                                    <div className="scale-75">
-                                      <QRCode value={getQrPayload(student)} size={40} level="L" />
-                                    </div>
-                                  )}
-                                </div>
-                                <div className="break-all text-center text-[8px] text-gray-700 dark:text-gray-200 w-full truncate" style={{margin: 0}}>{student.studentId}</div>
-                              </div>
-                            )}
-                          </>
-                        ) : null}
-                      </div>
-                    ))}
-                  </div>
-                );
-              }
-              return (
-                <div
-                  className={`w-full grid gap-4 print:gap-0 ${cols > 1 ? `grid-cols-${cols}` : ''}`}
-                  style={{ gridTemplateColumns: `repeat(${cols}, ${width}in)` }}
-                >
-                  {gridStudents.map((student, idx) => {
-                    // Only show dashed border for non-sheet/single/double/custom templates
-                    const showDashed = !['avery5160', 'avery5163'].includes(printLayout);
-                    return (
-                      <div
-                        key={idx}
-                        style={{
-                          ...labelStyle,
-                          border: showDashed ? '1px dashed #888' : 'none',
-                          boxShadow: printLayout === 'avery5163' ? '0 0 0 1px #ccc' : undefined,
-                          padding: printLayout === 'avery5163' ? '0.18in' : labelStyle.padding,
-                          background: 'white',
-                        }}
-                        className="relative print:break-inside-avoid"
-                      >
-                        {student && student.firstName ? (
-                          <>
-                            {printLayout.startsWith('brother') ? (
-                              <>
-                                <div className="font-bold text-sm text-center w-full truncate mb-1">{student.firstName} {student.lastName}</div>
-                                <div className="text-xs text-center w-full truncate mb-1">DOB: {student.dob}</div>
-                                {student.studentId && (
-                                  <div className="w-full flex flex-col items-center justify-center gap-1">
-                                    <div className="flex items-center gap-2">
-                                      <Barcode value={student.studentId} width={1.5} height={24} fontSize={8} margin={0} />
-                                      {showQRCode && (
-                                        <div className="scale-75">
-                                          <QRCode value={getQrPayload(student)} size={50} level="L" />
-                                        </div>
-                                      )}
-                                    </div>
-                                    <div className="mt-1 break-all text-center text-[6px] text-gray-700 dark:text-gray-200 w-full truncate">{student.studentId}</div>
-                                  </div>
-                                )}
-                              </>
-                            ) : (
-                              <>
-                                <div className="font-bold text-base mb-1 text-center w-full truncate">{student.firstName} {student.lastName}</div>
-                                <div className="mb-1 text-sm text-center w-full truncate">DOB: {student.dob}</div>
-                                {student.studentId && (
-                                  <div className="w-full flex flex-col items-center justify-center gap-2">
-                                    <div className="flex items-center gap-3">
-                                      <Barcode value={student.studentId} width={2} height={36} fontSize={14} margin={0} />
-                                      {showQRCode && (
-                                        <QRCode value={getQrPayload(student)} size={60} level="L" />
-                                      )}
-                                    </div>
-                                    <div className="mt-2 break-all text-center text-xs text-gray-700 dark:text-gray-200 w-full truncate">{student.studentId}</div>
-                                  </div>
-                                )}
-                              </>
-                            )}
-                          </>
-                        ) : null}
-                      </div>
-                    );
-                  })}
-                </div>
-              );
-            })()}
-          </div>
         )}
 
         {/* Student Details Modal */}

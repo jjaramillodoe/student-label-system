@@ -3,6 +3,11 @@ import clientPromise from '@/lib/mongodb';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/authOptions';
 import { epeStudentTotalMinutes } from '@/lib/epeClock';
+import {
+  DEFAULT_INTAKE_SESSION_CONFIGS,
+  normalizeIntakeSessions,
+  type IntakeSession,
+} from '@/lib/intakeSession';
 
 function escapeRegex(value: string) {
   return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -182,12 +187,26 @@ export async function GET(req: NextRequest) {
       : (e.timeIn ? 1 : 0),
   }));
 
+  const schoolDocs = await db.collection('school_config')
+    .find({})
+    .project({ name: 1, intakeSessions: 1 })
+    .toArray();
+
+  const schoolIntakeSessions: Record<string, IntakeSession[]> = {};
+  for (const doc of schoolDocs) {
+    if (typeof doc.name !== 'string') continue;
+    const sessions = normalizeIntakeSessions(doc.intakeSessions);
+    if (sessions.length) schoolIntakeSessions[doc.name] = sessions;
+  }
+
   return NextResponse.json({
     metrics: { today: countToday, week: countWeek, month: countMonth, year: countYear, all: countAll },
     intakeTime: { totalMinutes: totalIntakeMinutes, avgMinutes: avgIntakeMinutes, sessions: timedStudents, visits: totalVisits },
     staffBreakdown,
     trend,
     enrollments: enrichedEnrollments,
+    schoolIntakeSessions,
+    defaultIntakeSessions: DEFAULT_INTAKE_SESSION_CONFIGS,
     pagination: { page, limit, total, pages: Math.ceil(total / limit) },
   });
 }

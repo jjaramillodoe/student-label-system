@@ -1,12 +1,12 @@
-export const DEFAULT_INTAKE_SESSIONS = [
-  'MORNING 8am-4pm',
-  'EVENING 4pm-5pm',
-  'SATURDAY',
-  'MS265',
-  'SSHS',
-  'BUSHWICK-EVENING',
-  'RIDGEWOOD',
-];
+import {
+  DEFAULT_INTAKE_SESSION_CONFIGS,
+  normalizeIntakeSessions,
+} from '@/lib/intakeSession';
+
+export const DEFAULT_INTAKE_SESSIONS = DEFAULT_INTAKE_SESSION_CONFIGS.map((s) => s.name);
+
+export { DEFAULT_INTAKE_SESSION_CONFIGS, normalizeIntakeSessions };
+export type { IntakeSession } from '@/lib/intakeSession';
 
 export const DEFAULT_INTAKE_ACTIVITIES = [
   'Intake Paperwork Only',

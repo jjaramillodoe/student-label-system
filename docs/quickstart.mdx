@@ -1,6 +1,6 @@
 ---
 title: Quickstart
-description: Get started with the Student Label System in a few minutes.
+description: Sign in, pick your role, and complete your first task in a few minutes.
 ---
 
 ## 1. Sign in
@@ -18,30 +18,62 @@ Your role determines which pages you can access:
 
 See [User roles](/user-roles) for the full permission matrix.
 
-<Frame caption="Placeholder — replace with a screenshot of the sign-in page. See the [screenshot checklist](/contributors/screenshot-checklist).">
-  <img src="/images/placeholders/sign-in.svg" alt="Placeholder: Sign in page" />
+<Frame caption="Production sign-in — DOE email and password">
+  <img src="/images/screenshots/sign-in.png" alt="Student Label System sign-in page with District 79 branding" />
 </Frame>
 
 ## 2. Complete your first task
 
-<Steps>
-  <Step title="Intake Member — register a student">
-    1. Open **Intake** from the navigation.
-    2. Enter name and date of birth — verify the human-readable date shown beside the picker.
-    3. For **NEW** students: enter address (street + apt), verify with NYC Geoclient if prompted, review duplicate matches.
-    4. For **RETURNING** students: search, review visit history, record today's visit only.
-    5. Submit and print the Avery label (barcode + QR).
-  </Step>
-  <Step title="Data Member — find and print a label">
-    1. Open the **Dashboard**.
-    2. Search by name, Label ID, or Student ID.
-    3. Select students and use **Print** for Avery 5163 sheets.
-  </Step>
-  <Step title="Data Lead — review cabinet health">
-    1. Open **Admin → Cabinet Health**.
-    2. Resolve unassigned students or full drawers before intake peaks.
-  </Step>
-</Steps>
+<Tabs>
+  <Tab title="Intake Member">
+    <Steps>
+      <Step title="Open Intake">
+        You land on `/intake` after sign-in.
+      </Step>
+      <Step title="Register or log a visit">
+        - **NEW** — enter name, DOB (must be **21+** for BE/ESL), address, session, and times
+        - **RETURNING** — search the student, then record today's visit only
+      </Step>
+      <Step title="Watch session hours">
+        Time In / Time Out must fall inside the selected intake session window or submit is blocked.
+      </Step>
+      <Step title="Review the success summary">
+        Confirm what was saved. Under-21 students get a copyable [P2G](https://p2g.nyc/contact/) referral message. Labels are printed later in batches from the Dashboard.
+      </Step>
+    </Steps>
+
+    <Frame caption="Intake form used by front-desk staff">
+      <img src="/images/screenshots/intake-form.png" alt="Student Intake form" />
+    </Frame>
+  </Tab>
+  <Tab title="Data Member">
+    <Steps>
+      <Step title="Open the Dashboard">
+        Search by name, Label ID, or Student ID.
+      </Step>
+      <Step title="Print labels">
+        Select students and print Avery **5163** or **94205** sheets from Print / Print Queue.
+      </Step>
+    </Steps>
+  </Tab>
+  <Tab title="Data Lead">
+    <Steps>
+      <Step title="Review cabinet health">
+        Open **Admin → Cabinet Health** and resolve unassigned students or full drawers.
+      </Step>
+      <Step title="Check enrollment issues">
+        Open **Admin → Enrollment** and filter to intake time issues when needed.
+      </Step>
+      <Step title="Verify addresses">
+        Use **Admin → All Students** to run NYC Geoclient verify on a page or batch.
+      </Step>
+    </Steps>
+
+    <Frame caption="All Students — address verification and filters">
+      <img src="/images/screenshots/admin-all-students.png" alt="Admin All Students page with address status badges" />
+    </Frame>
+  </Tab>
+</Tabs>
 
 ## 3. Learn the ID system
 
@@ -54,5 +86,6 @@ Details: [Dual ID system](/reference/dual-id-system)
 
 ## 4. Need help?
 
+- Full guide: start with [Intake workflow](/workflows/intake)
 - In-app guide: [App documentation](https://student-label-system.vercel.app/docs)
 - Contact: [jjaramillo7@schools.nyc.gov](mailto:jjaramillo7@schools.nyc.gov)

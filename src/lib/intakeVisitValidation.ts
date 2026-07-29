@@ -1,6 +1,7 @@
 export type IntakeVisitFlagType =
   | 'premature_clock_out'
-  | 'missing_final_clock_out';
+  | 'missing_final_clock_out'
+  | 'outside_session_window';
 
 export interface IntakeVisitLike {
   date?: string;
@@ -27,7 +28,13 @@ export interface IntakeDayIssue {
   dayLabel: string;
   prematureCount: number;
   missingFinalClockOut: boolean;
+  outsideSessionCount: number;
   messages: string[];
+}
+
+export interface IntakeVisitValidationOptions {
+  /** School intake session configs — enables outside-session-window flags. */
+  sessionConfigs?: IntakeSession[];
 }
 
 export interface IntakeVisitValidation {
@@ -64,7 +71,18 @@ export function formatDayLabel(dayKey: string): string {
   return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
 }
 
-export function validateIntakeVisits(visits: IntakeVisitLike[]): IntakeVisitValidation {
+import type { IntakeSession } from '@/lib/intakeSession';
+import {
+  findIntakeSession,
+  formatSessionTimeRange,
+  formatTime12,
+  isTimeInSessionWindow,
+} from '@/lib/intakeSession';
+
+export function validateIntakeVisits(
+  visits: IntakeVisitLike[],
+  options?: IntakeVisitValidationOptions,
+): IntakeVisitValidation {
   const flags: IntakeVisitFlag[] = [];
   const byDay = new Map<string, Array<{ visit: IntakeVisitLike; index: number }>>();
 
@@ -116,6 +134,38 @@ export function validateIntakeVisits(visits: IntakeVisitLike[]): IntakeVisitVali
     });
   }
 
+  const sessionConfigs = options?.sessionConfigs;
+  if (sessionConfigs?.length) {
+    visits.forEach((visit, index) => {
+      const session = findIntakeSession(sessionConfigs, visit.intakeSession);
+      if (!session?.name) return;
+
+      const dayKey = visitDayKey(visit.date) || 'unknown';
+
+      if (visit.timeIn && !isTimeInSessionWindow(visit.timeIn, session)) {
+        flags.push({
+          type: 'outside_session_window',
+          message:
+            `Time In (${formatTime12(visit.timeIn)}) is outside the ${session.name} window `
+            + `(${formatSessionTimeRange(session)}).`,
+          visitIndex: index,
+          dayKey,
+        });
+      }
+
+      if (visit.timeOut && !isTimeInSessionWindow(visit.timeOut, session)) {
+        flags.push({
+          type: 'outside_session_window',
+          message:
+            `Time Out (${formatTime12(visit.timeOut)}) is outside the ${session.name} window `
+            + `(${formatSessionTimeRange(session)}).`,
+          visitIndex: index,
+          dayKey,
+        });
+      }
+    });
+  }
+
   const dayIssueMap = new Map<string, IntakeDayIssue>();
   for (const flag of flags) {
     if (!dayIssueMap.has(flag.dayKey)) {
@@ -124,12 +174,14 @@ export function validateIntakeVisits(visits: IntakeVisitLike[]): IntakeVisitVali
         dayLabel: formatDayLabel(flag.dayKey),
         prematureCount: 0,
         missingFinalClockOut: false,
+        outsideSessionCount: 0,
         messages: [],
       });
     }
     const issue = dayIssueMap.get(flag.dayKey)!;
     if (flag.type === 'premature_clock_out') issue.prematureCount += 1;
     if (flag.type === 'missing_final_clock_out') issue.missingFinalClockOut = true;
+    if (flag.type === 'outside_session_window') issue.outsideSessionCount += 1;
     if (!issue.messages.includes(flag.message)) issue.messages.push(flag.message);
   }
 
@@ -153,4 +205,5 @@ export function flagsForVisit(
 export const INTAKE_FLAG_LABELS: Record<IntakeVisitFlagType, string> = {
   premature_clock_out: 'Early Time Out',
   missing_final_clock_out: 'No Final Time Out',
+  outside_session_window: 'Outside Session Hours',
 };

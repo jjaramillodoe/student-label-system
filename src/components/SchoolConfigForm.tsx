@@ -14,6 +14,10 @@ import {
 } from '@/components/ui/select';
 import { getFiscalYearOptions } from '@/lib/fiscalYear';
 import { EMPTY_SCHOOL_LEADER, type SchoolLeader } from '@/lib/schoolLeadership';
+import {
+  EMPTY_INTAKE_SESSION,
+  type IntakeSession,
+} from '@/lib/intakeSession';
 
 export type SchoolFormState = {
   name: string;
@@ -21,7 +25,7 @@ export type SchoolFormState = {
   active: boolean;
   agencyId: string;
   currentFiscalYear: string;
-  intakeSessions: string[];
+  intakeSessions: IntakeSession[];
   intakeActivities: string[];
   principal: SchoolLeader;
   assistantPrincipals: SchoolLeader[];
@@ -304,34 +308,114 @@ export default function SchoolConfigForm({
             </SelectContent>
           </Select>
         </div>
-        <div className="grid gap-6 lg:grid-cols-2">
-          <div className="space-y-2">
-            <Label>
-              Intake Sessions
-              <span className="ml-1 text-xs text-muted-foreground font-normal">
-                (one per line)
-              </span>
-            </Label>
-            <textarea
-              className={textareaClassName}
-              placeholder={'MORNING 8am-4pm\nEVENING 4pm-5pm\nSATURDAY'}
-              value={(form.intakeSessions ?? []).join('\n')}
-              onChange={(e) =>
+        <div className="space-y-3">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <Label>Intake Sessions</Label>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="gap-1.5"
+              onClick={() =>
                 setForm((current) => ({
                   ...current,
-                  intakeSessions: e.target.value
-                    .split('\n')
-                    .map((s) => s.trim())
-                    .filter(Boolean),
+                  intakeSessions: [...current.intakeSessions, { ...EMPTY_INTAKE_SESSION }],
                 }))
               }
-            />
-            <p className="text-xs text-muted-foreground">
-              Leave blank to use system defaults (MORNING 8am-4pm, EVENING 4pm-5pm, SATURDAY,
-              MS265, SSHS, BUSHWICK-EVENING, RIDGEWOOD).
-            </p>
+            >
+              <Plus className="h-4 w-4" />
+              Add session
+            </Button>
           </div>
-          <div className="space-y-2">
+          {form.intakeSessions.length === 0 ? (
+            <p className="text-sm text-muted-foreground rounded-md border border-dashed px-4 py-3">
+              No custom sessions configured. Leave empty to use system defaults with standard time
+              windows (Morning 8:00 AM–4:00 PM, Evening 4:00 PM–5:00 PM, etc.).
+            </p>
+          ) : (
+            <div className="space-y-3">
+              {form.intakeSessions.map((session, index) => (
+                <div key={`session-${index}`} className="rounded-lg border bg-card p-4 space-y-3">
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="grid gap-3 flex-1 sm:grid-cols-3">
+                      <div className="space-y-1.5 sm:col-span-1">
+                        <Label htmlFor={`session-name-${index}`}>Session name</Label>
+                        <Input
+                          id={`session-name-${index}`}
+                          value={session.name}
+                          onChange={(e) =>
+                            setForm((current) => ({
+                              ...current,
+                              intakeSessions: current.intakeSessions.map((item, i) =>
+                                i === index ? { ...item, name: e.target.value } : item,
+                              ),
+                            }))
+                          }
+                          placeholder="MORNING"
+                          required
+                        />
+                      </div>
+                      <div className="space-y-1.5">
+                        <Label htmlFor={`session-start-${index}`}>Start time</Label>
+                        <Input
+                          id={`session-start-${index}`}
+                          type="time"
+                          value={session.startTime}
+                          onChange={(e) =>
+                            setForm((current) => ({
+                              ...current,
+                              intakeSessions: current.intakeSessions.map((item, i) =>
+                                i === index ? { ...item, startTime: e.target.value } : item,
+                              ),
+                            }))
+                          }
+                          required
+                        />
+                      </div>
+                      <div className="space-y-1.5">
+                        <Label htmlFor={`session-end-${index}`}>End time</Label>
+                        <Input
+                          id={`session-end-${index}`}
+                          type="time"
+                          value={session.endTime}
+                          onChange={(e) =>
+                            setForm((current) => ({
+                              ...current,
+                              intakeSessions: current.intakeSessions.map((item, i) =>
+                                i === index ? { ...item, endTime: e.target.value } : item,
+                              ),
+                            }))
+                          }
+                          required
+                        />
+                      </div>
+                    </div>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      className="shrink-0 text-muted-foreground hover:text-destructive"
+                      onClick={() =>
+                        setForm((current) => ({
+                          ...current,
+                          intakeSessions: current.intakeSessions.filter((_, i) => i !== index),
+                        }))
+                      }
+                      aria-label="Remove intake session"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+          <p className="text-xs text-muted-foreground">
+            Intake members can only log visits when Time In and Time Out fall within the session&apos;s
+            start and end times.
+          </p>
+        </div>
+        <div className="space-y-2">
             <Label>
               Intake Activities
               <span className="ml-1 text-xs text-muted-foreground font-normal">
@@ -358,7 +442,6 @@ export default function SchoolConfigForm({
               Leave blank to use system defaults (Intake Paperwork Only, Orientation, Testing,
               Locator, Placement, Additional Classes, Transfer).
             </p>
-          </div>
         </div>
       </section>
 

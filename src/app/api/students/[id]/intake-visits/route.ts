@@ -11,6 +11,7 @@ import {
   type ClosingVisitInput,
 } from '@/lib/intakeVisitFix';
 import { validateIntakeVisits } from '@/lib/intakeVisitValidation';
+import { getSchoolIntakeSessions, validateIntakeSessionTimes } from '@/lib/intakeSession';
 
 function isValidObjectId(id: string): boolean {
   try {
@@ -65,13 +66,27 @@ export async function PATCH(
     email: userEmail || 'unknown',
     name: (session.user as { name?: string })?.name || userEmail || 'unknown',
   };
+  const sessionConfigs = await getSchoolIntakeSessions(db, student.school);
   const preview = buildIntakeFixPreview(
     sourceVisits,
     finalClockOuts,
     closingVisits,
     recordedBy,
   );
-  const validation = validateIntakeVisits(preview.visits);
+
+  for (const visit of preview.visits) {
+    const sessionError = validateIntakeSessionTimes({
+      intakeSession: visit.intakeSession,
+      timeIn: visit.timeIn,
+      timeOut: visit.timeOut,
+      sessions: sessionConfigs,
+    });
+    if (sessionError) {
+      return NextResponse.json({ error: sessionError }, { status: 400 });
+    }
+  }
+
+  const validation = validateIntakeVisits(preview.visits, { sessionConfigs });
 
   if (validation.hasIssues && preview.stillNeedsFinalClockOut.length > 0) {
     return NextResponse.json({
@@ -79,6 +94,19 @@ export async function PATCH(
       stillNeedsFinalClockOut: preview.stillNeedsFinalClockOut,
       previewChanges: preview.changes,
     }, { status: 400 });
+  }
+
+  if (validation.hasIssues) {
+    const messages = validation.flags.map(f => f.message);
+    return NextResponse.json({
+      error: messages[0] || 'Intake visit issues remain.',
+      issues: messages,
+    }, { status: 400 });
+  }
+
+  const visitsChanged = JSON.stringify(preview.visits) !== JSON.stringify(existingVisits);
+  if (!visitsChanged && preview.changes.length === 0) {
+    return NextResponse.json({ error: 'Nothing to save.' }, { status: 400 });
   }
 
   const topLevel = syncTopLevelIntakeFields(preview.visits);
@@ -108,6 +136,6 @@ export async function PATCH(
   return NextResponse.json({
     student: result,
     changes: preview.changes,
-    resolved: !validateIntakeVisits(preview.visits).hasIssues,
+    resolved: !validateIntakeVisits(preview.visits, { sessionConfigs }).hasIssues,
   });
 }

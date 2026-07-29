@@ -1,15 +1,19 @@
 ---
 title: Intake workflow
-description: Register new and returning students, verify addresses, detect duplicates, and print labels.
+description: Register new and returning students, verify addresses, enforce session hours, and log visits.
 ---
 
 ## Overview
 
-The Intake Form (`/intake`) is for front-desk registration. It includes live duplicate detection (name **and** address), NYC address verification for new students, cabinet assignment, and immediate label printing.
+The Intake Form (`/intake`) is the front-desk registration screen. It supports live duplicate detection (name **and** address), NYC address verification for new students, session-hour validation, cabinet or archive-box location, and a clear success summary after save.
 
-<Frame caption="Placeholder — Intake form (`/intake`). Replace via [screenshot checklist](/contributors/screenshot-checklist).">
-  <img src="/images/placeholders/intake-form.svg" alt="Placeholder: Intake form" />
+<Frame caption="Student Intake form — Register Student tab with personal info, session, and time fields">
+  <img src="/images/screenshots/intake-form.png" alt="Student Intake form showing personal information, BE/ESL, session, and Time In" />
 </Frame>
+
+<Tip>
+  Open Intake at [student-label-system.vercel.app/intake](https://student-label-system.vercel.app/intake). Intake Members land here after sign-in.
+</Tip>
 
 ## Student types
 
@@ -18,7 +22,7 @@ The Intake Form (`/intake`) is for front-desk registration. It includes live dup
 | **NEW** | First-time registration at your program |
 | **RETURNING** | Student already in the system — search by name/DOB, then record today's visit only |
 | **CTE Orientation** | CTE orientation intake |
-| **Other** | Special cases per school policy |
+| **Other** | Special cases per school policy (age rule does not block BE/ESL the same way) |
 
 <Note>
   **Continuing Intake** was removed. Returning students use **RETURNING** on the same screen — no separate modal.
@@ -27,13 +31,13 @@ The Intake Form (`/intake`) is for front-desk registration. It includes live dup
 ## NEW student — step by step
 
 <Steps>
-  <Step title="Open Intake">
-    Intake Members land on `/intake` after sign-in. Select **NEW**.
+  <Step title="Open Intake and select NEW">
+    Choose **NEW** under Student Status.
   </Step>
   <Step title="Enter personal information">
     - First and last name (required)
-    - **Date of birth** — a human-readable date appears beside the picker
-    - **BE/ESL age rule** — students must be at least **21 years and 1 month** old for BE or ESL
+    - **Date of birth** — a human-readable date appears under the picker
+    - **BE/ESL age rule** — students must be at least **21 years old** on their birthday for BE or ESL
   </Step>
   <Step title="Contact and address">
     - Phone and email
@@ -42,21 +46,33 @@ The Intake Form (`/intake`) is for front-desk registration. It includes live dup
     - **View on Google Maps** after verify
   </Step>
   <Step title="Review duplicate matches">
-    The system checks same DOB + similar name **and** compares home address:
-    - **Same address** — strong signal; confirm it is not the same person
-    - **Different address** — may be a sibling or someone who moved
-    - Check **This is a different person** to flag siblings for Data Lead review
-    - Use **Copy alert message** for Teams or email
+    The system checks same DOB + similar name **and** compares home address. See [Duplicates and siblings](/workflows/duplicates-and-siblings).
   </Step>
   <Step title="Complete intake details">
-    Choose **BE** or **ESL**, intake session, activities, placement class, and time in/out as required.
+    Choose **BE** or **ESL**, intake activities, placement class, **intake session**, Time In, and Leaving/Staying (Time Out required if Leaving).
   </Step>
-  <Step title="Submit and print">
-    On success, print the label with barcode (Label ID) and QR code.
+  <Step title="Submit">
+    Click **Register Student**. The success screen shows a summary of what was saved — not a label print preview.
   </Step>
 </Steps>
 
+## Session hours (required)
+
+Each school configures intake sessions with start and end times (for example **MORNING 9:00 AM – 1:00 PM** or **BUSHWICK EVENING 4:00 PM – 9:00 PM**).
+
+- **Time In** and **Time Out** must fall inside the selected session window
+- Invalid times show a red error under the field and **block submit**
+- The allowed window appears under Time In once a session is selected
+
+<Warning>
+  Do not pick a morning session and enter an evening Time In. Fix the session or the time before saving — enrollment will also flag visits that fall outside session hours.
+</Warning>
+
 ## RETURNING student — step by step
+
+<Frame caption="RETURNING student selected — prior visit history and locked profile fields">
+  <img src="/images/screenshots/intake-returning.png" alt="Returning student intake with visit history and locked personal information" />
+</Frame>
 
 <Steps>
   <Step title="Select RETURNING and search">
@@ -66,30 +82,65 @@ The Intake Form (`/intake`) is for front-desk registration. It includes live dup
     An accordion shows prior intake visits (date, session, activities, times). Prior visit data is **not** overwritten.
   </Step>
   <Step title="Personal info and address are locked">
-    Name, DOB, phone, email, and address fields are **read-only** for returning students. Only **today's visit** fields are editable.
+    Name, DOB, phone, email, and address fields are **read-only**. Only **today's visit** fields are editable.
   </Step>
   <Step title="Record today's visit">
-    Enter fresh BE/ESL, session, activities, and time in/out for this visit. Submit appends a new visit snapshot.
+    Enter fresh BE/ESL, session, activities, and time in/out. Submit appends a new visit snapshot. Click **Log Visit & Save**.
   </Step>
 </Steps>
 
-## Address fields on intake
-
-Street and apartment are stored separately:
-
-- **Street** — e.g. `690 Grand St`
-- **Apt/Unit** — e.g. `4B`
-
-NYC Geoclient standardizes the **building** only; the apartment is kept in the `apt` field.
-
-Details: [Address and NYC verification](/reference/address-and-verification)
-
 ## Returning archived students
 
-When a previously archived student re-enrolls through Intake, the system reactivates their record and assigns the next open drawer automatically.
+If the student file is **already archived**, Intake does **not** assign a new drawer for the school year.
+
+| Situation | What you see |
+| --- | --- |
+| Archive box on file | Box label, storage location, **QR code**, and **View archive box** link |
+| Archived but no box recorded | Warning to contact your Data Lead — visit can still be logged |
+| Active student with no cabinet | Next available drawer is assigned (true unassigned case only) |
+
+Staff can scan the archive-box QR to find the physical file when paperwork needs to be added.
+
+## Under 21 — Pathways to Graduation (P2G)
+
+Students younger than **21** are not eligible for BE or ESL. When age applies, Intake blocks BE/ESL enrollment and can show a **copyable referral message** for [Pathways to Graduation](https://p2g.nyc/contact/).
+
+Use **Copy message for email** on the success screen (or when the under-21 notice appears) to paste into Teams or email.
+
+## Success screen
+
+After save you see:
+
+- Student name, ID, and status badges
+- A summary of the visit or registration (session, times, activities, contact)
+- File location (active drawer **or** archive box)
+- Address with optional Google Maps link
+- Under-21 P2G referral card when applicable
+
+Buttons: **Log Another Visit** or **Register Another Student** — label printing is done from the Dashboard / Print Queue in batches, not one-by-one at intake.
+
+## Fix intake time issues
+
+The yellow banner at the top of Intake lists students with time problems (outside session hours or handoff Time Out issues).
+
+<Frame caption="Fix intake issues dialog — correct session hours or handoff Time Out">
+  <img src="/images/screenshots/intake-fix-dialog.png" alt="Fix intake issues dialog for a student" />
+</Frame>
+
+Use **Fix** to:
+
+1. Correct **session hours** (change session and/or Time In / Time Out)
+2. Fix **handoff** issues (early Time Out or missing final clock-out)
+
+## Duplicate flag example
+
+<Frame caption="Possible duplicate matches with sibling acknowledgement checkbox">
+  <img src="/images/screenshots/intake-duplicates.png" alt="Intake duplicate alert with match scores and sibling flag checkbox" />
+</Frame>
 
 ## Related pages
 
 - [Address and NYC verification](/reference/address-and-verification)
 - [Labels and scanning](/workflows/labels-and-scanning)
 - [Duplicates and siblings](/workflows/duplicates-and-siblings)
+- [Archive and school year](/storage/archive-and-school-year)

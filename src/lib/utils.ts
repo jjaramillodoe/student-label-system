@@ -28,3 +28,25 @@ export function formatHumanDate(value: string | null | undefined): string | null
   });
 }
 
+/** Normalize MongoDB ObjectId / Extended JSON values to a plain hex string. */
+export function normalizeMongoId(value: unknown): string | null {
+  if (value == null || value === '') return null;
+  if (typeof value === 'string') return value;
+  if (typeof value === 'object' && value !== null) {
+    const oid = (value as { $oid?: string }).$oid;
+    if (typeof oid === 'string') return oid;
+    const toHexString = (value as { toHexString?: () => string }).toHexString;
+    if (typeof toHexString === 'function') return toHexString.call(value);
+    const str = (value as { toString?: () => string }).toString?.();
+    if (typeof str === 'string' && /^[a-f\d]{24}$/i.test(str)) return str;
+  }
+  return null;
+}
+
+export function serializeMongoDocument<T extends Record<string, unknown>>(doc: T): T & { _id: string } {
+  return {
+    ...doc,
+    _id: (normalizeMongoId(doc._id) ?? String(doc._id)) as string,
+  };
+}
+

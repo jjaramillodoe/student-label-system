@@ -1,6 +1,6 @@
 ---
 title: Data Lead and Admin tools
-description: Cleanup, activity reports, schools, and security.
+description: Cleanup, activity reports, schools, address verification, and security.
 ---
 
 ## Data quality
@@ -14,16 +14,28 @@ description: Cleanup, activity reports, schools, and security.
 | Duplicates | `/admin/duplicates` | Sibling and duplicate review with address comparison |
 | All Students | `/admin/students/all` | Search, filter by address status, NYC verify, edit apt/street |
 
+<Frame caption="All Students — browse, filter, verify addresses, and export">
+  <img src="/images/screenshots/admin-all-students.png" alt="Admin All Students table with address verification tools" />
+</Frame>
+
 ## Reporting and configuration
 
 | Tool | Path | Purpose |
 | --- | --- | --- |
 | Activity Report | `/admin/activity-report` | Student record event log |
-| Enrollment | `/admin/enrollment` | Registration metrics |
+| Enrollment | `/admin/enrollment` | Registration metrics and intake time issues |
 | Email Validation | `/admin/validation` | EmailAwesome verification |
-| Schools / School Settings | `/admin/schools` | School names, Agency IDs, fiscal year |
+| Schools / School Settings | `/admin/schools` | School names, Agency IDs, fiscal year, **intake session windows** |
 | School Year Rollover | `/admin/school-year` | End-of-year checklist |
 | Users | `/admin/users` | Roles, schools, MFA recovery |
+
+<Frame caption="School Settings — fiscal year and intake sessions/activities">
+  <img src="/images/screenshots/admin-school-settings.png" alt="Edit School form with intake form settings" />
+</Frame>
+
+<Tip>
+  Set **start and end times** for each intake session in School Settings. Intake Members cannot save times outside those windows.
+</Tip>
 
 ## Security
 
@@ -31,6 +43,6 @@ description: Cleanup, activity reports, schools, and security.
 - Authenticator MFA with QR setup
 - Admins can reset passwords and disable MFA for locked-out users
 
-## Screenshots
+## Screenshots still needed
 
-See the [screenshot checklist](/contributors/screenshot-checklist) for admin page placeholders to add later.
+See the [screenshot checklist](/contributors/screenshot-checklist) for Cabinet Health, School Year Rollover, and other admin pages to capture next.

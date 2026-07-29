@@ -13,9 +13,13 @@ description: End-of-year closeout, physical archive boxes, and public box labels
 
 Set the active fiscal year under **Schools / School Settings** — Intake and new records use that year automatically.
 
-<Frame caption="Placeholder — School Year Rollover checklist (`/admin/school-year`).">
-  <img src="/images/placeholders/school-year-rollover.svg" alt="Placeholder: School year rollover page" />
+<Frame caption="School Settings — fiscal year, intake sessions, and activities">
+  <img src="/images/screenshots/admin-school-settings.png" alt="Edit School form with fiscal year and intake session settings" />
 </Frame>
+
+<Tip>
+  Configure **intake sessions with start and end times** in School Settings. Those windows are enforced on the Intake form and used when flagging outside-session hours.
+</Tip>
 
 ## Archive a cabinet
 
@@ -44,6 +48,12 @@ Set the active fiscal year under **Schools / School Settings** — Intake and ne
 
 Box QR codes link to `/archive/box/{boxId}` — no login required. Staff and auditors can scan a box in storage to see location metadata and the full student list.
 
+## Returning archived students at Intake
+
+When an archived student returns for a visit, Intake shows the **existing archive box** (label, location, QR) instead of assigning a new active drawer. Staff add paperwork to the same physical file.
+
+See [Intake workflow → Returning archived students](/workflows/intake#returning-archived-students).
+
 ## PDF layout
 
 | Page | Content |
@@ -51,10 +61,8 @@ Box QR codes link to `/archive/box/{boxId}` — no login required. Staff and aud
 | 1 | Box title, location, school year, QR code, public URL |
 | 2 | Full student list in two columns (~200 files on 2 pages) |
 
-<Frame caption="Placeholder — archive box label dialog or downloaded PDF (QR + student list).">
-  <img src="/images/placeholders/archive-box-label.svg" alt="Placeholder: Archive box label" />
-</Frame>
+## Related pages
 
-<Frame caption="Placeholder — public archive box page scanned from QR (`/archive/box/{boxId}`).">
-  <img src="/images/placeholders/public-archive-box.svg" alt="Placeholder: Public archive box page" />
-</Frame>
+- [Cabinets and drawers](/storage/cabinets-and-drawers)
+- [QR codes](/reference/qr-codes)
+- [Intake workflow](/workflows/intake)

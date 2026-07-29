@@ -38,16 +38,14 @@ import AdminHeader from '@/components/AdminHeader';
 import { Separator } from '@/components/ui/separator';
 
 const LABEL_TEMPLATES = [
-  { key: 'single', name: 'Single Label/Page' },
-  { key: 'double', name: 'Double Label/Page' },
   { key: 'avery5160', name: 'Avery 5160 (3x10 Sheet)' },
   { key: 'avery5163', name: 'Avery 5163 (2x5 Sheet)' },
+  { key: 'avery94205', name: 'Avery 94205 (2x5 — 1.5"×3.75")' },
   // Brother QL-800 Compatible Labels
   { key: 'brother1201', name: 'Brother DK-1201 (1.1" x 3.5")' },
   { key: 'brother11208', name: 'Brother DK-11208 (1.1" x 2.1")' },
   { key: 'brother2205', name: 'Brother DK-2205 (2.1" x 2.1")' },
   { key: 'brother22208', name: 'Brother DK-22208 (2.1" x 2.8")' },
-  { key: 'custom', name: 'Custom' },
 ];
 
 export default function LabelStockPage() {

@@ -41,15 +41,13 @@ import {
 } from '@/components/ui/table';
 
 const LABEL_TEMPLATES: Record<string, { name: string; labelsPerSheet: number }> = {
-  single: { name: 'Single Label/Page', labelsPerSheet: 1 },
-  double: { name: 'Double Label/Page', labelsPerSheet: 2 },
   avery5160: { name: 'Avery 5160 (3x10 Sheet)', labelsPerSheet: 30 },
   avery5163: { name: 'Avery 5163 (2x5 Sheet)', labelsPerSheet: 10 },
+  avery94205: { name: 'Avery 94205 (2x5 — 1.5"×3.75")', labelsPerSheet: 10 },
   brother1201: { name: 'Brother DK-1201 (1.1" x 3.5")', labelsPerSheet: 1 },
   brother11208: { name: 'Brother DK-11208 (1.1" x 2.1")', labelsPerSheet: 1 },
   brother2205: { name: 'Brother DK-2205 (2.1" x 2.1")', labelsPerSheet: 1 },
   brother22208: { name: 'Brother DK-22208 (2.1" x 2.8")', labelsPerSheet: 1 },
-  custom: { name: 'Custom', labelsPerSheet: 1 },
 };
 
 interface PrintJob {

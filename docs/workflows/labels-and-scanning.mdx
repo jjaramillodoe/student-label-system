@@ -1,20 +1,26 @@
 ---
 title: Labels and scanning
-description: Avery 5163 labels, barcodes, QR codes, and public student pages.
+description: Avery 5163 and 94205 labels, barcodes, QR codes, and public student pages.
 ---
 
-## Default print layout
+## Print layouts
 
-- **Format:** Avery 5163 on legal paper (10 labels per sheet)
-- **Content:** Student name, DOB, barcode (Label ID), QR code
+Labels are printed in **batches** from the Dashboard or Print Queue — not one-by-one after each intake registration.
+
+| Layout | Size | Per sheet | Best for |
+| --- | --- | --- | --- |
+| **Avery 5163** | 2" × 4" | 10 | Default file labels |
+| **Avery 94205** | 1.5" × 3.75" clear | 10 | Compact / clear stock |
+
+Both layouts include student name, DOB, barcode (**Label ID**), and QR code. You can also download a Word (DOCX) sheet for offline printing.
 
 <Tip>
   Print in multiples of **10** labels to avoid wasting partial sheets.
 </Tip>
 
-<Frame caption="Placeholder — Avery 5163 print preview from the dashboard or print queue.">
-  <img src="/images/placeholders/avery-label-sheet.svg" alt="Placeholder: Avery 5163 label sheet" />
-</Frame>
+<Info>
+  Intake success no longer opens a single-label print preview. Use **Print** / **Print Queue** after selecting the students you need.
+</Info>
 
 ## Student QR codes
 
@@ -24,7 +30,11 @@ Scanning a student label QR opens a public detail page:
 https://student-label-system.vercel.app/student/{labelId}
 ```
 
-The page shows Label ID, Student ID, name, DOB, cabinet, drawer, school, and sibling links. No login is required.
+The page shows Label ID, Student ID, name, DOB, cabinet/drawer or archive location, school, and sibling links. No login is required.
+
+<Frame caption="Public student page from a scanned label QR">
+  <img src="/images/screenshots/public-student-page.png" alt="Public student record with archive box location" />
+</Frame>
 
 ## Archive box QR codes
 
@@ -36,4 +46,11 @@ https://student-label-system.vercel.app/archive/box/{boxId}
 
 That public page lists every student file in the box plus storage location. You can also **Download PDF** (page 1 = label + QR, page 2 = two-column student list).
 
-See [Archive and school year](/storage/archive-and-school-year).
+When a **RETURNING** archived student is logged in Intake, staff see this same box location with a QR so they can find paperwork without assigning a new drawer.
+
+See [Archive and school year](/storage/archive-and-school-year) and [Intake workflow](/workflows/intake).
+
+## Related pages
+
+- [QR codes reference](/reference/qr-codes)
+- [Dual ID system](/reference/dual-id-system)

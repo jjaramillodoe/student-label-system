@@ -5,6 +5,7 @@ import clientPromise from '@/lib/mongodb';
 import { authOptions } from '@/lib/authOptions';
 import { resolveAgencyId } from '@/lib/studentId';
 import { normalizeIntakeStringList } from '@/lib/intakeDefaults';
+import { normalizeIntakeSessions } from '@/lib/intakeSession';
 import { getCurrentFiscalYear, normalizeFiscalYear } from '@/lib/fiscalYear';
 import { DEFAULT_SCHOOLS, getSchoolOptions } from '@/lib/schoolConfig';
 import {
@@ -23,7 +24,7 @@ function schoolNameFilter(name: string) {
 async function upsertDataLeadIntakeSettings(
   db: any,
   userSchool: string,
-  intakeSessions: string[],
+  intakeSessions: ReturnType<typeof normalizeIntakeSessions>,
   intakeActivities: string[],
   currentFiscalYear: string,
   principal: ReturnType<typeof normalizePrincipal>,
@@ -142,7 +143,7 @@ export async function POST(req: NextRequest) {
       type,
       active: Boolean(active),
       agencyId: resolvedAgencyId,
-      intakeSessions: normalizeIntakeStringList(intakeSessions),
+      intakeSessions: normalizeIntakeSessions(intakeSessions).filter((s) => s.name.trim()),
       intakeActivities: normalizeIntakeStringList(intakeActivities),
       currentFiscalYear: normalizeFiscalYear(currentFiscalYear),
       principal: normalizePrincipal(principal),
@@ -178,7 +179,7 @@ export async function PUT(req: NextRequest) {
         return NextResponse.json({ error: 'No school assigned to this account' }, { status: 403 });
       }
 
-      const intakeSessions = normalizeIntakeStringList(body.intakeSessions);
+      const intakeSessions = normalizeIntakeSessions(body.intakeSessions).filter((s) => s.name.trim());
       const intakeActivities = normalizeIntakeStringList(body.intakeActivities);
       const currentFiscalYear = normalizeFiscalYear(body.currentFiscalYear);
       const principal = normalizePrincipal(body.principal);
@@ -234,7 +235,7 @@ export async function PUT(req: NextRequest) {
           type: type || 'School',
           active: Boolean(active),
           agencyId: resolvedAgencyId,
-          intakeSessions: normalizeIntakeStringList(intakeSessions),
+          intakeSessions: normalizeIntakeSessions(intakeSessions).filter((s) => s.name.trim()),
           intakeActivities: normalizeIntakeStringList(intakeActivities),
           currentFiscalYear: normalizeFiscalYear(currentFiscalYear),
           principal: normalizePrincipal(principal),

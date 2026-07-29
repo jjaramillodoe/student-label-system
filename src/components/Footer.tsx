@@ -6,7 +6,11 @@ import { usePathname } from 'next/navigation';
 
 export default function Footer() {
   const pathname = usePathname() || '';
-  if (pathname.startsWith('/intake') || pathname.startsWith('/student')) return null;
+  if (
+    pathname.startsWith('/intake')
+    || pathname.startsWith('/student')
+    || pathname.startsWith('/archive')
+  ) return null;
   return (
     <footer className="border-t border-border bg-muted/30 mt-auto">
       <div className="w-full px-4 sm:px-6 py-6">

@@ -9,10 +9,10 @@ description: Public URLs for student labels and archive boxes.
 https://student-label-system.vercel.app/student/{labelId}
 ```
 
-Public page shows Label ID, Student ID, name, DOB, cabinet, drawer, school, and sibling links.
+Public page shows Label ID, Student ID, name, DOB, cabinet/drawer **or** archive box location, school, and sibling links.
 
-<Frame caption="Placeholder — public student detail page after scanning a label QR code.">
-  <img src="/images/placeholders/public-student-page.svg" alt="Placeholder: Public student page" />
+<Frame caption="Public student record opened from a label QR (`/student/{labelId}`)">
+  <img src="/images/screenshots/public-student-page.png" alt="Public student record for an archived student with archive box and storage location" />
 </Frame>
 
 ## Archive box QR
@@ -23,7 +23,9 @@ https://student-label-system.vercel.app/archive/box/{boxId}
 
 Public page shows box label, cabinet, school year, storage location, archive date, and the full student file list. Supports print and PDF download.
 
-<Frame caption="Placeholder — public archive box page (`/archive/box/{boxId}`).">
+Intake uses the same box URL (with QR) when staff log a visit for an **archived** returning student so they can find paperwork without a new drawer.
+
+<Frame caption="Placeholder — public archive box page (`/archive/box/{boxId}`)">
   <img src="/images/placeholders/public-archive-box.svg" alt="Placeholder: Public archive box page" />
 </Frame>
 

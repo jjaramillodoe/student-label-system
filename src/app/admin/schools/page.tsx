@@ -25,7 +25,7 @@ type SchoolConfig = {
   type: string;
   active: boolean;
   agencyId?: string;
-  intakeSessions?: string[];
+  intakeSessions?: unknown;
   intakeActivities?: string[];
   currentFiscalYear?: string;
   isDefault?: boolean;

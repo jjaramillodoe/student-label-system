@@ -45,3 +45,37 @@ export function studentNeedsActiveDrawer(student: {
     !student.cabinet
   );
 }
+
+export function studentIsArchived(student: {
+  archived?: boolean;
+  status?: string;
+}): boolean {
+  return student.archived === true || student.status === 'Archived';
+}
+
+export function studentHasArchiveBoxLocation(student: {
+  archiveBoxId?: string;
+  archiveBoxLabel?: string;
+  archiveLocation?: string;
+}): boolean {
+  return Boolean(
+    student.archiveBoxId?.trim()
+    || student.archiveBoxLabel?.trim()
+    || student.archiveLocation?.trim(),
+  );
+}
+
+/** Returning intake: only assign a new drawer when the student is active but unassigned. */
+export function returningStudentNeedsNewDrawer(student: {
+  archived?: boolean;
+  status?: string;
+  cabinet?: string;
+  archiveBoxId?: string;
+  archiveBoxLabel?: string;
+  archiveLocation?: string;
+}): boolean {
+  if (studentHasArchiveBoxLocation(student) || studentIsArchived(student)) {
+    return false;
+  }
+  return !student.cabinet;
+}

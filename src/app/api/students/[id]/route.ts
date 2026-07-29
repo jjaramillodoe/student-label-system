@@ -8,6 +8,9 @@ import {
   checkBeEslAgeEligibility,
   requiresBeEslAgeCheck,
 } from '@/lib/beEslEligibility';
+import { getSchoolIntakeSessions, validateIntakeSessionTimes } from '@/lib/intakeSession';
+import { syncTopLevelIntakeFields } from '@/lib/intakeVisitFix';
+import { normalizeMongoId, serializeMongoDocument } from '@/lib/utils';
 
 // Helper function to validate ObjectId
 function isValidObjectId(id: string): boolean {
@@ -30,7 +33,16 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
     const db = client.db("student-label");
     const student = await db.collection('students').findOne({ _id: new ObjectId(id) });
     if (!student) return NextResponse.json({ error: 'Student not found' }, { status: 404 });
-    return NextResponse.json(student);
+
+    const authSession = await getServerSession(authOptions);
+    const schoolIntakeSessions = authSession
+      ? await getSchoolIntakeSessions(db, student.school)
+      : undefined;
+
+    return NextResponse.json({
+      ...student,
+      schoolIntakeSessions,
+    });
   } catch (error) {
     return NextResponse.json({ error: 'Failed to fetch student' }, { status: 500 });
   }
@@ -44,6 +56,8 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
     }
 
     const body = await req.json();
+    const session = await getServerSession(authOptions);
+    const userSchool = (session?.user as { school?: string })?.school;
     const client = await clientPromise;
     const db = client.db("student-label");
 
@@ -67,16 +81,18 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
       }
     }
 
-    if (oldStudent && (oldStudent.cabinet !== body.cabinet || oldStudent.drawer !== body.drawer)) {
+    if (oldStudent && (normalizeMongoId(oldStudent.cabinet) !== normalizeMongoId(body.cabinet)
+      || String(oldStudent.drawer ?? '') !== String(body.drawer ?? ''))) {
       // Decrease count in old cabinet if it exists
       if (oldStudent.cabinet && oldStudent.drawer) {
-        if (!isValidObjectId(oldStudent.cabinet)) {
+        const oldCabinetId = normalizeMongoId(oldStudent.cabinet);
+        if (!oldCabinetId || !isValidObjectId(oldCabinetId)) {
           return NextResponse.json({ error: 'Invalid old cabinet ID format' }, { status: 400 });
         }
 
         await db.collection('cabinets').updateOne(
           { 
-            _id: new ObjectId(oldStudent.cabinet),
+            _id: new ObjectId(oldCabinetId),
             'drawers._id': oldStudent.drawer
           },
           { 
@@ -90,22 +106,24 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
 
       // Increase count in new cabinet if provided
       if (body.cabinet && body.drawer) {
-        if (!isValidObjectId(body.cabinet)) {
+        const newCabinetId = normalizeMongoId(body.cabinet);
+        if (!newCabinetId || !isValidObjectId(newCabinetId)) {
           return NextResponse.json({ error: 'Invalid new cabinet ID format' }, { status: 400 });
         }
 
-        const cabinetDoc = await db.collection('cabinets').findOne({ _id: new ObjectId(body.cabinet) });
+        const cabinetDoc = await db.collection('cabinets').findOne({ _id: new ObjectId(newCabinetId) });
         if (!cabinetDoc) {
           return NextResponse.json({ error: 'New cabinet not found' }, { status: 404 });
         }
 
-        const drawerIndex = cabinetDoc.drawers.findIndex((d: any) => d._id === body.drawer);
+        const drawers = Array.isArray(cabinetDoc.drawers) ? cabinetDoc.drawers : [];
+        const drawerIndex = drawers.findIndex((d: { _id?: string }) => d._id === body.drawer);
         if (drawerIndex === -1) {
           return NextResponse.json({ error: 'New drawer not found in cabinet' }, { status: 404 });
         }
 
-        const drawerCapacity = cabinetDoc.drawers[drawerIndex].capacity;
-        const currentCount = cabinetDoc.drawers[drawerIndex].currentCount || 0;
+        const drawerCapacity = drawers[drawerIndex].capacity;
+        const currentCount = drawers[drawerIndex].currentCount || 0;
 
         if (currentCount >= drawerCapacity) {
           return NextResponse.json({ error: 'New drawer is at full capacity' }, { status: 400 });
@@ -113,7 +131,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
 
         await db.collection('cabinets').updateOne(
           { 
-            _id: new ObjectId(body.cabinet),
+            _id: new ObjectId(newCabinetId),
             'drawers._id': body.drawer
           },
           { 
@@ -147,7 +165,39 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
     }
     // Append a new intake visit to the time-log history instead of overwriting.
     if (appendVisit && typeof appendVisit === 'object') {
-      update.$push = { intakeVisits: appendVisit };
+      const sessions = await getSchoolIntakeSessions(db, userSchool || oldStudent.school);
+      const sessionTimeError = validateIntakeSessionTimes({
+        intakeSession: appendVisit.intakeSession,
+        timeIn: appendVisit.timeIn,
+        timeOut: appendVisit.timeOut,
+        sessions,
+      });
+      if (sessionTimeError) {
+        return NextResponse.json({ error: sessionTimeError }, { status: 400 });
+      }
+
+      const existingVisits = Array.isArray(oldStudent.intakeVisits)
+        ? [...oldStudent.intakeVisits]
+        : oldStudent.intakeVisits && typeof oldStudent.intakeVisits === 'object'
+          ? [oldStudent.intakeVisits]
+          : oldStudent.timeIn
+            ? [{
+                date: oldStudent.createdAt,
+                timeIn: oldStudent.timeIn,
+                timeOut: oldStudent.timeOut ?? null,
+                isLeaving: oldStudent.isLeaving,
+                intakeSession: oldStudent.intakeSession,
+                intakeActivity: oldStudent.intakeActivity,
+                recordedBy: oldStudent.createdBy,
+              }]
+            : [];
+
+      const nextVisits = [...existingVisits, appendVisit];
+      update.$set = {
+        ...update.$set,
+        intakeVisits: nextVisits,
+        ...syncTopLevelIntakeFields(nextVisits),
+      };
     }
 
     const result = await db.collection('students').findOneAndUpdate(
@@ -156,7 +206,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
       { returnDocument: 'after' }
     );
     if (!result) return NextResponse.json({ error: 'Student not found' }, { status: 404 });
-    return NextResponse.json(result);
+    return NextResponse.json(serializeMongoDocument(result as Record<string, unknown>));
   } catch (error) {
     console.error('Error updating student:', error);
     return NextResponse.json({ 

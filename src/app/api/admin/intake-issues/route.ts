@@ -4,6 +4,7 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/authOptions';
 import { canFixIntakeHandoff } from '@/lib/intakeVisitFix';
 import { detectIntakeIssuesFromStudent } from '@/lib/intakeIssues';
+import { normalizeIntakeSessions, type IntakeSession } from '@/lib/intakeSession';
 
 export async function GET() {
   const session = await getServerSession(authOptions);
@@ -18,8 +19,10 @@ export async function GET() {
   const db = client.db('student-label');
 
   const query: Record<string, unknown> = {
-    intakeVisits: { $exists: true },
-    $expr: { $gte: [{ $size: { $ifNull: ['$intakeVisits', []] } }, 2] },
+    $or: [
+      { intakeVisits: { $exists: true, $not: { $size: 0 } } },
+      { timeIn: { $exists: true, $nin: [null, ''] } },
+    ],
   };
   if (role !== 'Admin' && school) {
     query.school = school;
@@ -36,14 +39,27 @@ export async function GET() {
       timeIn: 1,
       timeOut: 1,
       isLeaving: 1,
+      intakeSession: 1,
       intakeVisits: 1,
     })
     .sort({ updatedAt: -1, createdAt: -1 })
     .limit(500)
     .toArray();
 
+  const schoolDocs = await db.collection('school_config')
+    .find({})
+    .project({ name: 1, intakeSessions: 1 })
+    .toArray();
+
+  const schoolSessionMap: Record<string, IntakeSession[]> = {};
+  for (const doc of schoolDocs) {
+    if (typeof doc.name !== 'string') continue;
+    const sessions = normalizeIntakeSessions(doc.intakeSessions);
+    if (sessions.length) schoolSessionMap[doc.name] = sessions;
+  }
+
   const issues = students
-    .map(doc => detectIntakeIssuesFromStudent(doc))
+    .map(doc => detectIntakeIssuesFromStudent(doc, { schoolSessionMap }))
     .filter((item): item is NonNullable<typeof item> => item !== null)
     .sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || ''))
     .slice(0, 100);

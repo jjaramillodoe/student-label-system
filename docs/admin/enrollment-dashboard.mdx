@@ -1,9 +1,9 @@
 ---
 title: Enrollment dashboard
-description: Track registrations by staff member and time period.
+description: Track registrations by staff and review intake time issues.
 ---
 
-**Admin → Enrollment** (`/admin/enrollment`) shows registration activity.
+**Admin → Enrollment** (`/admin/enrollment`) shows registration activity and intake visit issues.
 
 ## Metrics
 
@@ -15,6 +15,23 @@ description: Track registrations by staff member and time period.
 
 Filter by period, staff member, or student/staff name search. Each row shows who registered the student (name + email).
 
-<Frame caption="Placeholder — Enrollment dashboard metrics and staff leaderboard.">
-  <img src="/images/placeholders/enrollment-dashboard.svg" alt="Placeholder: Enrollment dashboard" />
-</Frame>
+## Intake issues
+
+Enrollment can flag visits with:
+
+| Flag | Meaning |
+| --- | --- |
+| **Outside Session Hours** | Time In or Time Out falls outside the school's session window |
+| **Early Time Out** | Time Out on a same-day handoff visit that should have been Staying |
+| **No Final Time Out** | Multiple same-day activities with no final clock-out |
+
+Use **Show issues only** to focus on rows that need attention. From Intake, the yellow banner's **Fix** dialog corrects session hours and handoff problems.
+
+<Tip>
+  Catch bad times at the source: Intake blocks submit when Time In / Time Out do not match the selected session. Enrollment flags are mainly for older records or edge cases.
+</Tip>
+
+## Related pages
+
+- [Intake workflow](/workflows/intake)
+- [Data Lead tools](/admin/data-lead-tools)

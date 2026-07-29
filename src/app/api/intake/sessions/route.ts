@@ -4,11 +4,14 @@ import { authOptions }      from '@/lib/authOptions';
 import clientPromise        from '@/lib/mongodb';
 import {
   DEFAULT_INTAKE_ACTIVITIES,
-  DEFAULT_INTAKE_SESSIONS,
+  DEFAULT_INTAKE_SESSION_CONFIGS,
 } from '@/lib/intakeDefaults';
 import { getCurrentFiscalYear, normalizeFiscalYear } from '@/lib/fiscalYear';
-
-const DEFAULT_SESSIONS = DEFAULT_INTAKE_SESSIONS;
+import {
+  intakeSessionNames,
+  normalizeIntakeSessions,
+  type IntakeSession,
+} from '@/lib/intakeSession';
 
 export async function GET() {
   const session = await getServerSession(authOptions);
@@ -23,7 +26,7 @@ export async function GET() {
     const db     = client.db('student-label');
 
     let schoolDoc: {
-      intakeSessions?: string[];
+      intakeSessions?: unknown;
       intakeActivities?: string[];
       currentFiscalYear?: string;
     } | null = null;
@@ -31,16 +34,16 @@ export async function GET() {
       schoolDoc = await db
         .collection('school_config')
         .findOne({ name: { $regex: `^${userSchool.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, $options: 'i' } }) as {
-          intakeSessions?: string[];
+          intakeSessions?: unknown;
           intakeActivities?: string[];
           currentFiscalYear?: string;
         } | null;
     }
 
-    const schoolSessions: string[] =
-      Array.isArray(schoolDoc?.intakeSessions) && schoolDoc.intakeSessions.length
-        ? schoolDoc.intakeSessions
-        : DEFAULT_SESSIONS;
+    const schoolSessions: IntakeSession[] =
+      normalizeIntakeSessions(schoolDoc?.intakeSessions).length
+        ? normalizeIntakeSessions(schoolDoc?.intakeSessions)
+        : DEFAULT_INTAKE_SESSION_CONFIGS;
 
     const schoolActivities: string[] =
       Array.isArray(schoolDoc?.intakeActivities) && schoolDoc.intakeActivities.length
@@ -49,12 +52,11 @@ export async function GET() {
 
     let sessions = schoolSessions;
 
-    // Intake Members only see sessions assigned to them by an admin.
     if (userRole === 'Intake Member' && userEmail) {
       const userDoc = await db.collection('users').findOne({ email: userEmail });
       const allowed = userDoc?.allowedIntakeSessions;
       if (Array.isArray(allowed) && allowed.length > 0) {
-        sessions = schoolSessions.filter(s => allowed.includes(s));
+        sessions = schoolSessions.filter((s) => allowed.includes(s.name));
       }
     }
 
@@ -70,13 +72,17 @@ export async function GET() {
       school: userSchool ?? null,
       allSessions: schoolSessions,
       allActivities: schoolActivities,
+      // Backward-compatible name list for older clients
+      sessionNames: intakeSessionNames(sessions),
+      allSessionNames: intakeSessionNames(schoolSessions),
     });
   } catch {
     return NextResponse.json({
-      sessions: DEFAULT_SESSIONS,
+      sessions: DEFAULT_INTAKE_SESSION_CONFIGS,
       activities: DEFAULT_INTAKE_ACTIVITIES,
       currentFiscalYear: getCurrentFiscalYear(),
       school: userSchool ?? null,
+      sessionNames: intakeSessionNames(DEFAULT_INTAKE_SESSION_CONFIGS),
     });
   }
 }
