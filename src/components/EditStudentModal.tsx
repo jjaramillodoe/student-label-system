@@ -22,6 +22,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Card, CardContent } from '@/components/ui/card';
+import { sanitizeUsaNameInput, usaNameError, USA_NAME_HINT } from '@/lib/usaName';
 
 const FISCAL_YEAR_OPTIONS = [
   '2024-2025', '2025-2026', '2026-2027', '2027-2028'
@@ -58,6 +59,7 @@ export default function EditStudentModal({
     email: '',
     phone: '',
   });
+  const [nameError, setNameError] = useState('');
 
   useEffect(() => {
     if (student && open) {
@@ -78,11 +80,23 @@ export default function EditStudentModal({
 
   function handleChange(e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) {
     const { name, value } = e.target;
+    if (name === 'firstName' || name === 'lastName') {
+      setForm(prev => ({ ...prev, [name]: sanitizeUsaNameInput(value) }));
+      setNameError('');
+      return;
+    }
     setForm(prev => ({ ...prev, [name]: value }));
   }
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+    const firstErr = usaNameError(form.firstName, 'First name');
+    const lastErr = usaNameError(form.lastName, 'Last name');
+    if (firstErr || lastErr) {
+      setNameError(firstErr || lastErr || USA_NAME_HINT);
+      return;
+    }
+    setNameError('');
     onSave(form);
   }
 
@@ -116,6 +130,7 @@ export default function EditStudentModal({
                     onChange={handleChange}
                     placeholder="Enter first name"
                     required
+                    spellCheck={false}
                   />
                 </div>
 
@@ -130,8 +145,16 @@ export default function EditStudentModal({
                     onChange={handleChange}
                     placeholder="Enter last name"
                     required
+                    spellCheck={false}
                   />
                 </div>
+
+                <p className="md:col-span-2 text-xs text-muted-foreground -mt-2">
+                  {USA_NAME_HINT}
+                </p>
+                {nameError && (
+                  <p className="md:col-span-2 text-xs text-destructive -mt-2">{nameError}</p>
+                )}
 
                 <div className="space-y-2">
                   <Label htmlFor="edit-dob">

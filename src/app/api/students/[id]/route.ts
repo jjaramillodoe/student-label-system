@@ -11,6 +11,7 @@ import {
 import { getSchoolIntakeSessions, validateIntakeSessionTimes } from '@/lib/intakeSession';
 import { syncTopLevelIntakeFields } from '@/lib/intakeVisitFix';
 import { normalizeMongoId, serializeMongoDocument } from '@/lib/utils';
+import { usaNameError } from '@/lib/usaName';
 
 // Helper function to validate ObjectId
 function isValidObjectId(id: string): boolean {
@@ -60,6 +61,15 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
     const userSchool = (session?.user as { school?: string })?.school;
     const client = await clientPromise;
     const db = client.db("student-label");
+
+    if (body.firstName != null) {
+      const firstErr = usaNameError(String(body.firstName), 'First name');
+      if (firstErr) return NextResponse.json({ error: firstErr }, { status: 400 });
+    }
+    if (body.lastName != null) {
+      const lastErr = usaNameError(String(body.lastName), 'Last name');
+      if (lastErr) return NextResponse.json({ error: lastErr }, { status: 400 });
+    }
 
     // If cabinet or drawer is being changed, update the old and new cabinet capacities
     const oldStudent = await db.collection('students').findOne({ _id: new ObjectId(id) });

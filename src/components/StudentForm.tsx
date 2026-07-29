@@ -15,6 +15,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { sanitizeUsaNameInput, usaNameError, USA_NAME_HINT } from '@/lib/usaName';
 
 interface StudentFormProps {
   onSubmit: (formData: any, onSuccess?: () => void, onError?: (msg: string) => void) => void;
@@ -50,6 +51,7 @@ export default function StudentForm({ onSubmit, loading, initialData, toast, cle
   const [selectedDrawer, setSelectedDrawer] = useState<{ _id: string; name: string; capacity: number; currentCount: number } | null>(null);
   const [selectedCabinetName, setSelectedCabinetName] = useState('');
   const [selectedDrawerName, setSelectedDrawerName] = useState('');
+  const [nameError, setNameError] = useState('');
 
   useEffect(() => {
     if (initialData) {
@@ -125,6 +127,8 @@ export default function StudentForm({ onSubmit, loading, initialData, toast, cle
       setCabinetSearch(value);
       setShowCabinetDropdown(true);
       setForm(prev => ({ ...prev, [name]: value }));
+    } else if (name === 'firstName' || name === 'lastName') {
+      setForm(prev => ({ ...prev, [name]: sanitizeUsaNameInput(value) }));
     } else {
       setForm(prev => ({ ...prev, [name]: value }));
     }
@@ -132,6 +136,13 @@ export default function StudentForm({ onSubmit, loading, initialData, toast, cle
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    const firstErr = usaNameError(form.firstName, 'First name');
+    const lastErr = usaNameError(form.lastName, 'Last name');
+    if (firstErr || lastErr) {
+      setNameError(firstErr || lastErr || USA_NAME_HINT);
+      return;
+    }
+    setNameError('');
     onSubmit(form);
   };
 
@@ -185,6 +196,8 @@ export default function StudentForm({ onSubmit, loading, initialData, toast, cle
             onChange={onChange}
             placeholder="Enter first name"
             required
+            spellCheck={false}
+            autoComplete="given-name"
           />
         </div>
 
@@ -199,8 +212,17 @@ export default function StudentForm({ onSubmit, loading, initialData, toast, cle
             onChange={onChange}
             placeholder="Enter last name"
             required
+            spellCheck={false}
+            autoComplete="family-name"
           />
         </div>
+
+        <p className="md:col-span-2 text-xs text-muted-foreground -mt-2">
+          {USA_NAME_HINT}
+        </p>
+        {nameError && (
+          <p className="md:col-span-2 text-xs text-destructive -mt-2">{nameError}</p>
+        )}
 
         <div className="space-y-2">
           <Label htmlFor="dob">

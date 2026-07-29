@@ -9,6 +9,7 @@ import Avery5163LabelContent from '@/components/Avery5163LabelContent';
 import Avery94205LabelContent from '@/components/Avery94205LabelContent';
 import AveryPrintGuidance from '@/components/AveryPrintGuidance';
 import { isStudentSearchQueryValid } from '@/lib/studentSearch';
+import { sanitizeUsaNameInput, usaNameError, USA_NAME_HINT } from '@/lib/usaName';
 import { DEFAULT_INTAKE_ACTIVITIES, DEFAULT_INTAKE_SESSION_CONFIGS } from '@/lib/intakeDefaults';
 import {
   findIntakeSession,
@@ -195,7 +196,7 @@ function IntakeMemberGuide() {
               <ol className="list-decimal list-inside space-y-1.5 text-muted-foreground text-xs leading-relaxed">
                 <li>Start with <strong className="text-foreground">Check school records</strong> (name, DOB, or Label ID) — this includes archived files.</li>
                 <li>Select <strong className="text-foreground">New First Time Student</strong> under Student Status only if no match.</li>
-                <li>Enter <strong className="text-foreground">first name, last name, and date of birth</strong>. Watch the duplicate alert — it checks automatically, including archived records.</li>
+                <li>Enter <strong className="text-foreground">first name, last name, and date of birth</strong>. Names use <strong className="text-foreground">A–Z letters, spaces, and hyphens only</strong> — no accents or special characters. Watch the duplicate alert — it checks automatically, including archived records.</li>
                 <li>Add <strong className="text-foreground">phone, email, and home address</strong>. Click <strong className="text-foreground">Verify with NYC Geoclient</strong> so the standardized address is saved.</li>
                 <li>If a <strong className="text-foreground">possible duplicate</strong> appears, compare name, DOB, and address. If it is the same person, click <strong className="text-foreground">Same person — log returning</strong> (even if Archived).</li>
                 <li>Only check <strong className="text-foreground">“This is a different person”</strong> for a true sibling or coincidence — that flags the record for Data Lead review.</li>
@@ -639,6 +640,9 @@ export default function IntakePage() {
   ]);
 
   function setField(key: keyof ReturnType<typeof emptyForm>, value: string) {
+    if (key === 'firstName' || key === 'lastName') {
+      value = sanitizeUsaNameInput(value);
+    }
     const updated = { ...form, [key]: value };
     setForm(updated);
     if (['firstName', 'lastName', 'dob'].includes(key)) {
@@ -770,6 +774,16 @@ export default function IntakePage() {
       if (status === 'RETURNING' && !selectedExistingStudent?._id) {
         setSubmitError('Please search for and select the student to log this visit.');
         return;
+      }
+
+      // New registrations: USA alphabet only (A–Z, spaces, hyphens)
+      if (!isUpdatingExisting && status !== 'Other') {
+        const firstErr = usaNameError(form.firstName, 'First name');
+        const lastErr = usaNameError(form.lastName, 'Last name');
+        if (firstErr || lastErr) {
+          setSubmitError(firstErr || lastErr || USA_NAME_HINT);
+          return;
+        }
       }
 
       const timeOut = (form.isLeaving === 'Leaving') ? (form.timeOut || undefined) : undefined;
@@ -1506,6 +1520,8 @@ export default function IntakePage() {
                   required
                   readOnly={profileLocked}
                   className={lockedFieldClass}
+                  autoComplete="given-name"
+                  spellCheck={false}
                 />
               </div>
               <div className="space-y-2">
@@ -1518,8 +1534,15 @@ export default function IntakePage() {
                   required
                   readOnly={profileLocked}
                   className={lockedFieldClass}
+                  autoComplete="family-name"
+                  spellCheck={false}
                 />
               </div>
+              {!profileLocked && (
+                <p className="sm:col-span-2 text-xs text-muted-foreground -mt-1">
+                  {USA_NAME_HINT}
+                </p>
+              )}
               <div className="space-y-2">
                 <Label htmlFor="dob" className="flex items-center gap-1.5">
                   <Calendar className="h-3.5 w-3.5" /> Date of Birth <span className="text-destructive">*</span>

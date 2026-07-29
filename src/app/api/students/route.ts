@@ -13,6 +13,7 @@ import {
 import { normalizeStudentAddress, validateStudentAddress } from '@/lib/addressValidation';
 import { verifyAddressWithGeoclient } from '@/lib/addressGeoclient';
 import { getSchoolIntakeSessions, validateIntakeSessionTimes } from '@/lib/intakeSession';
+import { usaNameError } from '@/lib/usaName';
 
 // Helper function to validate ObjectId
 function isValidObjectId(id: string): boolean {
@@ -116,6 +117,14 @@ export async function POST(req: NextRequest) {
       zip,
       verifyAddress,
     } = body;
+
+    if (firstName != null || lastName != null) {
+      const firstErr = usaNameError(String(firstName || ''), 'First name');
+      const lastErr = usaNameError(String(lastName || ''), 'Last name');
+      if (firstErr || lastErr) {
+        return NextResponse.json({ error: firstErr || lastErr }, { status: 400 });
+      }
+    }
 
     if (requiresBeEslAgeCheck({ intakeStudentStatus, educationStatus }) && dob) {
       const ageCheck = checkBeEslAgeEligibility(String(dob));
