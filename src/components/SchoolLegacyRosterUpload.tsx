@@ -10,6 +10,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { parseLegacyCsv, parseMdbBuffer, type LegacyRosterRow } from '@/lib/legacyRoster';
 
 type RosterMeta = {
   uploadedAt?: string;
@@ -20,12 +21,35 @@ type RosterMeta = {
   uploadedBy?: { name?: string; email?: string };
 };
 
+const BATCH_SIZE = 2000;
+
+async function readApiJson(res: Response): Promise<any> {
+  const text = await res.text();
+  if (!text) return {};
+  try {
+    return JSON.parse(text);
+  } catch {
+    const snippet = text.replace(/\s+/g, ' ').slice(0, 120);
+    if (/request entity too large/i.test(text) || res.status === 413) {
+      throw new Error(
+        'Upload rejected: file too large for the server. The app now parses .mdb in your browser — refresh and try again, or use a CSV export.',
+      );
+    }
+    throw new Error(
+      res.ok
+        ? `Unexpected server response: ${snippet}`
+        : `Upload failed (${res.status}): ${snippet || res.statusText}`,
+    );
+  }
+}
+
 export default function SchoolLegacyRosterUpload({ schoolName }: { schoolName: string }) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [meta, setMeta] = useState<RosterMeta | null>(null);
   const [rowCount, setRowCount] = useState(0);
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
+  const [progress, setProgress] = useState('');
   const [clearing, setClearing] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
@@ -38,7 +62,7 @@ export default function SchoolLegacyRosterUpload({ schoolName }: { schoolName: s
       const res = await fetch(
         `/api/admin/schools/legacy-roster?school=${encodeURIComponent(schoolName)}`,
       );
-      const data = await res.json();
+      const data = await readApiJson(res);
       if (!res.ok) throw new Error(data.error || 'Failed to load roster status');
       setMeta(data.meta);
       setRowCount(data.rowCount || 0);
@@ -53,6 +77,77 @@ export default function SchoolLegacyRosterUpload({ schoolName }: { schoolName: s
     loadStatus();
   }, [loadStatus]);
 
+  async function uploadParsedRows(opts: {
+    rows: LegacyRosterRow[];
+    filename: string;
+    sourceType: 'mdb' | 'csv';
+    tableName?: string;
+  }) {
+    const { rows, filename, sourceType, tableName } = opts;
+    if (!rows.length) throw new Error('No student rows found in the file.');
+
+    // Clear + first batch (or all if small)
+    const first = rows.slice(0, BATCH_SIZE);
+    const rest = rows.slice(BATCH_SIZE);
+    setProgress(`Uploading 1–${first.length} of ${rows.length}…`);
+
+    const firstRes = await fetch('/api/admin/schools/legacy-roster', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        mode: 'replace',
+        school: schoolName,
+        filename,
+        sourceType,
+        tableName,
+        rows: first.map(({ firstName, lastName, dob, externalId }) => ({
+          firstName, lastName, dob, externalId,
+        })),
+        finalize: rest.length === 0,
+      }),
+    });
+    const firstData = await readApiJson(firstRes);
+    if (!firstRes.ok) throw new Error(firstData.error || 'Upload failed');
+
+    let uploaded = first.length;
+    for (let i = 0; i < rest.length; i += BATCH_SIZE) {
+      const batch = rest.slice(i, i + BATCH_SIZE);
+      const isLast = i + BATCH_SIZE >= rest.length;
+      setProgress(`Uploading ${uploaded + 1}–${uploaded + batch.length} of ${rows.length}…`);
+      const res = await fetch('/api/admin/schools/legacy-roster', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          mode: 'append',
+          school: schoolName,
+          filename,
+          sourceType,
+          tableName,
+          rows: batch.map(({ firstName, lastName, dob, externalId }) => ({
+            firstName, lastName, dob, externalId,
+          })),
+          finalize: isLast,
+        }),
+      });
+      const data = await readApiJson(res);
+      if (!res.ok) throw new Error(data.error || 'Upload failed');
+      uploaded += batch.length;
+      if (isLast && data.meta) {
+        setMeta(data.meta);
+        setRowCount(data.rowCount || data.meta.rowCount || uploaded);
+      } else if (data.rowCount != null) {
+        setRowCount(data.rowCount);
+      }
+    }
+
+    if (rest.length === 0) {
+      setMeta(firstData.meta);
+      setRowCount(firstData.rowCount || firstData.meta?.rowCount || uploaded);
+    }
+
+    return { tableName, count: rows.length };
+  }
+
   async function onFileChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     e.target.value = '';
@@ -61,24 +156,40 @@ export default function SchoolLegacyRosterUpload({ schoolName }: { schoolName: s
     setUploading(true);
     setError('');
     setSuccess('');
+    setProgress('Reading file…');
+
     try {
-      const body = new FormData();
-      body.set('file', file);
-      body.set('school', schoolName);
-      const res = await fetch('/api/admin/schools/legacy-roster', {
-        method: 'POST',
-        body,
+      const filename = file.name || 'roster';
+      const lower = filename.toLowerCase();
+
+      let parsed;
+      if (lower.endsWith('.mdb') || lower.endsWith('.accdb')) {
+        setProgress('Parsing Access database in your browser…');
+        const buffer = await file.arrayBuffer();
+        parsed = parseMdbBuffer(buffer, schoolName, filename);
+      } else if (lower.endsWith('.csv') || lower.endsWith('.txt')) {
+        setProgress('Parsing CSV…');
+        const text = await file.text();
+        parsed = parseLegacyCsv(text, schoolName, filename);
+      } else {
+        throw new Error('Unsupported file type. Upload .mdb, .accdb, or .csv');
+      }
+
+      const result = await uploadParsedRows({
+        rows: parsed.rows,
+        filename,
+        sourceType: lower.endsWith('.csv') || lower.endsWith('.txt') ? 'csv' : 'mdb',
+        tableName: parsed.tableName,
       });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Upload failed');
-      setMeta(data.meta);
-      setRowCount(data.meta?.rowCount || 0);
+
+      setProgress('');
       setSuccess(
-        `Imported ${data.meta?.rowCount ?? 0} students`
-        + (data.tableName ? ` from table “${data.tableName}”` : '')
+        `Imported ${result.count.toLocaleString()} students`
+        + (result.tableName ? ` from table “${result.tableName}”` : '')
         + '. Intake will check this roster for NEW registrations.',
       );
     } catch (err) {
+      setProgress('');
       setError(err instanceof Error ? err.message : 'Upload failed');
     } finally {
       setUploading(false);
@@ -95,7 +206,7 @@ export default function SchoolLegacyRosterUpload({ schoolName }: { schoolName: s
         `/api/admin/schools/legacy-roster?school=${encodeURIComponent(schoolName)}`,
         { method: 'DELETE' },
       );
-      const data = await res.json();
+      const data = await readApiJson(res);
       if (!res.ok) throw new Error(data.error || 'Failed to clear roster');
       setMeta(null);
       setRowCount(0);
@@ -116,8 +227,8 @@ export default function SchoolLegacyRosterUpload({ schoolName }: { schoolName: s
         </CardTitle>
         <CardDescription>
           Upload the school Access database (<code className="text-xs">.mdb</code> / <code className="text-xs">.accdb</code>)
-          or a CSV export with First Name, Last Name, and DOB. Admins and Data Leads can manage this roster.
-          Intake uses it as a first check (like ASISTS) before registering a NEW student. Rows are stored for lookup only — they do not create live files or labels.
+          or a CSV export with First Name, Last Name, and DOB. The file is parsed in your browser so large MDBs work;
+          only student rows are saved. Admins and Data Leads can manage this roster.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
@@ -166,6 +277,12 @@ export default function SchoolLegacyRosterUpload({ schoolName }: { schoolName: s
             <AlertDescription className="text-green-800 dark:text-green-200">{success}</AlertDescription>
           </Alert>
         )}
+        {uploading && progress && (
+          <p className="text-sm text-muted-foreground flex items-center gap-2">
+            <Loader2 className="h-4 w-4 animate-spin" />
+            {progress}
+          </p>
+        )}
 
         <div className="space-y-2">
           <Label htmlFor="legacy-roster-file">Upload .mdb / .accdb / .csv</Label>
@@ -178,7 +295,7 @@ export default function SchoolLegacyRosterUpload({ schoolName }: { schoolName: s
             onChange={onFileChange}
           />
           <p className="text-xs text-muted-foreground">
-            Max 12 MB. Re-uploading replaces the previous roster for this school.
+            Large Access files are OK — parsing happens locally. Re-uploading replaces the previous roster.
           </p>
         </div>
 

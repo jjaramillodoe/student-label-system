@@ -1,7 +1,13 @@
+import { Buffer } from 'buffer';
 import MDBReader from 'mdb-reader';
 import { normalizeDobToIso } from '@/lib/studentSearch';
 import { parseCsv } from '@/lib/csv';
 import { isPossibleDuplicate, matchPercent } from '@/lib/fuzzyName';
+
+/** mdb-reader's browser build calls Buffer.from internally — ensure it exists. */
+if (typeof globalThis.Buffer === 'undefined') {
+  (globalThis as typeof globalThis & { Buffer: typeof Buffer }).Buffer = Buffer;
+}
 
 export const LEGACY_ROSTER_COLLECTION = 'school_legacy_roster';
 
@@ -162,12 +168,15 @@ export type ParseLegacyResult = {
 
 /** Pick best Access table that maps to student name + DOB columns. */
 export function parseMdbBuffer(
-  buffer: Buffer,
+  buffer: Buffer | ArrayBuffer | Uint8Array,
   school: string,
   filename: string,
   preferredTable?: string,
 ): ParseLegacyResult {
-  const reader = new MDBReader(buffer);
+  const nodeBuffer = Buffer.isBuffer(buffer)
+    ? buffer
+    : Buffer.from(buffer instanceof ArrayBuffer ? new Uint8Array(buffer) : buffer);
+  const reader = new MDBReader(nodeBuffer);
   const tableNames = reader.getTableNames({ normalTables: true, systemTables: false });
   if (!tableNames.length) {
     throw new Error('No tables found in this Access database.');
