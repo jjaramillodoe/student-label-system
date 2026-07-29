@@ -5,6 +5,7 @@ import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import AdminHeader from '@/components/AdminHeader';
 import SchoolConfigForm, { type SchoolFormState } from '@/components/SchoolConfigForm';
+import SchoolLegacyRosterUpload from '@/components/SchoolLegacyRosterUpload';
 import { AlertCircle, ArrowLeft, Building2, CheckCircle2, Loader2 } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
@@ -262,6 +263,8 @@ export default function EditSchoolPage({ params }: { params: Promise<{ slug: str
             />
           </CardContent>
         </Card>
+
+        <SchoolLegacyRosterUpload schoolName={school.name} />
       </div>
     </div>
   );

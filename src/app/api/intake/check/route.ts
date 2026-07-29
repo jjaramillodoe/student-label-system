@@ -10,6 +10,7 @@ import {
   type IncomingAddressCheck,
   type StudentAddressRecord,
 } from '@/lib/addressDuplicate';
+import { LEGACY_ROSTER_COLLECTION, matchLegacyRoster } from '@/lib/legacyRoster';
 
 const STUDENT_PROJECTION = {
   firstName: 1,
@@ -73,7 +74,7 @@ export async function POST(request: Request) {
     const body = await request.json();
     const { firstName, lastName, dob } = body;
     if (!firstName || !lastName || !dob) {
-      return NextResponse.json({ exact: [], fuzzy: [] });
+      return NextResponse.json({ exact: [], fuzzy: [], legacyExact: [], legacyFuzzy: [] });
     }
 
     const incomingAddress: IncomingAddressCheck = {
@@ -156,7 +157,34 @@ export async function POST(request: Request) {
       });
     }
 
-    return NextResponse.json({ exact, fuzzy });
+    // ASISTS / school legacy roster (read-only export uploaded in school settings)
+    let legacyExact: Record<string, unknown>[] = [];
+    let legacyFuzzy: Record<string, unknown>[] = [];
+    const schoolName =
+      session.user.role === 'Admin' && body.school
+        ? String(body.school)
+        : session.user.school || '';
+    if (schoolName) {
+      const legacyRows = await db
+        .collection(LEGACY_ROSTER_COLLECTION)
+        .find({
+          school: schoolName,
+          $or: [
+            { dob },
+            {
+              firstName: { $regex: new RegExp(`^${firstName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i') },
+              lastName: { $regex: new RegExp(`^${lastName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i') },
+            },
+          ],
+        })
+        .limit(40)
+        .toArray();
+      const matched = matchLegacyRoster(legacyRows, incoming);
+      legacyExact = matched.exact;
+      legacyFuzzy = matched.fuzzy;
+    }
+
+    return NextResponse.json({ exact, fuzzy, legacyExact, legacyFuzzy });
   } catch (error) {
     console.error('Intake check error:', error);
     return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });

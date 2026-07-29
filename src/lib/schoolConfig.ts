@@ -24,6 +24,14 @@ export type SchoolConfigRecord = {
   currentFiscalYear?: string;
   principal?: SchoolLeader | null;
   assistantPrincipals?: SchoolLeader[];
+  legacyRoster?: {
+    uploadedAt: string;
+    filename: string;
+    rowCount: number;
+    tableName?: string;
+    sourceType: 'mdb' | 'csv';
+    uploadedBy?: { name?: string; email?: string };
+  };
   isDefault?: boolean;
   createdAt?: string;
   updatedAt?: string;

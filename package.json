@@ -39,6 +39,7 @@
     "html2canvas": "^1.4.1",
     "jspdf": "^4.2.1",
     "lucide-react": "^0.554.0",
+    "mdb-reader": "^3.2.0",
     "mongodb": "^6.21.0",
     "next": "^16.2.6",
     "next-auth": "^4.24.13",

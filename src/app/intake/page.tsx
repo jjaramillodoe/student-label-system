@@ -81,7 +81,17 @@ interface CheckResult {
   status: 'idle' | 'checking' | 'found' | 'clear';
   exact: any[];
   fuzzy: any[];
+  legacyExact: any[];
+  legacyFuzzy: any[];
 }
+
+const emptyCheckResult = (): CheckResult => ({
+  status: 'idle',
+  exact: [],
+  fuzzy: [],
+  legacyExact: [],
+  legacyFuzzy: [],
+});
 
 interface NextSlot extends NextCabinetSlot {}
 
@@ -195,7 +205,7 @@ function IntakeMemberGuide() {
                 New First Time Student
               </p>
               <ol className="list-decimal list-inside space-y-1.5 text-muted-foreground text-xs leading-relaxed">
-                <li>Start with <strong className="text-foreground">Check school records</strong> (name, DOB, or Label ID) — this includes archived files.</li>
+                <li>Start with <strong className="text-foreground">Check school records</strong> (name, DOB, or Label ID) — this includes archived files and the school ASISTS / legacy roster when uploaded.</li>
                 <li>Select <strong className="text-foreground">New First Time Student</strong> under Student Status only if no match.</li>
                 <li>Enter <strong className="text-foreground">first name, last name, and date of birth</strong>. Names use <strong className="text-foreground">A–Z letters, spaces, and hyphens only</strong> — no accents or special characters. Watch the duplicate alert — it checks automatically, including archived records.</li>
                 <li>Add <strong className="text-foreground">phone, email, and home address</strong>. Click <strong className="text-foreground">Verify with NYC Geoclient</strong> so the standardized address is saved.</li>
@@ -391,7 +401,7 @@ export default function IntakePage() {
   const [cabinetsLoading, setCabinetsLoading] = useState(false);
   const [nextSlot, setNextSlot] = useState<NextSlot | null>(null);
 
-  const [checkResult, setCheckResult] = useState<CheckResult>({ status: 'idle', exact: [], fuzzy: [] });
+  const [checkResult, setCheckResult] = useState<CheckResult>(emptyCheckResult());
   const [copied, setCopied] = useState(false);
   const [p2gCopied, setP2gCopied] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -578,11 +588,11 @@ export default function IntakePage() {
     verification: IntakeAddressVerification | null,
   ) => {
     if (['Other', 'RETURNING'].includes(f.intakeStudentStatus)) {
-      setCheckResult({ status: 'idle', exact: [], fuzzy: [] });
+      setCheckResult(emptyCheckResult());
       return;
     }
     if (!f.firstName.trim() || !f.lastName.trim() || !f.dob) {
-      setCheckResult({ status: 'idle', exact: [], fuzzy: [] });
+      setCheckResult(emptyCheckResult());
       return;
     }
     setCheckResult(r => ({ ...r, status: 'checking' }));
@@ -604,14 +614,17 @@ export default function IntakePage() {
         }),
       });
       const data = await res.json();
-      const hasMatches = (data.exact?.length || 0) + (data.fuzzy?.length || 0) > 0;
+      const liveHits = (data.exact?.length || 0) + (data.fuzzy?.length || 0);
+      const legacyHits = (data.legacyExact?.length || 0) + (data.legacyFuzzy?.length || 0);
       setCheckResult({
-        status: hasMatches ? 'found' : 'clear',
+        status: liveHits + legacyHits > 0 ? 'found' : 'clear',
         exact: data.exact || [],
         fuzzy: data.fuzzy || [],
+        legacyExact: data.legacyExact || [],
+        legacyFuzzy: data.legacyFuzzy || [],
       });
     } catch {
-      setCheckResult({ status: 'idle', exact: [], fuzzy: [] });
+      setCheckResult(emptyCheckResult());
     }
   }, []);
 
@@ -651,7 +664,7 @@ export default function IntakePage() {
     }
     if (key === 'intakeStudentStatus') {
       // Reset duplicate check and selected student when type changes
-      setCheckResult({ status: 'idle', exact: [], fuzzy: [] });
+      setCheckResult(emptyCheckResult());
       setSiblingAcknowledged(false);
       setSelectedExistingStudent(null);
       setStudentSearch('');
@@ -690,9 +703,15 @@ export default function IntakePage() {
     setSchoolLookupLoading(true);
     setSchoolLookupDone(false);
     try {
-      const res = await fetch(`/api/students?search=${encodeURIComponent(q)}`);
-      const data = await res.json();
-      setSchoolLookupResults(Array.isArray(data) ? data.slice(0, 12) : []);
+      const [liveRes, legacyRes] = await Promise.all([
+        fetch(`/api/students?search=${encodeURIComponent(q)}`),
+        fetch(`/api/admin/schools/legacy-roster/search?q=${encodeURIComponent(q)}`),
+      ]);
+      const liveData = await liveRes.json();
+      const legacyData = legacyRes.ok ? await legacyRes.json() : { results: [] };
+      const live = Array.isArray(liveData) ? liveData.slice(0, 12) : [];
+      const legacy = Array.isArray(legacyData.results) ? legacyData.results.slice(0, 12) : [];
+      setSchoolLookupResults([...live, ...legacy]);
       setSchoolLookupDone(true);
     } catch {
       setSchoolLookupResults([]);
@@ -734,6 +753,7 @@ export default function IntakePage() {
 
   /** Switch to RETURNING and lock this existing (possibly archived) student. */
   function selectAsReturning(s: IntakeMatchStudent | any) {
+    if (s?._legacy) return; // ASISTS export only — not a live filing record
     setForm(f => ({
       ...f,
       intakeStudentStatus: 'RETURNING',
@@ -752,7 +772,7 @@ export default function IntakePage() {
     setSchoolLookupResults([]);
     setSchoolLookupDone(false);
     setSchoolLookup('');
-    setCheckResult({ status: 'idle', exact: [], fuzzy: [] });
+    setCheckResult(emptyCheckResult());
     setSiblingAcknowledged(false);
     applyStudentAddressFromRecord(s);
   }
@@ -945,7 +965,9 @@ export default function IntakePage() {
 
     // Only block on duplicates for NEW students; RETURNING/CTE expect to find existing records
     const isNewStudent = form.intakeStudentStatus === 'NEW';
-    if (isNewStudent && checkResult.status === 'found' && (checkResult.exact.length > 0 || checkResult.fuzzy.length > 0)) {
+    const liveHits = checkResult.exact.length + checkResult.fuzzy.length;
+    const legacyHits = checkResult.legacyExact.length + checkResult.legacyFuzzy.length;
+    if (isNewStudent && checkResult.status === 'found' && (liveHits > 0 || legacyHits > 0)) {
       setConfirmDupeOpen(true);
       setPendingSubmit(true);
       return;
@@ -968,7 +990,7 @@ export default function IntakePage() {
       })
       .catch(() => setForm(emptyForm()))
       .finally(() => setCabinetsLoading(false));
-    setCheckResult({ status: 'idle', exact: [], fuzzy: [] });
+    setCheckResult(emptyCheckResult());
     setSiblingAcknowledged(false);
     setSavedStudent(null);
     setSavedAsVisit(false);
@@ -1210,8 +1232,8 @@ export default function IntakePage() {
               Check school records first
             </CardTitle>
             <CardDescription className="text-xs">
-              Search active and archived students by name, Label ID, or DOB before registering as NEW.
-              If you find them, use <strong className="text-foreground">Same person — log returning</strong>.
+              Search this system (active + archived) and the school ASISTS / legacy roster by name, Label ID, or DOB before registering as NEW.
+              Live matches can use <strong className="text-foreground">Same person — log returning</strong>.
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-3">
@@ -1236,7 +1258,7 @@ export default function IntakePage() {
                 <CheckCircle2 className="h-4 w-4 text-green-600" />
                 <AlertTitle className="text-green-800 dark:text-green-200 text-sm">No school match</AlertTitle>
                 <AlertDescription className="text-xs text-green-700 dark:text-green-300">
-                  No active or archived student matched this search. Safe to continue as NEW if name and DOB are correct.
+                  No active, archived, or ASISTS/legacy match for this search. Safe to continue as NEW if name and DOB are correct.
                 </AlertDescription>
               </Alert>
             )}
@@ -1246,7 +1268,8 @@ export default function IntakePage() {
                   <IntakeMatchCard
                     key={s._id}
                     student={s}
-                    onUseAsReturning={selectAsReturning}
+                    onUseAsReturning={s._legacy ? undefined : selectAsReturning}
+                    showUseButton={!s._legacy}
                   />
                 ))}
               </div>
@@ -1267,7 +1290,7 @@ export default function IntakePage() {
             <CheckCircle2 className="h-4 w-4 text-green-600 dark:text-green-400" />
             <AlertTitle className="text-green-800 dark:text-green-200">No existing records found</AlertTitle>
             <AlertDescription className="text-green-700 dark:text-green-300">
-              This student does not appear to be in the system yet (including archived files). Safe to register.
+              This student does not appear in this system (including archived) or the school ASISTS / legacy roster. Safe to register.
               {!intakeAddress.address.trim() && (
                 <span className="block mt-1 text-green-600/90">
                   Tip: add and verify the home address for a stronger duplicate check.
@@ -1293,21 +1316,38 @@ export default function IntakePage() {
                   {siblingAcknowledged ? 'Flagged as different person — Data Lead will review' : 'Possible existing student(s) found'}
                 </p>
                 <p className={`text-xs mt-0.5 ${siblingAcknowledged ? 'text-amber-700 dark:text-amber-300' : 'text-destructive/80'}`}>
-                  Review name, DOB, and address before registering. A different address may mean the student moved — it does not clear a name match.
+                  Review name, DOB, and address before registering. Matches may be live files or ASISTS / legacy export.
                 </p>
               </div>
             </div>
 
-            {/* Matched records */}
-            <div className="space-y-1.5">
-              {[...checkResult.exact, ...checkResult.fuzzy].map((s, i) => (
-                <IntakeMatchCard
-                  key={s._id || i}
-                  student={s}
-                  onUseAsReturning={selectAsReturning}
-                />
-              ))}
-            </div>
+            {/* Live system matches */}
+            {(checkResult.exact.length > 0 || checkResult.fuzzy.length > 0) && (
+              <div className="space-y-1.5">
+                <p className="text-xs font-medium text-muted-foreground">In this system</p>
+                {[...checkResult.exact, ...checkResult.fuzzy].map((s, i) => (
+                  <IntakeMatchCard
+                    key={s._id || i}
+                    student={s}
+                    onUseAsReturning={selectAsReturning}
+                  />
+                ))}
+              </div>
+            )}
+
+            {/* ASISTS / legacy matches */}
+            {(checkResult.legacyExact.length > 0 || checkResult.legacyFuzzy.length > 0) && (
+              <div className="space-y-1.5">
+                <p className="text-xs font-medium text-violet-800 dark:text-violet-300">ASISTS / legacy roster</p>
+                {[...checkResult.legacyExact, ...checkResult.legacyFuzzy].map((s, i) => (
+                  <IntakeMatchCard
+                    key={s._id || `legacy-${i}`}
+                    student={s}
+                    showUseButton={false}
+                  />
+                ))}
+              </div>
+            )}
 
             {/* Data Lead contact + copy button */}
             <div className="rounded-md bg-muted/60 border border-border px-3 py-2.5 space-y-2">
@@ -2140,17 +2180,22 @@ export default function IntakePage() {
             <DialogDescription>
               {siblingAcknowledged
                 ? 'You confirmed this is a different person. The record will be flagged as a possible sibling or name coincidence for your Data Lead to review.'
-                : 'We found student(s) in the system that may match this person. Are you sure you want to register a new record?'
+                : 'We found possible matches in this system and/or the school ASISTS / legacy roster. Are you sure you want to register a new record?'
               }
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-2 max-h-52 overflow-y-auto">
-            {[...checkResult.exact, ...checkResult.fuzzy].map((s, i) => (
+            {[
+              ...checkResult.exact,
+              ...checkResult.fuzzy,
+              ...checkResult.legacyExact,
+              ...checkResult.legacyFuzzy,
+            ].map((s, i) => (
               <div key={s._id || i} className="rounded-md border px-3 py-2 text-sm grid grid-cols-2 gap-1 bg-muted/40">
                 <span><strong>Name:</strong> {formatFullName(s)}</span>
                 <span><strong>DOB:</strong> {s.dob}</span>
-                <span><strong>ID:</strong> <span className="font-mono text-xs">{s.studentId}</span></span>
-                <span><strong>Status:</strong> {s.status || '—'}</span>
+                <span><strong>ID:</strong> <span className="font-mono text-xs">{s.labelId || s.studentId || s.externalId || '—'}</span></span>
+                <span><strong>Status:</strong> {s._legacy ? 'ASISTS / Legacy' : (s.status || '—')}</span>
               </div>
             ))}
           </div>
