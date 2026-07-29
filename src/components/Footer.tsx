@@ -3,6 +3,7 @@
 import { BookOpen, Mail, Building2, Code } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+import { MINTLIFY_DOCS_URL } from '@/lib/docsUrl';
 
 export default function Footer() {
   const pathname = usePathname() || '';
@@ -41,12 +42,20 @@ export default function Footer() {
             <p className="text-sm text-muted-foreground">
               Built with Next.js & MongoDB
             </p>
-            <Link
-              href="/docs"
+            <a
+              href={MINTLIFY_DOCS_URL}
+              target="_blank"
+              rel="noopener noreferrer"
               className="text-sm text-primary hover:underline flex items-center gap-1"
             >
               <BookOpen className="h-3 w-3" />
               Documentation
+            </a>
+            <Link
+              href="/docs"
+              className="text-sm text-muted-foreground hover:text-primary hover:underline flex items-center gap-1"
+            >
+              In-app guide
             </Link>
           </div>
 

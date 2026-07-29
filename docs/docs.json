@@ -13,6 +13,11 @@
     "light": "/logo/light.svg",
     "dark": "/logo/dark.svg"
   },
+  "seo": {
+    "metatags": {
+      "canonical": "https://district79.mintlify.app"
+    }
+  },
   "navbar": {
     "links": [
       {

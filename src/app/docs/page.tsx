@@ -1,7 +1,7 @@
 import Link from 'next/link';
 import {
   Activity, Archive, Barcode, BookOpen, Boxes, Building2, CalendarRange,
-  CheckCircle2, CopyCheck, FileSpreadsheet, HeartPulse,
+  CheckCircle2, CopyCheck, ExternalLink, FileSpreadsheet, HeartPulse,
   KeyRound, Layers, Link2, Lock, Mail, MapPin, MoveRight, PackageOpen, Printer,
   QrCode, Search, Settings, Shield, ShieldCheck, Sparkles,
   Upload, UserPlus, Users, ClipboardList, TrendingUp,
@@ -10,6 +10,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
+import { MINTLIFY_DOCS_URL } from '@/lib/docsUrl';
 
 // ── Role guides ────────────────────────────────────────────────────────────────
 const roleGuides = [
@@ -274,14 +275,29 @@ export default function DocsPage() {
                 A complete guide to all features, roles, intake, address verification, scanning workflow, archive boxes, school year rollover, ID system, and admin tools.
               </p>
               <p className="text-sm text-muted-foreground mt-2">
-                Long-form searchable docs (Mintlify) live in the <code className="text-xs bg-muted px-1 py-0.5 rounded">docs/</code> folder — preview locally with <code className="text-xs bg-muted px-1 py-0.5 rounded">mint dev</code> from that directory.
+                For searchable long-form docs with screenshots and workflows, open the{' '}
+                <a
+                  href={MINTLIFY_DOCS_URL}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-primary underline underline-offset-2"
+                >
+                  Mintlify documentation site
+                </a>
+                .
               </p>
             </div>
             <div className="flex flex-col sm:flex-row gap-2">
+              <Button asChild className="gap-2">
+                <a href={MINTLIFY_DOCS_URL} target="_blank" rel="noopener noreferrer">
+                  <ExternalLink className="h-4 w-4" />
+                  Full docs (Mintlify)
+                </a>
+              </Button>
               <Button variant="outline" asChild>
                 <Link href="/docs/api">API Reference (Swagger)</Link>
               </Button>
-              <Button asChild>
+              <Button variant="outline" asChild>
                 <Link href="/">Back to Dashboard</Link>
               </Button>
             </div>

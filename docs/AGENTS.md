@@ -13,7 +13,8 @@
 | --- | --- | --- |
 | `mintlify` | `https://mcp.mintlify.com` | Write access — edit pages, docs.json, open PRs (OAuth) |
 | `mintlify-platform` | `https://mintlify.com/docs/mcp` | Read Mintlify component and config reference |
-| `student-label-docs` | `https://YOUR-SUBDOMAIN.mintlify.app/mcp` | Search published docs (add after Mintlify deploy) |
+| `student-label-docs` | `https://district79.mintlify.app/mcp` | Search published docs |
+
 
 Project MCP config: `.cursor/mcp.json`
 

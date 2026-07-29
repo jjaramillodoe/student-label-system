@@ -1,12 +1,13 @@
 'use client';
 
 import Link from 'next/link';
-import { BookOpen, FileDown, Upload, History, TrendingUp, Package, Printer, List, MoreHorizontal, Settings } from 'lucide-react';
+import { BookOpen, FileDown, Upload, History, TrendingUp, Package, Printer, List, MoreHorizontal, Settings, ExternalLink } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import SeedTestData from './SeedTestData';
 import SeedCabinets from './SeedCabinets';
 import ClearAllData from './ClearAllData';
 import { useAppSettings } from '@/lib/useAppSettings';
+import { MINTLIFY_DOCS_URL } from '@/lib/docsUrl';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -68,9 +69,15 @@ export default function DashboardHeader({
               Printer Setup
             </DropdownMenuItem>
             <DropdownMenuItem asChild>
+              <a href={MINTLIFY_DOCS_URL} target="_blank" rel="noopener noreferrer">
+                <ExternalLink className="h-4 w-4 mr-2" />
+                Full docs (Mintlify)
+              </a>
+            </DropdownMenuItem>
+            <DropdownMenuItem asChild>
               <Link href="/docs">
                 <BookOpen className="h-4 w-4 mr-2" />
-                Docs
+                In-app guide
               </Link>
             </DropdownMenuItem>
             <DropdownMenuSeparator />
