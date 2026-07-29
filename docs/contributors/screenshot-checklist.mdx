@@ -1,72 +1,71 @@
 ---
 title: Screenshot checklist
-description: Real screenshots already in the docs, plus captures still needed.
+description: Production screenshots in the docs, plus how to re-capture.
 ---
 
-Use PNG or WebP for final screenshots (recommended width **1200px**). Store files under `docs/images/screenshots/` and reference them from MDX with `<Frame>`.
+Use PNG or WebP for final screenshots (recommended width **1200–1400px**). Store files under `docs/images/screenshots/` and reference them from MDX with `<Frame>`.
 
 <Tip>
-  On macOS: **Cmd+Shift+4** then Space to capture a window. Crop or blur sensitive student data before publishing.
+  On macOS: **Cmd+Shift+4** then Space to capture a window. Prefer demo accounts; avoid publishing real student PII when possible.
 </Tip>
 
-## Screenshots already in the docs
+## Screenshots in the docs (production)
 
-| File | Source | Used on |
-| --- | --- | --- |
-| `sign-in.png` | Production | [Quickstart](/quickstart) |
-| `public-student-page.png` | Production QR page | [QR codes](/reference/qr-codes) |
-| `intake-form.png` | App capture | [Intake](/workflows/intake), [Quickstart](/quickstart) |
-| `intake-returning.png` | App capture | [Intake](/workflows/intake) |
-| `intake-duplicates.png` | App capture | [Intake](/workflows/intake), [Duplicates](/workflows/duplicates-and-siblings) |
-| `intake-fix-dialog.png` | App capture | [Intake](/workflows/intake) |
-| `admin-all-students.png` | App capture | [Address verification](/reference/address-and-verification), [Data Lead tools](/admin/data-lead-tools), [Quickstart](/quickstart) |
-| `admin-school-settings.png` | App capture | [Archive](/storage/archive-and-school-year), [Data Lead tools](/admin/data-lead-tools) |
+| File | Used on |
+| --- | --- |
+| `sign-in.png` | [Quickstart](/quickstart) |
+| `public-student-page.png` | [QR codes](/reference/qr-codes), [Labels](/workflows/labels-and-scanning) |
+| `public-archive-box.png` | [QR codes](/reference/qr-codes), [Archive](/storage/archive-and-school-year), [Labels](/workflows/labels-and-scanning) |
+| `archive-box-label.png` | [QR codes](/reference/qr-codes), [Archive](/storage/archive-and-school-year) |
+| `intake-form.png` | [Intake](/workflows/intake), [Quickstart](/quickstart) |
+| `intake-returning.png` | [Intake](/workflows/intake) |
+| `intake-duplicates.png` | [Intake](/workflows/intake), [Duplicates](/workflows/duplicates-and-siblings) |
+| `intake-fix-dialog.png` | [Intake](/workflows/intake) |
+| `cabinets-page.png` | [Cabinets](/storage/cabinets-and-drawers) |
+| `cabinet-health.png` | [Cabinets](/storage/cabinets-and-drawers) |
+| `school-year-rollover.png` | [Archive](/storage/archive-and-school-year) |
+| `admin-school-settings.png` | [Archive](/storage/archive-and-school-year), [Data Lead tools](/admin/data-lead-tools) |
+| `admin-all-students.png` | [Address verification](/reference/address-and-verification), [Data Lead tools](/admin/data-lead-tools), [Quickstart](/quickstart) |
+| `duplicates-page.png` | [Duplicates](/workflows/duplicates-and-siblings) |
+| `enrollment-dashboard.png` | [Enrollment](/admin/enrollment-dashboard) |
+| `email-validation.png` | [Email validation](/workflows/email-validation) |
+| `bulk-upload.png` | [Bulk upload](/reference/bulk-upload) |
+| `avery-label-sheet.png` | [Labels](/workflows/labels-and-scanning) |
+| `dashboard.png` | Optional / checklist |
 
-Optional extras in the folder (swap in when ready):
+Optional older captures still in the folder:
 
 - `intake-archived-file.png` — File Assignment for archived returning students
-- `intake-success-legacy.png` — older success / label preview (replace after next deploy with the summary + P2G card)
+- `intake-success-legacy.png` — replace with new success summary + P2G card after that UI is deployed
 
-## Capture from production
-
-A Playwright script captures public pages (and optional authenticated admin pages):
-
-```bash
-# Public pages only (sign-in, student QR page)
-NODE_PATH=./tmp-playwright/node_modules node scripts/capture-docs-screenshots.cjs
-
-# Also capture cabinets, enrollment, duplicates, etc.
-DOCS_SCREENSHOT_EMAIL='you@schools.nyc.gov' \
-DOCS_SCREENSHOT_PASSWORD='***' \
-NODE_PATH=./tmp-playwright/node_modules node scripts/capture-docs-screenshots.cjs
-```
-
-<Note>
-  Archive box QR pages (`/archive/box/...`) must not mount the global Header auth redirect. That fix is in `AppHeaderWrapper` — deploy it, then re-run the script to capture `public-archive-box.png` and `archive-box-label.png`.
-</Note>
-
-## Still needed
+## Nice-to-have next
 
 | Capture | Suggested filename | Page |
 | --- | --- | --- |
-| NYC DOE / app sign-in | `sign-in.png` | [Quickstart](/quickstart) |
-| Avery 5163 or 94205 print preview | `avery-label-sheet.png` | [Labels](/workflows/labels-and-scanning) |
-| Public `/student/{labelId}` page | `public-student-page.png` | [QR codes](/reference/qr-codes) |
-| Public `/archive/box/{boxId}` page | `public-archive-box.png` | [QR codes](/reference/qr-codes), [Archive](/storage/archive-and-school-year) |
-| Archive box label / PDF | `archive-box-label.png` | [Archive](/storage/archive-and-school-year) |
-| Admin → Cabinets | `cabinets-page.png` | [Cabinets](/storage/cabinets-and-drawers) |
-| School Year Rollover | `school-year-rollover.png` | [Archive](/storage/archive-and-school-year) |
-| Admin → Duplicates | `duplicates-page.png` | [Duplicates](/workflows/duplicates-and-siblings) |
-| Enrollment metrics + issues | `enrollment-dashboard.png` | [Enrollment](/admin/enrollment-dashboard) |
 | Intake success summary + P2G card | `intake-success.png` | [Intake](/workflows/intake) |
-| Email validation results | `email-validation.png` | [Email validation](/workflows/email-validation) |
-| Bulk upload preview | `bulk-upload.png` | [Bulk upload](/reference/bulk-upload) |
+| Avery 5163/94205 print *preview sheet* (with labels selected) | `avery-print-preview.png` | [Labels](/workflows/labels-and-scanning) |
+
+## Capture from production
+
+```bash
+# Public pages (no login)
+NODE_PATH=./tmp-playwright/node_modules node scripts/capture-docs-screenshots.cjs
+
+# Authenticated admin pages — set in .env (no shell quotes):
+# DOCS_SCREENSHOT_EMAIL=you@schools.nyc.gov
+# DOCS_SCREENSHOT_PASSWORD=your-password
+NODE_PATH=./tmp-playwright/node_modules node scripts/capture-docs-screenshots.cjs
+```
+
+<Warning>
+  Put credentials in `.env` as plain `KEY=value` lines (no wrapping quotes or trailing `\`). `.env` is gitignored.
+</Warning>
 
 ## How to add a screenshot
 
 <Steps>
   <Step title="Capture the screenshot">
-    Open the live app, navigate to the screen, and capture at full width. Prefer demo or anonymized data.
+    Open the live app, navigate to the screen, and capture at full width.
   </Step>
   <Step title="Save the file">
     Save as `docs/images/screenshots/your-name.png`.
@@ -79,7 +78,7 @@ NODE_PATH=./tmp-playwright/node_modules node scripts/capture-docs-screenshots.cj
     ```
   </Step>
   <Step title="Preview and deploy">
-    Run `npm run docs:dev`, verify locally, then push to GitHub for Mintlify to deploy.
+    Run `npm run docs:dev`, verify locally, then push for Mintlify to deploy.
   </Step>
 </Steps>
 
@@ -89,5 +88,4 @@ From [Mintlify Frames](https://www.mintlify.com/docs/content/components/frames):
 
 - Always wrap screenshots in `<Frame>` for consistent borders and captions
 - Use `caption` for what the image shows; Markdown links are allowed in captions
-- Use `hint` when you want a note *above* the frame
 - Keep `alt` text specific (role + page + key UI elements)

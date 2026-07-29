@@ -107,7 +107,7 @@ async function main() {
       { path: '/admin/validation', name: 'email-validation', fullPage: false },
       { path: '/admin/students/bulk-upload', name: 'bulk-upload', fullPage: false },
       { path: '/admin/cabinet-health', name: 'cabinet-health', fullPage: false },
-      { path: '/print-queue', name: 'avery-label-sheet', fullPage: false },
+      { path: '/admin/print-queue', name: 'avery-label-sheet', fullPage: false },
     ];
 
     for (const c of captures) {
