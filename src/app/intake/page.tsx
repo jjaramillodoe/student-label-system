@@ -49,7 +49,7 @@ import {
   Loader2, User, Calendar, Phone, Mail, ClipboardList, LogOut, Building2,
   FolderOpen, ChevronRight, List, RefreshCw, Clock, CalendarDays,
   Users, ShieldAlert, Copy, Check, MapPin, ExternalLink, Lock, ChevronDown, BookOpen,
-  Boxes, QrCode,
+  Boxes, QrCode, Archive,
 } from 'lucide-react';
 import QRCode from '@/components/QRCode';
 import IntakeIssuesBanner from '@/components/IntakeIssuesBanner';
@@ -58,6 +58,7 @@ import IntakeAddressFields, {
   type IntakeAddressVerification,
   type IntakeAddressValues,
 } from '@/components/IntakeAddressFields';
+import IntakeMatchCard, { type IntakeMatchStudent } from '@/components/IntakeMatchCard';
 import { formatStudentAddressStacked } from '@/lib/addressValidation';
 import { googleMapsSearchUrl } from '@/lib/googleMaps';
 import { epeVisitsTotalMinutes } from '@/lib/epeClock';
@@ -192,10 +193,11 @@ function IntakeMemberGuide() {
                 New First Time Student
               </p>
               <ol className="list-decimal list-inside space-y-1.5 text-muted-foreground text-xs leading-relaxed">
-                <li>Select <strong className="text-foreground">New First Time Student</strong> under Student Status.</li>
-                <li>Enter <strong className="text-foreground">first name, last name, and date of birth</strong>. Watch the duplicate alert at the top — it checks automatically.</li>
+                <li>Start with <strong className="text-foreground">Check school records</strong> (name, DOB, or Label ID) — this includes archived files.</li>
+                <li>Select <strong className="text-foreground">New First Time Student</strong> under Student Status only if no match.</li>
+                <li>Enter <strong className="text-foreground">first name, last name, and date of birth</strong>. Watch the duplicate alert — it checks automatically, including archived records.</li>
                 <li>Add <strong className="text-foreground">phone, email, and home address</strong>. Click <strong className="text-foreground">Verify with NYC Geoclient</strong> so the standardized address is saved.</li>
-                <li>If a <strong className="text-foreground">possible duplicate</strong> appears, compare name, DOB, and address. Stop if it is the same person. Use <strong className="text-foreground">Copy alert message</strong> to contact your Data Lead if unsure.</li>
+                <li>If a <strong className="text-foreground">possible duplicate</strong> appears, compare name, DOB, and address. If it is the same person, click <strong className="text-foreground">Same person — log returning</strong> (even if Archived).</li>
                 <li>Only check <strong className="text-foreground">“This is a different person”</strong> for a true sibling or coincidence — that flags the record for Data Lead review.</li>
                 <li>Complete <strong className="text-foreground">BE or ESL</strong>, intake activity, placement class, session, and <strong className="text-foreground">Time In</strong> (defaults to now).</li>
                 <li>Choose <strong className="text-foreground">Staying</strong> if another staff member will continue intake, or <strong className="text-foreground">Leaving</strong> with Time Out when the student is done for the day.</li>
@@ -427,7 +429,14 @@ export default function IntakePage() {
   const [issuesRefresh, setIssuesRefresh] = useState(0);
   const [fixTarget, setFixTarget] = useState<{ id: string; name: string } | null>(null);
 
+  // Always-on school roster lookup (includes archived)
+  const [schoolLookup, setSchoolLookup] = useState('');
+  const [schoolLookupResults, setSchoolLookupResults] = useState<any[]>([]);
+  const [schoolLookupLoading, setSchoolLookupLoading] = useState(false);
+  const [schoolLookupDone, setSchoolLookupDone] = useState(false);
+
   const checkTimeout = useRef<NodeJS.Timeout | null>(null);
+  const schoolLookupTimeout = useRef<NodeJS.Timeout | null>(null);
 
   const beEslAgeCheck = useMemo(
     () => (form.dob ? checkBeEslAgeEligibility(form.dob) : null),
@@ -663,6 +672,84 @@ export default function IntakePage() {
       setStudentSearchResults(Array.isArray(data) ? data.slice(0, 10) : []);
     } catch { setStudentSearchResults([]); }
     finally { setStudentSearchLoading(false); }
+  }
+
+  async function runSchoolLookup(query: string) {
+    const q = query.trim();
+    setSchoolLookup(q);
+    if (!isStudentSearchQueryValid(q)) {
+      setSchoolLookupResults([]);
+      setSchoolLookupDone(false);
+      return;
+    }
+    setSchoolLookupLoading(true);
+    setSchoolLookupDone(false);
+    try {
+      const res = await fetch(`/api/students?search=${encodeURIComponent(q)}`);
+      const data = await res.json();
+      setSchoolLookupResults(Array.isArray(data) ? data.slice(0, 12) : []);
+      setSchoolLookupDone(true);
+    } catch {
+      setSchoolLookupResults([]);
+      setSchoolLookupDone(true);
+    } finally {
+      setSchoolLookupLoading(false);
+    }
+  }
+
+  function applyStudentAddressFromRecord(s: {
+    address?: string;
+    apt?: string;
+    city?: string;
+    state?: string;
+    zip?: string;
+    addressValidationStatus?: string;
+    addressValidationWarnings?: string[];
+    addressGeoclient?: { latitude?: number; longitude?: number };
+  }) {
+    setIntakeAddress({
+      address: s.address ?? '',
+      apt: s.apt ?? '',
+      city: s.city ?? '',
+      state: s.state ?? 'NY',
+      zip: s.zip ?? '',
+    });
+    setAddressVerification(
+      s.addressValidationStatus
+        ? {
+            status: s.addressValidationStatus,
+            warnings: Array.isArray(s.addressValidationWarnings)
+              ? s.addressValidationWarnings
+              : [],
+            geoclient: s.addressGeoclient,
+          }
+        : null,
+    );
+  }
+
+  /** Switch to RETURNING and lock this existing (possibly archived) student. */
+  function selectAsReturning(s: IntakeMatchStudent | any) {
+    setForm(f => ({
+      ...f,
+      intakeStudentStatus: 'RETURNING',
+      firstName: s.firstName ?? '',
+      lastName: s.lastName ?? '',
+      dob: s.dob ?? '',
+      email: s.email ?? f.email,
+      phone: s.phone ?? f.phone,
+      gender: s.gender ?? f.gender,
+      originalStartDate: s.originalStartDate || s.startDate || f.originalStartDate,
+      ...emptyReturningVisitFields(),
+    }));
+    setSelectedExistingStudent(s);
+    setStudentSearch(`${s.firstName || ''} ${s.lastName || ''}`.trim());
+    setStudentSearchResults([]);
+    setSchoolLookupResults([]);
+    setSchoolLookupDone(false);
+    setSchoolLookup('');
+    setCheckResult({ status: 'idle', exact: [], fuzzy: [] });
+    setSiblingAcknowledged(false);
+    applyStudentAddressFromRecord(s);
   }
 
   async function doSubmit() {
@@ -1033,36 +1120,6 @@ export default function IntakePage() {
 
   const lockedFieldClass = profileLocked ? 'bg-muted/50 cursor-default' : undefined;
 
-  function applyStudentAddressFromRecord(s: {
-    address?: string;
-    apt?: string;
-    city?: string;
-    state?: string;
-    zip?: string;
-    addressValidationStatus?: string;
-    addressValidationWarnings?: string[];
-    addressGeoclient?: { latitude?: number; longitude?: number };
-  }) {
-    setIntakeAddress({
-      address: s.address ?? '',
-      apt: s.apt ?? '',
-      city: s.city ?? '',
-      state: s.state ?? 'NY',
-      zip: s.zip ?? '',
-    });
-    setAddressVerification(
-      s.addressValidationStatus
-        ? {
-            status: s.addressValidationStatus,
-            warnings: Array.isArray(s.addressValidationWarnings)
-              ? s.addressValidationWarnings
-              : [],
-            geoclient: s.addressGeoclient,
-          }
-        : null,
-    );
-  }
-
   // ── INTAKE FORM ─────────────────────────────────────────────────────────────
   return (
     <div className="min-h-screen bg-background">
@@ -1130,6 +1187,58 @@ export default function IntakePage() {
 
         <IntakeMemberGuide />
 
+        {/* Always-on school roster check (active + archived) */}
+        <Card className="border-sky-200 dark:border-sky-900 bg-sky-50/40 dark:bg-sky-950/20">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-sm flex items-center gap-2 text-sky-900 dark:text-sky-200">
+              <Users className="h-4 w-4" />
+              Check school records first
+            </CardTitle>
+            <CardDescription className="text-xs">
+              Search active and archived students by name, Label ID, or DOB before registering as NEW.
+              If you find them, use <strong className="text-foreground">Same person — log returning</strong>.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <div className="flex gap-2">
+              <Input
+                placeholder="Name, Label ID, or DOB (MM/DD/YYYY)…"
+                value={schoolLookup}
+                onChange={e => {
+                  const v = e.target.value;
+                  setSchoolLookup(v);
+                  if (schoolLookupTimeout.current) clearTimeout(schoolLookupTimeout.current);
+                  schoolLookupTimeout.current = setTimeout(() => runSchoolLookup(v), 350);
+                }}
+                className="flex-1 bg-background"
+              />
+              {schoolLookupLoading && (
+                <Loader2 className="h-4 w-4 animate-spin self-center text-muted-foreground" />
+              )}
+            </div>
+            {schoolLookupDone && schoolLookupResults.length === 0 && isStudentSearchQueryValid(schoolLookup) && (
+              <Alert className="border-green-200 bg-green-50 dark:bg-green-950/30 dark:border-green-800">
+                <CheckCircle2 className="h-4 w-4 text-green-600" />
+                <AlertTitle className="text-green-800 dark:text-green-200 text-sm">No school match</AlertTitle>
+                <AlertDescription className="text-xs text-green-700 dark:text-green-300">
+                  No active or archived student matched this search. Safe to continue as NEW if name and DOB are correct.
+                </AlertDescription>
+              </Alert>
+            )}
+            {schoolLookupResults.length > 0 && (
+              <div className="space-y-2 max-h-64 overflow-y-auto">
+                {schoolLookupResults.map((s: any) => (
+                  <IntakeMatchCard
+                    key={s._id}
+                    student={s}
+                    onUseAsReturning={selectAsReturning}
+                  />
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
         {/* Duplicate check panel */}
         {checkResult.status === 'checking' && (
           <Alert>
@@ -1138,12 +1247,12 @@ export default function IntakePage() {
           </Alert>
         )}
 
-        {checkResult.status === 'clear' && form.intakeStudentStatus === 'NEW' && (
+        {checkResult.status === 'clear' && form.intakeStudentStatus === 'NEW' && form.dob && (
           <Alert className="border-green-200 bg-green-50 dark:bg-green-950/30 dark:border-green-800">
             <CheckCircle2 className="h-4 w-4 text-green-600 dark:text-green-400" />
             <AlertTitle className="text-green-800 dark:text-green-200">No existing records found</AlertTitle>
             <AlertDescription className="text-green-700 dark:text-green-300">
-              This student does not appear to be in the system yet. Safe to register.
+              This student does not appear to be in the system yet (including archived files). Safe to register.
               {!intakeAddress.address.trim() && (
                 <span className="block mt-1 text-green-600/90">
                   Tip: add and verify the home address for a stronger duplicate check.
@@ -1177,54 +1286,11 @@ export default function IntakePage() {
             {/* Matched records */}
             <div className="space-y-1.5">
               {[...checkResult.exact, ...checkResult.fuzzy].map((s, i) => (
-                <div key={s._id || i} className="rounded-md border border-border bg-background/80 px-3 py-2.5 text-sm space-y-2">
-                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-1">
-                    <span><strong>Name:</strong> {s.firstName} {s.lastName}</span>
-                    <span><strong>DOB:</strong> {s.dob}</span>
-                    <span><strong>ID:</strong> <span className="font-mono text-xs">{s.labelId || s.studentId}</span></span>
-                    <span className="flex items-center gap-1 flex-wrap">
-                      <strong>Status:</strong> {s.status || '—'}
-                      {s._dobMismatch && <Badge variant="outline" className="text-xs">Diff. DOB</Badge>}
-                      {s._similarity && !s._dobMismatch && (
-                        <Badge variant="outline" className="text-xs">{s._similarity}% match</Badge>
-                      )}
-                      {s._addressDriven && (
-                        <Badge variant="outline" className="text-xs">Same address</Badge>
-                      )}
-                    </span>
-                  </div>
-                  {s._addressMatch && (
-                    <div className="text-xs space-y-1 border-t border-dashed pt-2">
-                      <div className="flex flex-wrap items-center gap-1.5">
-                        <Badge
-                          variant="outline"
-                          title={addressMatchHint(s._addressMatch)}
-                          className={`text-[10px] ${addressMatchBadgeClass(s._addressMatch)}`}
-                        >
-                          {addressMatchLabel(s._addressMatch)}
-                        </Badge>
-                        {s._addressExistingVerified && (
-                          <span className="text-[10px] text-muted-foreground">NYC verified on file</span>
-                        )}
-                      </div>
-                      {s._addressExisting && (
-                        <p className="text-muted-foreground">
-                          <span className="text-foreground/80">On file:</span> {s._addressExisting}
-                        </p>
-                      )}
-                      {s._addressIncoming && s._addressMatch === 'different' && (
-                        <p className="text-muted-foreground">
-                          <span className="text-foreground/80">New entry:</span> {s._addressIncoming}
-                        </p>
-                      )}
-                      {s._addressMatch === 'different' && (
-                        <p className="text-[10px] text-sky-700 dark:text-sky-300 italic">
-                          Address changed — confirm with the student (possible move or sibling at a new home).
-                        </p>
-                      )}
-                    </div>
-                  )}
-                </div>
+                <IntakeMatchCard
+                  key={s._id || i}
+                  student={s}
+                  onUseAsReturning={selectAsReturning}
+                />
               ))}
             </div>
 
@@ -1342,7 +1408,7 @@ export default function IntakePage() {
                   <Users className="h-4 w-4" /> Find Existing Student
                 </CardTitle>
                 <CardDescription className="text-xs">
-                  Search for a returning or continuing-intake student. Their visit history appears here after you select them.
+                  Search active and archived students. Archived matches show their archive box so you do not create a second file.
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-3">
@@ -1359,42 +1425,36 @@ export default function IntakePage() {
                   {studentSearchLoading && <Loader2 className="h-4 w-4 animate-spin self-center text-muted-foreground" />}
                 </div>
                 {studentSearchResults.length > 0 && !selectedExistingStudent && (
-                  <div className="space-y-1.5 max-h-48 overflow-y-auto">
+                  <div className="space-y-1.5 max-h-56 overflow-y-auto">
                     {studentSearchResults.map(s => (
-                      <button
+                      <IntakeMatchCard
                         key={s._id}
-                        type="button"
-                        onClick={() => {
-                          setSelectedExistingStudent(s);
-                          setStudentSearch(`${s.firstName} ${s.lastName}`);
-                          setStudentSearchResults([]);
-                          // Pre-fill identity only — today's visit fields start empty.
-                          setForm(f => ({
-                            ...f,
-                            firstName: s.firstName ?? '',
-                            lastName: s.lastName ?? '',
-                            dob: s.dob ?? '',
-                            email: s.email ?? f.email,
-                            phone: s.phone ?? f.phone,
-                            gender: s.gender ?? f.gender,
-                            originalStartDate: s.originalStartDate || s.startDate || f.originalStartDate,
-                            ...emptyReturningVisitFields(),
-                          }));
-                          applyStudentAddressFromRecord(s);
-                        }}
-                        className="w-full text-left rounded-md border border-border bg-background px-3 py-2 text-sm hover:bg-accent transition-colors"
-                      >
-                        <span className="font-medium">{s.firstName} {s.lastName}</span>
-                        <span className="ml-2 text-xs text-muted-foreground">DOB: {s.dob} · ID: {s.labelId || s.studentId || '—'}</span>
-                      </button>
+                        student={s}
+                        onSelect={selectAsReturning}
+                        showUseButton={false}
+                      />
                     ))}
                   </div>
                 )}
                 {selectedExistingStudent && (
                   <div className="space-y-2">
-                    <div className="flex items-center gap-2 rounded-md border border-green-300 bg-green-50 dark:bg-green-950/30 px-3 py-2 text-sm">
-                      <CheckCircle2 className="h-4 w-4 text-green-600 shrink-0" />
-                      <span className="flex-1 font-medium">{selectedExistingStudent.firstName} {selectedExistingStudent.lastName}</span>
+                    <div className={`flex items-center gap-2 rounded-md border px-3 py-2 text-sm ${
+                      studentIsArchived(selectedExistingStudent)
+                        ? 'border-amber-300 bg-amber-50 dark:bg-amber-950/30'
+                        : 'border-green-300 bg-green-50 dark:bg-green-950/30'
+                    }`}>
+                      <CheckCircle2 className={`h-4 w-4 shrink-0 ${
+                        studentIsArchived(selectedExistingStudent) ? 'text-amber-600' : 'text-green-600'
+                      }`} />
+                      <span className="flex-1 font-medium">
+                        {selectedExistingStudent.firstName} {selectedExistingStudent.lastName}
+                      </span>
+                      {studentIsArchived(selectedExistingStudent) && (
+                        <Badge className="text-[10px] bg-amber-600 hover:bg-amber-600 text-white gap-1">
+                          <Archive className="h-3 w-3" />
+                          Archived
+                        </Badge>
+                      )}
                       <button
                         type="button"
                         onClick={() => {
