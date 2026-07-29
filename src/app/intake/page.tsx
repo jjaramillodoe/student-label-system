@@ -205,11 +205,12 @@ function IntakeMemberGuide() {
                 New First Time Student
               </p>
               <ol className="list-decimal list-inside space-y-1.5 text-muted-foreground text-xs leading-relaxed">
-                <li>Start with <strong className="text-foreground">Check school records</strong> (name, DOB, or Label ID) — this includes archived files and the school ASISTS / legacy roster when uploaded.</li>
-                <li>Select <strong className="text-foreground">New First Time Student</strong> under Student Status only if no match.</li>
-                <li>Enter <strong className="text-foreground">first name, last name, and date of birth</strong>. Names use <strong className="text-foreground">A–Z letters, spaces, and hyphens only</strong> — no accents or special characters. Watch the duplicate alert — it checks automatically, including archived records.</li>
+                <li>Select <strong className="text-foreground">NEW First-time student</strong> under Student Status.</li>
+                <li>Complete the required <strong className="text-foreground">Check ASISTS</strong> step with first name, last name, and DOB — this searches the school ASISTS / legacy roster and this system (including archived).</li>
+                <li>If a match appears, confirm whether it is <strong className="text-foreground">the student sitting with you</strong>. Live/archived matches use <strong className="text-foreground">Same person — log returning</strong>. ASISTS-only matches can continue as NEW to create a file in this system.</li>
+                <li>If no match, check <strong className="text-foreground">“I checked ASISTS — student was not found”</strong> before personal info unlocks.</li>
+                <li>Enter remaining personal info. Names use <strong className="text-foreground">A–Z letters, spaces, and hyphens only</strong>. Watch any later duplicate alert (including address).</li>
                 <li>Add <strong className="text-foreground">phone, email, and home address</strong>. Click <strong className="text-foreground">Verify with NYC Geoclient</strong> so the standardized address is saved.</li>
-                <li>If a <strong className="text-foreground">possible duplicate</strong> appears, compare name, DOB, and address. If it is the same person, click <strong className="text-foreground">Same person — log returning</strong> (even if Archived).</li>
                 <li>Only check <strong className="text-foreground">“This is a different person”</strong> for a true sibling or coincidence — that flags the record for Data Lead review.</li>
                 <li>Complete <strong className="text-foreground">BE or ESL</strong>, intake activity, placement class, session, and <strong className="text-foreground">Time In</strong> (defaults to now).</li>
                 <li>Choose <strong className="text-foreground">Staying</strong> if another staff member will continue intake, or <strong className="text-foreground">Leaving</strong> with Time Out when the student is done for the day.</li>
@@ -420,6 +421,12 @@ export default function IntakePage() {
   // Sibling / same-name flag
   const [siblingAcknowledged, setSiblingAcknowledged] = useState(false);
 
+  // NEW students: required ASISTS / legacy check before personal info
+  const [assistsGateChecked, setAssistsGateChecked] = useState(false);
+  const [assistsNotFoundAck, setAssistsNotFoundAck] = useState(false);
+  const [assistsDifferentPersonAck, setAssistsDifferentPersonAck] = useState(false);
+  const [assistsLegacySameAck, setAssistsLegacySameAck] = useState(false);
+
   // Data Lead contact for this school
   const [dataLead, setDataLead] = useState<{ name: string; email: string; role: string } | null>(null);
   const [geoclientConfigured, setGeoclientConfigured] = useState<boolean | null>(null);
@@ -582,10 +589,12 @@ export default function IntakePage() {
   }, [activeTab, historyFilter, historyScope, authStatus, fetchHistory]);
 
   // Debounced duplicate check: name, DOB, and address (when available)
+  // For NEW students this runs after the ASISTS gate unlocks (and when address changes).
   const runDuplicateCheck = useCallback(async (
     f: ReturnType<typeof emptyForm>,
     addr: IntakeAddressValues,
     verification: IntakeAddressVerification | null,
+    opts?: { fromAssistsGate?: boolean },
   ) => {
     if (['Other', 'RETURNING'].includes(f.intakeStudentStatus)) {
       setCheckResult(emptyCheckResult());
@@ -623,8 +632,16 @@ export default function IntakePage() {
         legacyExact: data.legacyExact || [],
         legacyFuzzy: data.legacyFuzzy || [],
       });
+      if (opts?.fromAssistsGate) {
+        setAssistsGateChecked(true);
+        setAssistsNotFoundAck(false);
+        setAssistsDifferentPersonAck(false);
+        setAssistsLegacySameAck(false);
+        setSiblingAcknowledged(false);
+      }
     } catch {
       setCheckResult(emptyCheckResult());
+      if (opts?.fromAssistsGate) setAssistsGateChecked(false);
     }
   }, []);
 
@@ -633,15 +650,27 @@ export default function IntakePage() {
     addr = intakeAddress,
     verification = addressVerification,
   ) => {
+    // NEW: only auto-recheck after the ASISTS gate has unlocked registration
+    if (f.intakeStudentStatus === 'NEW' && !assistsNotFoundAck && !assistsDifferentPersonAck && !assistsLegacySameAck) {
+      return;
+    }
     if (checkTimeout.current) clearTimeout(checkTimeout.current);
     checkTimeout.current = setTimeout(
       () => runDuplicateCheck(f, addr, verification),
       600,
     );
-  }, [runDuplicateCheck, intakeAddress, addressVerification]);
+  }, [
+    runDuplicateCheck,
+    intakeAddress,
+    addressVerification,
+    assistsNotFoundAck,
+    assistsDifferentPersonAck,
+    assistsLegacySameAck,
+  ]);
 
   useEffect(() => {
     if (form.intakeStudentStatus !== 'NEW') return;
+    if (!assistsNotFoundAck && !assistsDifferentPersonAck && !assistsLegacySameAck) return;
     scheduleCheck(form, intakeAddress, addressVerification);
   }, [
     form.intakeStudentStatus,
@@ -651,7 +680,18 @@ export default function IntakePage() {
     intakeAddress,
     addressVerification,
     scheduleCheck,
+    assistsNotFoundAck,
+    assistsDifferentPersonAck,
+    assistsLegacySameAck,
   ]);
+
+  function resetAssistsGate(clearCheck = true) {
+    setAssistsGateChecked(false);
+    setAssistsNotFoundAck(false);
+    setAssistsDifferentPersonAck(false);
+    setAssistsLegacySameAck(false);
+    if (clearCheck) setCheckResult(emptyCheckResult());
+  }
 
   function setField(key: keyof ReturnType<typeof emptyForm>, value: string) {
     if (key === 'firstName' || key === 'lastName') {
@@ -661,6 +701,9 @@ export default function IntakePage() {
     setForm(updated);
     if (['firstName', 'lastName', 'dob'].includes(key)) {
       setSiblingAcknowledged(false);
+      if (form.intakeStudentStatus === 'NEW') {
+        resetAssistsGate();
+      }
     }
     if (key === 'intakeStudentStatus') {
       // Reset duplicate check and selected student when type changes
@@ -669,7 +712,36 @@ export default function IntakePage() {
       setSelectedExistingStudent(null);
       setStudentSearch('');
       setStudentSearchResults([]);
+      resetAssistsGate(false);
     }
+  }
+
+  async function runAssistsGateCheck() {
+    const firstErr = usaNameError(form.firstName, 'First name');
+    const lastErr = usaNameError(form.lastName, 'Last name');
+    if (firstErr || lastErr) {
+      setSubmitError(firstErr || lastErr || USA_NAME_HINT);
+      return;
+    }
+    if (!form.dob) {
+      setSubmitError('Enter date of birth to check ASISTS.');
+      return;
+    }
+    setSubmitError('');
+    await runDuplicateCheck(form, intakeAddress, addressVerification, { fromAssistsGate: true });
+  }
+
+  function confirmLegacySamePerson(s: IntakeMatchStudent | any) {
+    setForm(f => ({
+      ...f,
+      firstName: s.firstName ?? f.firstName,
+      lastName: s.lastName ?? f.lastName,
+      dob: s.dob ?? f.dob,
+    }));
+    setAssistsLegacySameAck(true);
+    setAssistsDifferentPersonAck(false);
+    setAssistsNotFoundAck(false);
+    setSiblingAcknowledged(false);
   }
 
   function toggleActivity(activity: string) {
@@ -774,6 +846,7 @@ export default function IntakePage() {
     setSchoolLookup('');
     setCheckResult(emptyCheckResult());
     setSiblingAcknowledged(false);
+    resetAssistsGate(false);
     applyStudentAddressFromRecord(s);
   }
 
@@ -954,6 +1027,15 @@ export default function IntakePage() {
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
 
+    if (form.intakeStudentStatus === 'NEW' && !newAssistsUnlocked) {
+      setSubmitError(
+        assistsGateChecked
+          ? 'Confirm whether the student matches an ASISTS / school record, or acknowledge that they were not found, before continuing.'
+          : 'Check ASISTS with name and date of birth before registering a NEW student.',
+      );
+      return;
+    }
+
     if (form.intakeStudentStatus !== 'Other' && hasSessionTimeError) {
       setSubmitError(
         sessionTimeFieldErrors.timeIn
@@ -968,9 +1050,13 @@ export default function IntakePage() {
     const liveHits = checkResult.exact.length + checkResult.fuzzy.length;
     const legacyHits = checkResult.legacyExact.length + checkResult.legacyFuzzy.length;
     if (isNewStudent && checkResult.status === 'found' && (liveHits > 0 || legacyHits > 0)) {
-      setConfirmDupeOpen(true);
-      setPendingSubmit(true);
-      return;
+      // Gate already handled ASISTS; still confirm if later address-driven live matches appear
+      // and the member has not acknowledged a different person.
+      if (!siblingAcknowledged && !assistsDifferentPersonAck && !assistsLegacySameAck) {
+        setConfirmDupeOpen(true);
+        setPendingSubmit(true);
+        return;
+      }
     }
     doSubmit();
   }
@@ -992,6 +1078,7 @@ export default function IntakePage() {
       .finally(() => setCabinetsLoading(false));
     setCheckResult(emptyCheckResult());
     setSiblingAcknowledged(false);
+    resetAssistsGate(false);
     setSavedStudent(null);
     setSavedAsVisit(false);
     setSubmitError('');
@@ -1149,8 +1236,21 @@ export default function IntakePage() {
     }
   }
 
+  const liveAssistsHits = checkResult.exact.length + checkResult.fuzzy.length;
+  const legacyAssistsHits = checkResult.legacyExact.length + checkResult.legacyFuzzy.length;
+  const assistsHasMatches = liveAssistsHits + legacyAssistsHits > 0;
+
+  const newAssistsUnlocked = form.intakeStudentStatus !== 'NEW' || (
+    assistsGateChecked && (
+      (!assistsHasMatches && assistsNotFoundAck)
+      || (assistsHasMatches && assistsDifferentPersonAck)
+      || (assistsHasMatches && liveAssistsHits === 0 && assistsLegacySameAck)
+    )
+  );
+
   const showMainIntakeFields =
-    form.intakeStudentStatus !== 'RETURNING' || !!selectedExistingStudent;
+    (form.intakeStudentStatus !== 'RETURNING' || !!selectedExistingStudent)
+    && newAssistsUnlocked;
 
   const profileLocked =
     form.intakeStudentStatus === 'RETURNING' && !!selectedExistingStudent;

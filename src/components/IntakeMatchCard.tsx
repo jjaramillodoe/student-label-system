@@ -56,6 +56,8 @@ export type IntakeMatchStudent = {
 interface IntakeMatchCardProps {
   student: IntakeMatchStudent;
   onUseAsReturning?: (student: IntakeMatchStudent) => void;
+  /** ASISTS/legacy only: confirm the person at the desk is this roster row, then continue as NEW */
+  onConfirmSameLegacy?: (student: IntakeMatchStudent) => void;
   /** Compact row for search result lists (click whole card to select) */
   onSelect?: (student: IntakeMatchStudent) => void;
   showUseButton?: boolean;
@@ -88,6 +90,7 @@ export function IntakeArchivedBadge({ student }: { student: IntakeMatchStudent }
 export default function IntakeMatchCard({
   student,
   onUseAsReturning,
+  onConfirmSameLegacy,
   onSelect,
   showUseButton = true,
 }: IntakeMatchCardProps) {
@@ -241,12 +244,24 @@ export default function IntakeMatchCard({
           ) : (
             <>
               <RotateCcw className="h-3.5 w-3.5" />
-              Same person — log returning visit
+              Same person sitting here — log returning
             </>
           )}
         </Button>
       )}
-      {legacy && (
+      {legacy && onConfirmSameLegacy && (
+        <Button
+          type="button"
+          size="sm"
+          variant="secondary"
+          className="gap-1.5 mt-1"
+          onClick={() => onConfirmSameLegacy(student)}
+        >
+          <CheckCircle2 className="h-3.5 w-3.5" />
+          Same person sitting here — continue as NEW
+        </Button>
+      )}
+      {legacy && !onConfirmSameLegacy && (
         <p className="text-[10px] text-violet-800/90 dark:text-violet-300 flex items-center gap-1">
           <Database className="h-3 w-3" />
           Lookup only — does not open a RETURNING visit by itself.
