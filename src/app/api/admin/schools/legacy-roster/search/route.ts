@@ -3,7 +3,7 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/authOptions';
 import clientPromise from '@/lib/mongodb';
 import { isStudentSearchQueryValid, buildStudentSearchOrConditions } from '@/lib/studentSearch';
-import { LEGACY_ROSTER_COLLECTION } from '@/lib/legacyRoster';
+import { LEGACY_ROSTER_COLLECTION, schoolNameFilter } from '@/lib/legacyRoster';
 
 /** GET ?q=&school= — search legacy/ASISTS roster for intake */
 export async function GET(req: NextRequest) {
@@ -38,7 +38,7 @@ export async function GET(req: NextRequest) {
     const db = client.db('student-label');
     const results = await db
       .collection(LEGACY_ROSTER_COLLECTION)
-      .find({ school, $or: orConditions })
+      .find({ ...schoolNameFilter(school), $or: orConditions })
       .project({
         firstName: 1,
         lastName: 1,

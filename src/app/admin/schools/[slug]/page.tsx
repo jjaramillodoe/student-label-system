@@ -204,9 +204,9 @@ export default function EditSchoolPage({ params }: { params: Promise<{ slug: str
             {isDataLead ? 'Edit School Settings' : 'Edit School/Program'}
           </h1>
           <p className="text-muted-foreground">
-            {isDataLead
-              ? `Configure leadership contacts and intake options for ${school.name}.`
-              : 'Update school details, leadership, and intake form options.'}
+              {isDataLead
+              ? `Configure leadership, intake options, and the ASISTS / legacy roster for ${school.name}.`
+              : 'Update school details, leadership, intake form options, and ASISTS / legacy roster.'}
           </p>
         </div>
 

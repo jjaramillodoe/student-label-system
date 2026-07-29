@@ -6,8 +6,14 @@ import {
   LEGACY_ROSTER_COLLECTION,
   parseLegacyCsv,
   parseMdbBuffer,
+  schoolConfigNameFilter,
+  schoolNameFilter,
   type LegacyRosterMeta,
 } from '@/lib/legacyRoster';
+
+function sameSchool(a?: string | null, b?: string | null) {
+  return Boolean(a && b && a.trim().toLowerCase() === b.trim().toLowerCase());
+}
 
 function canManageSchool(
   role: string | undefined,
@@ -15,8 +21,13 @@ function canManageSchool(
   targetSchool: string,
 ) {
   if (role === 'Admin') return true;
-  if (role === 'Data Lead' && userSchool && userSchool === targetSchool) return true;
+  if (role === 'Data Lead' && sameSchool(userSchool, targetSchool)) return true;
   return false;
+}
+
+async function resolveCanonicalSchoolName(db: any, preferred: string) {
+  const config = await db.collection('school_config').findOne(schoolConfigNameFilter(preferred));
+  return (config?.name as string) || preferred.trim();
 }
 
 /** GET ?school=Name — roster status for a school */
@@ -34,22 +45,24 @@ export async function GET(req: NextRequest) {
     if (!school) {
       return NextResponse.json({ error: 'school query required' }, { status: 400 });
     }
-    if (!canManageSchool(role, userSchool, school) && !['Intake Member', 'Data Member', 'Data Lead', 'Admin'].includes(role || '')) {
-      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
-    }
-    // Intake/Data Member can read status for their school only
-    if (role !== 'Admin' && userSchool && school !== userSchool) {
+
+    const canRead =
+      role === 'Admin'
+      || (role === 'Data Lead' && sameSchool(userSchool, school))
+      || (['Intake Member', 'Data Member'].includes(role || '') && sameSchool(userSchool, school));
+
+    if (!canRead) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 
     const client = await clientPromise;
     const db = client.db('student-label');
-    const config = await db.collection('school_config').findOne({ name: school });
+    const config = await db.collection('school_config').findOne(schoolConfigNameFilter(school));
     const meta = (config?.legacyRoster as LegacyRosterMeta | undefined) || null;
-    const count = await db.collection(LEGACY_ROSTER_COLLECTION).countDocuments({ school });
+    const count = await db.collection(LEGACY_ROSTER_COLLECTION).countDocuments(schoolNameFilter(school));
 
     return NextResponse.json({
-      school,
+      school: config?.name || school,
       meta: meta ? { ...meta, rowCount: count || meta.rowCount } : null,
       rowCount: count,
     });
@@ -72,17 +85,32 @@ export async function POST(req: NextRequest) {
     const file = form.get('file');
     const schoolField = String(form.get('school') || '').trim();
     const preferredTable = String(form.get('table') || '').trim() || undefined;
-    const school = schoolField || (role === 'Data Lead' ? userSchool || '' : '');
 
-    if (!school) {
-      return NextResponse.json({ error: 'School is required' }, { status: 400 });
+    // Data Leads may only import for their own school
+    const requestedSchool =
+      role === 'Data Lead'
+        ? (schoolField || userSchool || '').trim()
+        : schoolField;
+
+    if (!requestedSchool) {
+      return NextResponse.json(
+        { error: role === 'Data Lead' ? 'Your account has no school assigned' : 'School is required' },
+        { status: 400 },
+      );
     }
-    if (!canManageSchool(role, userSchool, school)) {
-      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    if (!canManageSchool(role, userSchool, requestedSchool)) {
+      return NextResponse.json(
+        { error: 'Forbidden — Data Leads can only upload a roster for their own school' },
+        { status: 403 },
+      );
     }
     if (!file || !(file instanceof File)) {
       return NextResponse.json({ error: 'Upload an .mdb or .csv file' }, { status: 400 });
     }
+
+    const client = await clientPromise;
+    const db = client.db('student-label');
+    const school = await resolveCanonicalSchoolName(db, requestedSchool);
 
     const filename = file.name || 'roster';
     const lower = filename.toLowerCase();
@@ -106,13 +134,13 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const client = await clientPromise;
-    const db = client.db('student-label');
-    const col = db.collection(LEGACY_ROSTER_COLLECTION);
+    // Normalize school field on rows to canonical name
+    const rows = parsed.rows.map(r => ({ ...r, school }));
 
-    await col.deleteMany({ school });
-    if (parsed.rows.length) {
-      await col.insertMany(parsed.rows);
+    const col = db.collection(LEGACY_ROSTER_COLLECTION);
+    await col.deleteMany(schoolNameFilter(school));
+    if (rows.length) {
+      await col.insertMany(rows);
     }
     await col.createIndex({ school: 1, lastName: 1, firstName: 1 });
     await col.createIndex({ school: 1, dob: 1 });
@@ -120,7 +148,7 @@ export async function POST(req: NextRequest) {
     const meta: LegacyRosterMeta = {
       uploadedAt: new Date().toISOString(),
       filename,
-      rowCount: parsed.rows.length,
+      rowCount: rows.length,
       tableName: parsed.tableName,
       sourceType: lower.endsWith('.csv') || lower.endsWith('.txt') ? 'csv' : 'mdb',
       uploadedBy: {
@@ -130,7 +158,7 @@ export async function POST(req: NextRequest) {
     };
 
     await db.collection('school_config').updateOne(
-      { name: school },
+      schoolConfigNameFilter(school),
       {
         $set: {
           name: school,
@@ -171,25 +199,30 @@ export async function DELETE(req: NextRequest) {
 
     const role = session.user?.role;
     const userSchool = session.user?.school;
-    const school = req.nextUrl.searchParams.get('school')?.trim()
-      || (role === 'Data Lead' ? userSchool || '' : '');
+    const schoolParam = req.nextUrl.searchParams.get('school')?.trim() || '';
+    const requestedSchool =
+      role === 'Data Lead'
+        ? (schoolParam || userSchool || '').trim()
+        : schoolParam;
 
-    if (!school) {
+    if (!requestedSchool) {
       return NextResponse.json({ error: 'school query required' }, { status: 400 });
     }
-    if (!canManageSchool(role, userSchool, school)) {
+    if (!canManageSchool(role, userSchool, requestedSchool)) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 
     const client = await clientPromise;
     const db = client.db('student-label');
-    const result = await db.collection(LEGACY_ROSTER_COLLECTION).deleteMany({ school });
+    const school = await resolveCanonicalSchoolName(db, requestedSchool);
+
+    const result = await db.collection(LEGACY_ROSTER_COLLECTION).deleteMany(schoolNameFilter(school));
     await db.collection('school_config').updateOne(
-      { name: school },
+      schoolConfigNameFilter(school),
       { $unset: { legacyRoster: '' }, $set: { updatedAt: new Date().toISOString() } },
     );
 
-    return NextResponse.json({ ok: true, deleted: result.deletedCount });
+    return NextResponse.json({ ok: true, deleted: result.deletedCount, school });
   } catch (error) {
     console.error('legacy-roster DELETE', error);
     return NextResponse.json({ error: 'Failed to clear roster' }, { status: 500 });

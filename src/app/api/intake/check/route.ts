@@ -10,7 +10,7 @@ import {
   type IncomingAddressCheck,
   type StudentAddressRecord,
 } from '@/lib/addressDuplicate';
-import { LEGACY_ROSTER_COLLECTION, matchLegacyRoster } from '@/lib/legacyRoster';
+import { LEGACY_ROSTER_COLLECTION, matchLegacyRoster, schoolNameFilter } from '@/lib/legacyRoster';
 
 const STUDENT_PROJECTION = {
   firstName: 1,
@@ -168,7 +168,7 @@ export async function POST(request: Request) {
       const legacyRows = await db
         .collection(LEGACY_ROSTER_COLLECTION)
         .find({
-          school: schoolName,
+          ...schoolNameFilter(schoolName),
           $or: [
             { dob },
             {

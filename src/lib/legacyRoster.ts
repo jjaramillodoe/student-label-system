@@ -5,6 +5,17 @@ import { isPossibleDuplicate, matchPercent } from '@/lib/fuzzyName';
 
 export const LEGACY_ROSTER_COLLECTION = 'school_legacy_roster';
 
+/** Case-insensitive exact school name match for Mongo queries. */
+export function schoolNameFilter(name: string) {
+  const escaped = name.trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  return { school: { $regex: `^${escaped}$`, $options: 'i' } };
+}
+
+export function schoolConfigNameFilter(name: string) {
+  const escaped = name.trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  return { name: { $regex: `^${escaped}$`, $options: 'i' } };
+}
+
 export type LegacyRosterRow = {
   school: string;
   firstName: string;

@@ -116,8 +116,8 @@ export default function SchoolLegacyRosterUpload({ schoolName }: { schoolName: s
         </CardTitle>
         <CardDescription>
           Upload the school Access database (<code className="text-xs">.mdb</code> / <code className="text-xs">.accdb</code>)
-          or a CSV export with First Name, Last Name, and DOB. Intake uses this as a first check
-          (like ASISTS) before registering a NEW student. Rows are stored for lookup only — they do not create live files or labels.
+          or a CSV export with First Name, Last Name, and DOB. Admins and Data Leads can manage this roster.
+          Intake uses it as a first check (like ASISTS) before registering a NEW student. Rows are stored for lookup only — they do not create live files or labels.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
