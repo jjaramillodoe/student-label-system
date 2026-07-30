@@ -13,6 +13,7 @@ import {
 import { normalizeStudentAddress, validateStudentAddress } from '@/lib/addressValidation';
 import { verifyAddressWithGeoclient } from '@/lib/addressGeoclient';
 import { getSchoolIntakeSessions, validateIntakeSessionTimes } from '@/lib/intakeSession';
+import { assignDrawerSection } from '@/lib/drawerSections';
 import { usaNameError } from '@/lib/usaName';
 
 // Helper function to validate ObjectId
@@ -191,6 +192,7 @@ export async function POST(req: NextRequest) {
     }
     
     // If cabinet and drawer are provided, update the cabinet capacity
+    let drawerSection: string | undefined;
     if (cabinet && drawer) {
       // Validate cabinet ID format
       if (!isValidObjectId(cabinet)) {
@@ -206,7 +208,7 @@ export async function POST(req: NextRequest) {
       }
 
       // Find the drawer in the cabinet
-      const drawerIndex = cabinetDoc.drawers.findIndex((d: any) => d._id === drawer);
+      const drawerIndex = cabinetDoc.drawers.findIndex((d: any) => String(d._id) === String(drawer));
       if (drawerIndex === -1) {
         return NextResponse.json({ error: 'Drawer not found in cabinet' }, { status: 404 });
       }
@@ -217,6 +219,8 @@ export async function POST(req: NextRequest) {
       if (currentCount >= drawerCapacity) {
         return NextResponse.json({ error: 'Drawer is at full capacity' }, { status: 400 });
       }
+
+      drawerSection = assignDrawerSection(currentCount, drawerCapacity);
 
       // Update the drawer's current count
       await db.collection('cabinets').updateOne(
@@ -242,6 +246,7 @@ export async function POST(req: NextRequest) {
       startDate,
       cabinet,
       drawer,
+      ...(drawerSection ? { drawerSection } : {}),
       email: email || null,
       labelId,     // barcode printed on the physical label
       studentId,   // demographic ID: {LASTNAME}{FIRSTNAME}{AGENCYID}{DOBDIGITS}

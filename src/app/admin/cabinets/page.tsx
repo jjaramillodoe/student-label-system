@@ -6,6 +6,12 @@ import { Cabinet, ArchiveBox, CabinetArchiveRecord, PhysicalArchiveBox } from '@
 import ArchiveBoxLabelSheet from '@/components/ArchiveBoxLabelSheet';
 import ArchiveBoxPdfButton from '@/components/ArchiveBoxPdfButton';
 import { getBoxPublicUrl, type BoxLabelStudent } from '@/lib/boxLabel';
+import {
+  DRAWER_CAPACITY_PRESETS,
+  getDrawerSectionBreakdown,
+  getDrawerSectionSize,
+  SECTIONS_PER_DRAWER,
+} from '@/lib/drawerSections';
 import { 
   Plus, 
   Edit2, 
@@ -97,7 +103,7 @@ export default function CabinetsPage() {
     name: '',
     identifier: '',
     school: '',
-    drawers: [{ name: '', capacity: 0 }]
+    drawers: [{ name: '', capacity: 400 }]
   });
   const [auditModalOpen, setAuditModalOpen] = useState(false);
   const [auditResults, setAuditResults] = useState<any[]>([]);
@@ -390,7 +396,7 @@ export default function CabinetsPage() {
       
       await fetchCabinets();
       setIsModalOpen(false);
-      setForm({ name: '', identifier: '', school: userSchool, drawers: [{ name: '', capacity: 0 }] });
+      setForm({ name: '', identifier: '', school: userSchool, drawers: [{ name: '', capacity: 400 }] });
       setEditingCabinet(null);
     } catch (err) {
       setError('Failed to save cabinet');
@@ -414,7 +420,7 @@ export default function CabinetsPage() {
   const addDrawer = () => {
     setForm(prev => ({
       ...prev,
-      drawers: [...prev.drawers, { name: '', capacity: 0 }]
+      drawers: [...prev.drawers, { name: '', capacity: 400 }]
     }));
   };
 
@@ -763,7 +769,7 @@ export default function CabinetsPage() {
           <Button
             onClick={() => {
               setEditingCabinet(null);
-              setForm(prev => ({ name: '', identifier: '', school: userSchool || prev.school, drawers: [{ name: '', capacity: 0 }] }));
+              setForm(prev => ({ name: '', identifier: '', school: userSchool || prev.school, drawers: [{ name: '', capacity: 400 }] }));
               setIsModalOpen(true);
             }}
             className="gap-2"
@@ -1007,7 +1013,7 @@ export default function CabinetsPage() {
               <Button
                 onClick={() => {
                   setEditingCabinet(null);
-                  setForm(prev => ({ name: '', identifier: '', school: userSchool || prev.school, drawers: [{ name: '', capacity: 0 }] }));
+                  setForm(prev => ({ name: '', identifier: '', school: userSchool || prev.school, drawers: [{ name: '', capacity: 400 }] }));
                   setIsModalOpen(true);
                 }}
                 className="gap-2"
@@ -1287,17 +1293,44 @@ export default function CabinetsPage() {
                         const drawerUsage = drawer.capacity > 0
                           ? Math.round((drawer.currentCount / drawer.capacity) * 100)
                           : 0;
+                        const sections = getDrawerSectionBreakdown(
+                          drawer.currentCount || 0,
+                          drawer.capacity || 0,
+                        );
+                        const sectionSize = getDrawerSectionSize(drawer.capacity || 0);
                         return (
-                          <div key={index} className="flex items-center justify-between text-sm p-2 bg-muted/50 rounded">
-                            <div className="flex-1">
-                              <div className="font-medium">{drawer.name}</div>
-                              <div className="text-xs text-muted-foreground">
-                                {drawer.currentCount}/{drawer.capacity} files
+                          <div key={index} className="text-sm p-2 bg-muted/50 rounded space-y-2">
+                            <div className="flex items-center justify-between gap-2">
+                              <div className="flex-1 min-w-0">
+                                <div className="font-medium">{drawer.name}</div>
+                                <div className="text-xs text-muted-foreground">
+                                  {drawer.currentCount}/{drawer.capacity} files
+                                  {' · '}
+                                  {SECTIONS_PER_DRAWER} sections × ~{sectionSize}
+                                </div>
                               </div>
+                              <Badge variant={drawerUsage >= 100 ? 'destructive' : drawerUsage >= 80 ? 'secondary' : 'outline'}>
+                                {drawerUsage}%
+                              </Badge>
                             </div>
-                            <Badge variant={drawerUsage >= 100 ? 'destructive' : drawerUsage >= 80 ? 'secondary' : 'outline'}>
-                              {drawerUsage}%
-                            </Badge>
+                            <div className="grid grid-cols-4 gap-1">
+                              {sections.map((section) => (
+                                <div
+                                  key={section.label}
+                                  className={
+                                    section.status === 'full'
+                                      ? 'rounded border border-emerald-300 bg-emerald-50 px-1 py-0.5 text-[10px] text-emerald-900'
+                                      : section.status === 'partial'
+                                        ? 'rounded border border-amber-300 bg-amber-50 px-1 py-0.5 text-[10px] text-amber-900'
+                                        : 'rounded border border-border/60 bg-background/80 px-1 py-0.5 text-[10px] text-muted-foreground'
+                                  }
+                                  title={`${section.label}: ${section.filled}/${section.capacity}`}
+                                >
+                                  <div className="font-medium leading-tight">{section.label.replace('Section ', 'S')}</div>
+                                  <div className="tabular-nums leading-tight">{section.filled}/{section.capacity}</div>
+                                </div>
+                              ))}
+                            </div>
                           </div>
                         );
                       })}
@@ -1424,15 +1457,39 @@ export default function CabinetsPage() {
                           </div>
                           <div className="flex-1 space-y-2">
                             <Label htmlFor={`drawer-capacity-${index}`}>Capacity</Label>
-                            <Input
-                              id={`drawer-capacity-${index}`}
-                              type="number"
-                              value={drawer.capacity}
-                              onChange={(e) => updateDrawer(index, 'capacity', parseInt(e.target.value) || 0)}
-                              placeholder="0"
-                              required
-                              min="0"
-                            />
+                            <Select
+                              value={
+                                DRAWER_CAPACITY_PRESETS.includes(drawer.capacity as typeof DRAWER_CAPACITY_PRESETS[number])
+                                  ? String(drawer.capacity)
+                                  : drawer.capacity > 0
+                                    ? 'custom'
+                                    : '400'
+                              }
+                              onValueChange={(value) => {
+                                if (value === 'custom') return;
+                                updateDrawer(index, 'capacity', parseInt(value, 10));
+                              }}
+                            >
+                              <SelectTrigger id={`drawer-capacity-${index}`}>
+                                <SelectValue placeholder="Capacity" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {DRAWER_CAPACITY_PRESETS.map((cap) => (
+                                  <SelectItem key={cap} value={String(cap)}>
+                                    {cap} files ({SECTIONS_PER_DRAWER} × {getDrawerSectionSize(cap)})
+                                  </SelectItem>
+                                ))}
+                                {!DRAWER_CAPACITY_PRESETS.includes(drawer.capacity as typeof DRAWER_CAPACITY_PRESETS[number])
+                                  && drawer.capacity > 0 && (
+                                  <SelectItem value="custom">
+                                    Custom ({drawer.capacity})
+                                  </SelectItem>
+                                )}
+                              </SelectContent>
+                            </Select>
+                            <p className="text-[11px] text-muted-foreground">
+                              Auto sections: Section 01–{String(SECTIONS_PER_DRAWER).padStart(2, '0')} (hidden from intake)
+                            </p>
                           </div>
                           {form.drawers.length > 1 && (
                             <Button
@@ -1458,7 +1515,7 @@ export default function CabinetsPage() {
                   variant="outline"
                   onClick={() => {
                     setIsModalOpen(false);
-                    setForm({ name: '', identifier: '', school: userSchool, drawers: [{ name: '', capacity: 0 }] });
+                    setForm({ name: '', identifier: '', school: userSchool, drawers: [{ name: '', capacity: 400 }] });
                     setEditingCabinet(null);
                   }}
                 >
@@ -1550,7 +1607,7 @@ export default function CabinetsPage() {
                   </div>
                   <div>
                     <p className="font-medium text-foreground">Drawer Capacity</p>
-                    <p>Enter the number of student folders that physically fit in that drawer. The app uses this for near-full and over-capacity warnings.</p>
+                    <p>Choose drawer capacity 100, 200, or 400. Each drawer is split into 8 automatic sections (Section 01–08) for filing — assigned when a student is stored, and not shown on intake.</p>
                   </div>
                 </div>
               </div>

@@ -4,6 +4,7 @@ import { ObjectId } from 'mongodb';
 import { authOptions } from '@/lib/authOptions';
 import clientPromise from '@/lib/mongodb';
 import { generateLabelId, generateStudentId, resolveAgencyId } from '@/lib/studentId';
+import { assignDrawerSection } from '@/lib/drawerSections';
 
 type DrawerDoc = {
   _id: string;
@@ -144,6 +145,7 @@ function buildStudentDoc(
     agencyId: string;
     cabinetId: string;
     drawerId: string;
+    drawerSection?: string;
     school: string;
     now: string;
     createdBy: { name: string; email: string };
@@ -179,6 +181,9 @@ function buildStudentDoc(
     importSource: 'bulk-upload',
   };
 
+  if (opts.drawerSection) {
+    doc.drawerSection = opts.drawerSection;
+  }
   if (student.addressFlags?.length) {
     doc.addressFlags = student.addressFlags;
   }
@@ -401,10 +406,13 @@ export async function POST(req: NextRequest) {
       const slotDrawerId = String(slot.drawer._id);
       const updateKey = `${slot.cabinet._id.toString()}:${slotDrawerId}`;
       const existingUpdate = cabinetUpdates.get(updateKey);
+      const alreadyInBatch = existingUpdate?.count || 0;
+      const indexInDrawer = (slot.drawer.currentCount || 0) + alreadyInBatch;
+      const drawerSection = assignDrawerSection(indexInDrawer, slot.drawer.capacity || 400);
       cabinetUpdates.set(updateKey, {
         cabinetId: slot.cabinet._id,
         drawerId: slotDrawerId,
-        count: (existingUpdate?.count || 0) + 1,
+        count: alreadyInBatch + 1,
       });
 
       let labelId = student.labelId || '';
@@ -430,6 +438,7 @@ export async function POST(req: NextRequest) {
         agencyId,
         cabinetId: slot.cabinet._id.toString(),
         drawerId: slotDrawerId,
+        drawerSection,
         school,
         now,
         createdBy: {

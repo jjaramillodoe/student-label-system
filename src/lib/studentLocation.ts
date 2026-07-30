@@ -4,6 +4,8 @@ export type StorageStudent = {
   status?: string;
   cabinet?: string;
   drawer?: string;
+  /** Auto-assigned drawer section, e.g. "Section 01" (hidden from intake) */
+  drawerSection?: string;
   /** Resolved display name from API enrichment */
   cabinetName?: string;
   drawerName?: string;
@@ -29,6 +31,7 @@ export function getStudentStorageDisplay(
   student: StorageStudent,
   cabinetMap: Record<string, string> = {},
   drawerMap: Record<string, string> = {},
+  options?: { showSection?: boolean },
 ): StudentStorageDisplay {
   const isArchived = Boolean(student.archived || student.status === 'Archived');
 
@@ -69,11 +72,15 @@ export function getStudentStorageDisplay(
     || student.cabinetName
     || student.cabinet
     || '—';
-  const drawerDisplay =
+  let drawerDisplay =
     drawerMap[student.drawer || '']
     || student.drawerName
     || student.drawer
     || '—';
+
+  if (options?.showSection && student.drawerSection?.trim()) {
+    drawerDisplay = `${drawerDisplay} · ${student.drawerSection.trim()}`;
+  }
 
   return {
     isArchived: false,

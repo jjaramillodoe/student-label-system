@@ -339,7 +339,7 @@ async function applyArchiveBoxAssignments(
             archivedAt: now,
             updatedAt: now,
           },
-          $unset: { cabinet: '', drawer: '' },
+          $unset: { cabinet: '', drawer: '', drawerSection: '' },
         },
       },
     };

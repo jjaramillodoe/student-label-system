@@ -12,6 +12,7 @@ import { getSchoolIntakeSessions, validateIntakeSessionTimes } from '@/lib/intak
 import { syncTopLevelIntakeFields } from '@/lib/intakeVisitFix';
 import { normalizeMongoId, serializeMongoDocument } from '@/lib/utils';
 import { usaNameError } from '@/lib/usaName';
+import { assignDrawerSection } from '@/lib/drawerSections';
 
 // Helper function to validate ObjectId
 function isValidObjectId(id: string): boolean {
@@ -127,7 +128,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
         }
 
         const drawers = Array.isArray(cabinetDoc.drawers) ? cabinetDoc.drawers : [];
-        const drawerIndex = drawers.findIndex((d: { _id?: string }) => d._id === body.drawer);
+        const drawerIndex = drawers.findIndex((d: { _id?: string }) => String(d._id) === String(body.drawer));
         if (drawerIndex === -1) {
           return NextResponse.json({ error: 'New drawer not found in cabinet' }, { status: 404 });
         }
@@ -138,6 +139,8 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
         if (currentCount >= drawerCapacity) {
           return NextResponse.json({ error: 'New drawer is at full capacity' }, { status: 400 });
         }
+
+        body.drawerSection = assignDrawerSection(currentCount, drawerCapacity);
 
         await db.collection('cabinets').updateOne(
           { 
@@ -151,18 +154,27 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
             }
           }
         );
+      } else {
+        body.drawerSection = null;
       }
     }
 
     // Extract a visit-log entry to append (don't $set it as a scalar field).
     const { appendVisit, reactivateFromArchive, ...setFields } = body as Record<string, any>;
 
+    // null drawerSection means clear it (student left active storage)
+    const unsetFields: Record<string, ''> = {};
+    if (setFields.drawerSection === null) {
+      unsetFields.drawerSection = '';
+      delete setFields.drawerSection;
+    }
+
     const update: Record<string, any> = {
       $set: { ...setFields, updatedAt: new Date().toISOString() },
     };
 
     if (reactivateFromArchive) {
-      update.$unset = {
+      Object.assign(unsetFields, {
         archiveBoxId: '',
         archiveBoxLabel: '',
         archiveLocation: '',
@@ -170,8 +182,11 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
         archiveSchoolYear: '',
         archivedAt: '',
         archived: '',
-      };
+      });
       update.$set.archived = false;
+    }
+    if (Object.keys(unsetFields).length > 0) {
+      update.$unset = unsetFields;
     }
     // Append a new intake visit to the time-log history instead of overwriting.
     if (appendVisit && typeof appendVisit === 'object') {

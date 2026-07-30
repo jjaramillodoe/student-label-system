@@ -3,6 +3,7 @@ import { getServerSession } from 'next-auth';
 import { ObjectId } from 'mongodb';
 import { authOptions } from '@/lib/authOptions';
 import clientPromise from '@/lib/mongodb';
+import { assignDrawerSection } from '@/lib/drawerSections';
 
 function isValidObjectId(id: string) {
   try {
@@ -75,6 +76,7 @@ export async function POST(req: NextRequest) {
 
     let moved = 0;
     const errors: string[] = [];
+    let nextIndexInDrawer = targetDrawer.currentCount || 0;
 
     for (const student of students) {
       try {
@@ -85,12 +87,16 @@ export async function POST(req: NextRequest) {
           );
         }
 
+        const drawerSection = assignDrawerSection(nextIndexInDrawer, targetDrawer.capacity || 400);
+        nextIndexInDrawer += 1;
+
         await db.collection('students').updateOne(
           { _id: student._id },
           {
             $set: {
               cabinet: targetCabinetId,
               drawer: targetDrawerId,
+              drawerSection,
               updatedAt: new Date().toISOString(),
             },
           }

@@ -39,6 +39,7 @@ export type Student = {
   startDate: string;
   cabinet: string;
   drawer: string;
+  drawerSection?: string;
   email?: string | null;
   /** Barcode printed on the physical label: {year}-{initials}-{counter} */
   labelId?: string;
@@ -304,7 +305,7 @@ const StudentTable: React.FC<StudentTableProps> = ({
             ) : (
               sortedStudents.map((student) => {
                 const isSelected = selectedIds.includes(student._id!);
-                const storage = getStudentStorageDisplay(student, cabinetMap, drawerMap);
+                const storage = getStudentStorageDisplay(student, cabinetMap, drawerMap, { showSection: true });
                 
                 return (
                   <TableRow

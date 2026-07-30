@@ -2,14 +2,14 @@ import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/authOptions';
 import clientPromise from '@/lib/mongodb';
+import { assignDrawerSection } from '@/lib/drawerSections';
 
 /**
  * POST /api/cabinets/sync
  *
  * Recalculates every cabinet's currentCount and every drawer's currentCount
  * by counting actual students from the students collection.
- * This is the source of truth — it fixes any drift caused by bulk imports,
- * moves, deletes, or other operations that didn't maintain the counters.
+ * Also backfills automatic drawerSection (Section 01–08) by createdAt order.
  */
 export async function POST() {
   try {
@@ -26,18 +26,17 @@ export async function POST() {
 
     const cabinets = await db.collection('cabinets').find(cabinetQuery).toArray();
     let updated = 0;
+    let sectionsAssigned = 0;
     const skipped: string[] = [];
 
     for (const cabinet of cabinets) {
       try {
         const cabinetId = cabinet._id.toString();
 
-        // Count total students in this cabinet
         const cabinetTotal = await db
           .collection('students')
           .countDocuments({ cabinet: cabinetId });
 
-        // Build $set payload: cabinet total + every drawer's individual count
         const setPayload: Record<string, any> = {
           currentCount: cabinetTotal,
           updatedAt: new Date().toISOString(),
@@ -45,10 +44,30 @@ export async function POST() {
 
         for (let idx = 0; idx < (cabinet.drawers || []).length; idx++) {
           const drawer = cabinet.drawers[idx];
-          const drawerCount = await db
+          const drawerId = String(drawer._id);
+          const studentsInDrawer = await db
             .collection('students')
-            .countDocuments({ drawer: drawer._id });
-          setPayload[`drawers.${idx}.currentCount`] = drawerCount;
+            .find({
+              cabinet: cabinetId,
+              drawer: drawerId,
+              archived: { $ne: true },
+              status: { $ne: 'Archived' },
+            })
+            .sort({ createdAt: 1, _id: 1 })
+            .project({ _id: 1 })
+            .toArray();
+
+          setPayload[`drawers.${idx}.currentCount`] = studentsInDrawer.length;
+
+          const capacity = drawer.capacity || 400;
+          for (let i = 0; i < studentsInDrawer.length; i++) {
+            const section = assignDrawerSection(i, capacity);
+            const result = await db.collection('students').updateOne(
+              { _id: studentsInDrawer[i]._id },
+              { $set: { drawerSection: section } },
+            );
+            if (result.modifiedCount > 0) sectionsAssigned += 1;
+          }
         }
 
         await db
@@ -64,9 +83,10 @@ export async function POST() {
     return NextResponse.json({
       success: true,
       updated,
+      sectionsAssigned,
       skipped,
       warning: skipped.length > 0,
-      message: `Cabinet counts recalculated from student data. ${updated} cabinet${updated !== 1 ? 's' : ''} updated.${skipped.length > 0 ? ` ${skipped.length} skipped.` : ''}`,
+      message: `Cabinet counts recalculated. ${updated} cabinet${updated !== 1 ? 's' : ''} updated.${sectionsAssigned ? ` ${sectionsAssigned} section assignment${sectionsAssigned !== 1 ? 's' : ''} refreshed.` : ''}${skipped.length > 0 ? ` ${skipped.length} skipped.` : ''}`,
     });
   } catch (error) {
     console.error('Cabinet sync error:', error);
