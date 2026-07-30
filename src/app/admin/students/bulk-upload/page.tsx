@@ -17,6 +17,9 @@ import {
   Pencil,
   Trash2,
   MapPin,
+  Calendar,
+  Copy,
+  ShieldAlert,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -56,6 +59,15 @@ import {
   normalizeStudentAddress,
 } from '@/lib/addressValidation';
 import { formatFullName } from '@/lib/personName';
+import {
+  checkBulkUploadDates,
+  categorizeBulkIssue,
+  csvRowNumber,
+  isBulkIsoDate,
+  isDateIssue,
+  isDuplicateIssue,
+} from '@/lib/bulkUploadValidation';
+import { formatHumanDate } from '@/lib/utils';
 
 const SAMPLE_DATA = [
   { firstName: 'Amelia', lastName: 'Rivera', dob: '2006-01-12', fiscalYear: '2025-2026', status: 'Active', startDate: '2025-09-04', email: 'amelia.rivera.test@example.com', studentId: '2006-AR-9000001' },
@@ -72,6 +84,10 @@ const SAMPLE_DATA = [
 
 const FISCAL_YEAR_OPTIONS = ['2024-2025', '2025-2026', '2026-2027', '2027-2028'];
 const STATUS_OPTIONS = ['Active', 'Inactive', 'Graduated', 'Withdrawn', 'Pending', 'Transferred', 'Other'];
+/** Status values that appear in exports but cannot be used for bulk create */
+const STATUS_EXPORT_ONLY: Record<string, string> = {
+  Archived: 'Status “Archived” cannot be used on bulk create — choose Active (or Pending) now; archive later from the app',
+};
 const EDITABLE_COLUMNS = [
   'firstName', 'lastName', 'dob', 'fiscalYear', 'status', 'startDate', 'email', 'phone',
   'address', 'apt', 'city', 'state', 'zip',
@@ -279,7 +295,8 @@ export default function BulkUploadPage() {
   const [dragActive, setDragActive] = useState(false);
   const [fileName, setFileName] = useState<string>('');
   const [helpModalOpen, setHelpModalOpen] = useState(false);
-  const [previewFilter, setPreviewFilter] = useState<'all' | 'ready' | 'issues'>('all');
+  const [previewFilter, setPreviewFilter] = useState<'all' | 'ready' | 'issues' | 'duplicates' | 'dates' | 'warnings'>('all');
+  const [confirmUploadOpen, setConfirmUploadOpen] = useState(false);
   const [autoCreateCabinets, setAutoCreateCabinets] = useState(true);
   const [schoolAgencyId, setSchoolAgencyId] = useState<string>('');
   const [geoclientConfigured, setGeoclientConfigured] = useState<boolean | null>(null);
@@ -327,9 +344,7 @@ export default function BulkUploadPage() {
   }, [status, session]);
 
   function isValidDate(value: any) {
-    if (!value) return false;
-    const date = new Date(value);
-    return /^\d{4}-\d{2}-\d{2}$/.test(String(value)) && !Number.isNaN(date.getTime());
+    return isBulkIsoDate(value);
   }
 
   function getEmailIssue(value: any): string | null {
@@ -347,6 +362,10 @@ export default function BulkUploadPage() {
     const ext = domain.split('.').pop() || '';
     if (ext.length < 2) return 'Email extension too short';
     if (/[^a-zA-Z0-9._%+\-@]/.test(email)) return 'Email has invalid characters';
+    // Common typo domains from exports / sample data
+    if (/\.con$/i.test(domain) || /hatmail\.com$/i.test(domain)) {
+      return `Email domain looks mistyped (${domain})`;
+    }
     return null;
   }
 
@@ -376,14 +395,16 @@ export default function BulkUploadPage() {
     const existingStudentIds = new Set(
       existingStudents.flatMap(s => [s.labelId, s.studentId]).filter(Boolean)
     );
-    const existingNameDob = new Set(existingStudents.map(s =>
-      `${s.firstName || ''}|${s.lastName || ''}|${s.dob || ''}`.toLowerCase()
-    ));
+    const existingNameDob = new Map<string, string>(); // key → display name
     // DOB-indexed existing students for O(1) fuzzy candidate lookup
     const existingByDob = new Map<string, any[]>();
     existingStudents.forEach(s => {
       const e = s.email?.toLowerCase();
       if (e) existingEmailMap.set(e, formatFullName(s));
+      const key = `${s.firstName || ''}|${s.lastName || ''}|${s.dob || ''}`.toLowerCase();
+      if (s.firstName && s.lastName && s.dob) {
+        existingNameDob.set(key, formatFullName(s));
+      }
       if (s.dob) {
         const arr = existingByDob.get(s.dob) || [];
         arr.push(s);
@@ -393,8 +414,8 @@ export default function BulkUploadPage() {
 
     // ── In-file maps ────────────────────────────────────────────────────────
     const fileEmailRows = new Map<string, { name: string; index: number }[]>();
-    const fileStudentIds = new Map<string, number>();
-    const fileNameDob = new Map<string, number>();
+    const fileStudentIds = new Map<string, number[]>();
+    const fileNameDob = new Map<string, number[]>();
     // DOB-indexed file rows for O(1) fuzzy candidate lookup
     const fileByDob = new Map<string, { row: Record<string, string>; index: number }[]>();
 
@@ -402,14 +423,22 @@ export default function BulkUploadPage() {
       const email = row.email?.toLowerCase();
       const labelId = getLabelId(row, index);
       const nameDob = `${row.firstName || ''}|${row.lastName || ''}|${row.dob || ''}`.toLowerCase();
-      const name = formatFullName(row) || `Row ${index + 1}`;
+      const name = formatFullName(row) || `Row ${csvRowNumber(index)}`;
       if (email) {
         const arr = fileEmailRows.get(email) || [];
         arr.push({ name, index });
         fileEmailRows.set(email, arr);
       }
-      if (labelId) fileStudentIds.set(labelId, (fileStudentIds.get(labelId) || 0) + 1);
-      fileNameDob.set(nameDob, (fileNameDob.get(nameDob) || 0) + 1);
+      if (labelId) {
+        const ids = fileStudentIds.get(labelId) || [];
+        ids.push(index);
+        fileStudentIds.set(labelId, ids);
+      }
+      if (row.firstName && row.lastName && row.dob) {
+        const idxs = fileNameDob.get(nameDob) || [];
+        idxs.push(index);
+        fileNameDob.set(nameDob, idxs);
+      }
       if (row.dob && row.firstName && row.lastName) {
         const arr = fileByDob.get(row.dob) || [];
         arr.push({ row, index });
@@ -427,27 +456,72 @@ export default function BulkUploadPage() {
 
       if (!row.firstName) issues.push('Missing first name');
       if (!row.lastName) issues.push('Missing last name');
-      if (!isValidDate(row.dob)) issues.push('Invalid DOB');
-      if (!isValidDate(row.startDate)) issues.push('Invalid start date');
-      if (!FISCAL_YEAR_OPTIONS.includes(row.fiscalYear)) issues.push('Unknown fiscal year');
-      if (!STATUS_OPTIONS.includes(row.status)) issues.push('Unknown status');
+      if (!row.dob) issues.push('Missing DOB');
+      if (!row.startDate) issues.push('Missing start date');
+
+      // Date quality (format + realistic ranges + startDate vs DOB)
+      const dateChecks = checkBulkUploadDates(row.dob || '', row.startDate || '');
+      dateChecks.forEach(d => {
+        if (d.severity === 'error') issues.push(d.message);
+        else warnings.push(d.message);
+      });
+
+      if (!FISCAL_YEAR_OPTIONS.includes(row.fiscalYear)) {
+        issues.push(
+          row.fiscalYear
+            ? `Unknown fiscal year “${row.fiscalYear}”`
+            : 'Missing fiscal year',
+        );
+      }
+
+      if (STATUS_EXPORT_ONLY[row.status]) {
+        issues.push(STATUS_EXPORT_ONLY[row.status]);
+      } else if (!STATUS_OPTIONS.includes(row.status)) {
+        issues.push(
+          row.status
+            ? `Unknown status “${row.status}” — use ${STATUS_OPTIONS.join(', ')}`
+            : 'Missing status',
+        );
+      }
+
       const emailIssue = getEmailIssue(row.email);
       if (emailIssue) issues.push(emailIssue);
       if (!selectedCabinet) issues.push('Missing cabinet');
       if (!selectedDrawer) issues.push('Missing drawer');
-      if (labelId && existingStudentIds.has(labelId)) issues.push('Duplicate label ID already exists');
-      if (labelId && (fileStudentIds.get(labelId) || 0) > 1) issues.push('Duplicate label ID in file');
+
+      if (labelId && existingStudentIds.has(labelId)) {
+        issues.push(`Duplicate label ID already in system (${labelId})`);
+      }
+      const labelDupes = fileStudentIds.get(labelId) || [];
+      if (labelId && labelDupes.length > 1) {
+        const others = labelDupes.filter(i => i !== index).map(csvRowNumber);
+        issues.push(`Duplicate label ID in file (also CSV rows ${others.join(', ')})`);
+      }
+
       if (email && existingEmailMap.has(email)) {
-        issues.push(`Dup. email in system: ${existingEmailMap.get(email)}`);
+        issues.push(`Dup. email already in system: ${existingEmailMap.get(email)}`);
       }
       if (email) {
         const others = (fileEmailRows.get(email) || []).filter(r => r.index !== index);
         if (others.length > 0) {
-          issues.push(`Dup. email in file: ${others.map(r => r.name).join(', ')}`);
+          issues.push(
+            `Dup. email in file (CSV rows ${others.map(r => csvRowNumber(r.index)).join(', ')}): ${others.map(r => r.name).join(', ')}`,
+          );
         }
       }
-      if (row.firstName && row.lastName && row.dob && existingNameDob.has(nameDob)) issues.push('Same name & DOB already in system');
-      if (row.firstName && row.lastName && row.dob && (fileNameDob.get(nameDob) || 0) > 1) issues.push('Same name & DOB repeated in file');
+
+      if (row.firstName && row.lastName && row.dob && existingNameDob.has(nameDob)) {
+        issues.push(
+          `Same name & DOB already in system (${existingNameDob.get(nameDob)} — ${formatHumanDate(row.dob) || row.dob})`,
+        );
+      }
+      const nameDobDupes = fileNameDob.get(nameDob) || [];
+      if (row.firstName && row.lastName && row.dob && nameDobDupes.length > 1) {
+        const others = nameDobDupes.filter(i => i !== index).map(csvRowNumber);
+        issues.push(
+          `Same name & DOB repeated in file (also CSV rows ${others.join(', ')})`,
+        );
+      }
 
       const addressCheck = validateStudentAddress({
         address: row.address,
@@ -474,36 +548,78 @@ export default function BulkUploadPage() {
       }
 
       // ── Fuzzy "possible same person" warnings ──────────────────────────────
-      // Only compare within same-DOB bucket — O(k) not O(n). Most DOBs are
-      // unique so k ≈ 1–3, keeping this fast even for thousands of rows.
       if (row.firstName && row.lastName && row.dob) {
         const sameDobFile = (fileByDob.get(row.dob) || []).filter(r => r.index !== index);
-        sameDobFile.forEach(({ row: other }) => {
+        sameDobFile.forEach(({ row: other, index: otherIdx }) => {
           if (isPossibleDuplicate(row, other)) {
-            warnings.push(`Possible same person (file): ${formatFullName(other)}`);
+            warnings.push(
+              `Possible same person in file (CSV row ${csvRowNumber(otherIdx)}): ${formatFullName(other)}`,
+            );
           }
         });
 
         const sameDobExisting = existingByDob.get(row.dob) || [];
         sameDobExisting.forEach(s => {
           if (isPossibleDuplicate(row, s)) {
-            warnings.push(`Possible same person (system): ${formatFullName(s)}`);
+            warnings.push(`Possible same person already in system: ${formatFullName(s)}`);
           }
         });
       }
 
-      return { row, index, labelId, studentId, issues, warnings };
+      const categories = new Set([
+        ...issues.map(categorizeBulkIssue),
+        ...warnings.filter(w => !w.startsWith('Geoclient: verified')).map(categorizeBulkIssue),
+      ]);
+
+      return {
+        row,
+        index,
+        labelId,
+        studentId,
+        issues,
+        warnings,
+        categories,
+        csvRow: csvRowNumber(index),
+      };
     });
-  }, [preview, existingStudents, selectedCabinet, selectedDrawer, geoclientByIndex]);
+  }, [preview, existingStudents, selectedCabinet, selectedDrawer, geoclientByIndex, schoolAgencyId]);
 
   const issueCount = validationRows.reduce((sum, row) => sum + row.issues.length, 0);
   const rowsWithIssues = validationRows.filter(row => row.issues.length > 0);
   const readyRows = validationRows.filter(row => row.issues.length === 0);
   const warningCount = validationRows.reduce((sum, row) => sum + row.warnings.length, 0);
+  const rowsWithWarningsOnly = validationRows.filter(row => row.issues.length === 0 && row.warnings.length > 0);
+  const duplicateRows = validationRows.filter(row =>
+    row.issues.some(isDuplicateIssue) || row.warnings.some(isDuplicateIssue),
+  );
+  const dateIssueRows = validationRows.filter(row =>
+    row.issues.some(isDateIssue) || row.warnings.some(isDateIssue),
+  );
+
+  const issueSummary = React.useMemo(() => {
+    const counts: Record<string, number> = {};
+    validationRows.forEach(r => {
+      r.issues.forEach(msg => {
+        const cat = categorizeBulkIssue(msg);
+        counts[cat] = (counts[cat] || 0) + 1;
+      });
+    });
+    return counts;
+  }, [validationRows]);
+
   const filteredValidationRows = validationRows
     .filter(row => {
       if (previewFilter === 'ready') return row.issues.length === 0;
       if (previewFilter === 'issues') return row.issues.length > 0;
+      if (previewFilter === 'duplicates') {
+        return row.issues.some(isDuplicateIssue) || row.warnings.some(isDuplicateIssue);
+      }
+      if (previewFilter === 'dates') {
+        return row.issues.some(isDateIssue) || row.warnings.some(isDateIssue);
+      }
+      if (previewFilter === 'warnings') {
+        return row.warnings.length > 0 && row.issues.length === 0;
+      }
       return true;
     })
     .sort((a, b) => (a.row.lastName || '').toLowerCase().localeCompare((b.row.lastName || '').toLowerCase()));
@@ -637,7 +753,20 @@ export default function BulkUploadPage() {
     setSelectedDrawer(''); // Reset drawer selection when cabinet changes
   }
 
+  function requestUpload() {
+    if (readyRows.length === 0 || Boolean(storageIssue) || uploading || !selectedCabinet || !selectedDrawer) {
+      return;
+    }
+    // Always confirm when some rows are blocked or ready rows have warnings
+    if (rowsWithIssues.length > 0 || rowsWithWarningsOnly.length > 0) {
+      setConfirmUploadOpen(true);
+      return;
+    }
+    handleUpload();
+  }
+
   async function handleUpload() {
+    setConfirmUploadOpen(false);
     setUploading(true);
     setSuccess('');
     setError('');
@@ -945,7 +1074,7 @@ export default function BulkUploadPage() {
                 </CardDescription>
               </div>
               <Button
-                onClick={handleUpload}
+                onClick={requestUpload}
                 disabled={uploading || !selectedCabinet || !selectedDrawer || readyRows.length === 0 || Boolean(storageIssue)}
                 size="lg"
                 className="gap-2"
@@ -972,28 +1101,82 @@ export default function BulkUploadPage() {
                 <AlertDescription>{storageIssue}</AlertDescription>
               </Alert>
             )}
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
               <Alert variant={issueCount > 0 ? 'destructive' : 'success'}>
                 {issueCount > 0 ? <AlertCircle className="h-4 w-4" /> : <CheckCircle2 className="h-4 w-4" />}
                 <AlertDescription>
-                  {rowsWithIssues.length > 0 ? `${rowsWithIssues.length} row(s) need fixing` : 'No validation issues found'}
+                  {rowsWithIssues.length > 0
+                    ? `${rowsWithIssues.length} row(s) blocked · ${issueCount} issue(s)`
+                    : 'No blocking issues'}
                 </AlertDescription>
               </Alert>
               <Alert>
                 <Users className="h-4 w-4" />
                 <AlertDescription>{readyRows.length} row(s) ready to upload</AlertDescription>
               </Alert>
-              <Alert>
-                <Building2 className="h-4 w-4" />
+              <Alert className={duplicateRows.length ? 'border-violet-300 bg-violet-50/60 dark:bg-violet-950/20' : undefined}>
+                <Copy className="h-4 w-4" />
                 <AlertDescription>
-                  {selectedDrawerInfo
-                    ? autoCreateCabinets
-                      ? `${drawerAvailable} spaces in selected drawer, more will be allocated automatically`
-                      : `${drawerAvailable} available spaces in selected drawer`
-                    : 'Select storage assignment'}
+                  {duplicateRows.length} duplicate / possible-dupe row(s)
+                </AlertDescription>
+              </Alert>
+              <Alert className={dateIssueRows.length ? 'border-amber-300 bg-amber-50/60 dark:bg-amber-950/20' : undefined}>
+                <Calendar className="h-4 w-4" />
+                <AlertDescription>
+                  {dateIssueRows.length} row(s) with date concerns
                 </AlertDescription>
               </Alert>
             </div>
+
+            {(issueSummary.duplicate || issueSummary.date || issueSummary.status || issueSummary.email) && (
+              <div className="flex flex-wrap gap-2 text-xs">
+                <span className="text-muted-foreground self-center font-medium">Issue types:</span>
+                {issueSummary.duplicate ? (
+                  <Badge
+                    variant="outline"
+                    className="cursor-pointer border-violet-300 text-violet-800 bg-violet-50"
+                    onClick={() => setPreviewFilter('duplicates')}
+                  >
+                    Duplicates ×{issueSummary.duplicate}
+                  </Badge>
+                ) : null}
+                {issueSummary.date ? (
+                  <Badge
+                    variant="outline"
+                    className="cursor-pointer border-amber-300 text-amber-900 bg-amber-50"
+                    onClick={() => setPreviewFilter('dates')}
+                  >
+                    Dates ×{issueSummary.date}
+                  </Badge>
+                ) : null}
+                {issueSummary.status ? (
+                  <Badge variant="outline" className="cursor-pointer" onClick={() => setPreviewFilter('issues')}>
+                    Status / FY ×{issueSummary.status}
+                  </Badge>
+                ) : null}
+                {issueSummary.email ? (
+                  <Badge variant="outline" className="cursor-pointer" onClick={() => setPreviewFilter('issues')}>
+                    Email ×{issueSummary.email}
+                  </Badge>
+                ) : null}
+                {issueSummary.required ? (
+                  <Badge variant="outline" className="cursor-pointer" onClick={() => setPreviewFilter('issues')}>
+                    Required ×{issueSummary.required}
+                  </Badge>
+                ) : null}
+              </div>
+            )}
+
+            <Alert>
+              <Building2 className="h-4 w-4" />
+              <AlertDescription>
+                {selectedDrawerInfo
+                  ? autoCreateCabinets
+                    ? `${drawerAvailable} spaces in selected drawer, more will be allocated automatically`
+                    : `${drawerAvailable} available spaces in selected drawer`
+                  : 'Select storage assignment'}
+              </AlertDescription>
+            </Alert>
             {geoclientConfigured === false && (
               <Alert>
                 <MapPin className="h-4 w-4" />
@@ -1058,29 +1241,66 @@ export default function BulkUploadPage() {
               >
                 Needs Fixing ({rowsWithIssues.length})
               </Button>
+              <Button
+                type="button"
+                variant={previewFilter === 'duplicates' ? 'default' : 'outline'}
+                size="sm"
+                className={previewFilter === 'duplicates' ? '' : 'border-violet-300 text-violet-800'}
+                onClick={() => setPreviewFilter('duplicates')}
+              >
+                Duplicates ({duplicateRows.length})
+              </Button>
+              <Button
+                type="button"
+                variant={previewFilter === 'dates' ? 'default' : 'outline'}
+                size="sm"
+                className={previewFilter === 'dates' ? '' : 'border-amber-300 text-amber-900'}
+                onClick={() => setPreviewFilter('dates')}
+              >
+                Dates ({dateIssueRows.length})
+              </Button>
+              <Button
+                type="button"
+                variant={previewFilter === 'warnings' ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => setPreviewFilter('warnings')}
+              >
+                Warnings only ({rowsWithWarningsOnly.length})
+              </Button>
             </div>
             <div className="flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
               <span className="font-medium">Badge legend:</span>
               <span className="flex items-center gap-1.5">
                 <span className="inline-block h-3 w-3 rounded-full bg-destructive" />
-                Red = blocking issue (must fix before upload)
+                Red = blocking (fix or delete before that row uploads)
               </span>
               <span className="flex items-center gap-1.5">
                 <span className="inline-block h-3 w-3 rounded-full bg-amber-400" />
-                Amber = possible duplicate person (fuzzy match — may be a twin or sibling, upload still allowed)
+                Amber = date / soft warning (review; upload allowed if no red)
+              </span>
+              <span className="flex items-center gap-1.5">
+                <span className="inline-block h-3 w-3 rounded-full bg-violet-500" />
+                Violet = duplicate / possible same person
               </span>
             </div>
-            {previewFilter === 'issues' && rowsWithIssues.length > 0 && (
-              <div className="flex items-center gap-2 rounded-md border border-amber-200 bg-amber-50 dark:bg-amber-950/30 dark:border-amber-800 px-4 py-2 text-sm text-amber-800 dark:text-amber-300">
-                <Pencil className="h-4 w-4 shrink-0" />
-                All fields are editable — click any cell to fix the value directly. Changes are validated instantly.
+            {(previewFilter === 'issues' || previewFilter === 'duplicates' || previewFilter === 'dates')
+              && filteredValidationRows.length > 0 && (
+              <div className="flex items-start gap-2 rounded-md border border-amber-200 bg-amber-50 dark:bg-amber-950/30 dark:border-amber-800 px-4 py-2 text-sm text-amber-800 dark:text-amber-300">
+                <Pencil className="h-4 w-4 shrink-0 mt-0.5" />
+                <span>
+                  Click any cell to fix values — validation updates instantly. Delete duplicate rows you do not want to import.
+                  {previewFilter === 'dates' && (
+                    <> Tip: start date equal to DOB usually means DOB was pasted into the start-date column.</>
+                  )}
+                </span>
               </div>
             )}
             <div className="rounded-md border overflow-x-auto">
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead className="min-w-[200px]">Issues</TableHead>
+                    <TableHead className="w-14">CSV#</TableHead>
+                    <TableHead className="min-w-[220px]">Issues</TableHead>
                     {EDITABLE_COLUMNS.map((key) => (
                       <TableHead key={key} className="font-semibold">
                         <span className="flex items-center gap-1">
@@ -1099,35 +1319,60 @@ export default function BulkUploadPage() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {filteredValidationRows.slice(0, previewFilter === 'issues' ? undefined : 25).map(({ row, index, labelId, studentId, issues, warnings }) => {
+                  {filteredValidationRows.slice(
+                    0,
+                    previewFilter === 'all' || previewFilter === 'ready' ? 40 : undefined,
+                  ).map(({ row, index, labelId, studentId, issues, warnings, csvRow }) => {
                     const issueFields = new Set<string>();
                     if (!row.firstName) issueFields.add('firstName');
                     if (!row.lastName) issueFields.add('lastName');
-                    if (!isValidDate(row.dob)) issueFields.add('dob');
-                    if (!isValidDate(row.startDate)) issueFields.add('startDate');
+                    if (!isValidDate(row.dob) || issues.some(m => /dob/i.test(m))) issueFields.add('dob');
+                    if (!isValidDate(row.startDate) || issues.some(m => /start date/i.test(m))) {
+                      issueFields.add('startDate');
+                    }
                     if (!FISCAL_YEAR_OPTIONS.includes(row.fiscalYear)) issueFields.add('fiscalYear');
-                    if (!STATUS_OPTIONS.includes(row.status)) issueFields.add('status');
+                    if (!STATUS_OPTIONS.includes(row.status) || STATUS_EXPORT_ONLY[row.status]) {
+                      issueFields.add('status');
+                    }
                     if (getEmailIssue(row.email)) issueFields.add('email');
                     const rowBg = issues.length > 0
                       ? 'bg-destructive/5'
-                      : warnings.length > 0
+                      : warnings.some(isDateIssue)
                         ? 'bg-amber-50 dark:bg-amber-950/20'
-                        : '';
+                        : warnings.some(isDuplicateIssue)
+                          ? 'bg-violet-50/80 dark:bg-violet-950/20'
+                          : warnings.length > 0
+                            ? 'bg-amber-50/50 dark:bg-amber-950/10'
+                            : '';
                     return (
                       <TableRow key={index} className={rowBg}>
+                        <TableCell className="font-mono text-xs text-muted-foreground align-top pt-3">
+                          {csvRow}
+                        </TableCell>
                         <TableCell>
                           {issues.length === 0 && warnings.length === 0 ? (
                             <Badge variant="outline">OK</Badge>
                           ) : (
                             <div className="flex flex-col gap-1">
                               {issues.map((issue) => (
-                                <Badge key={issue} variant="destructive" className="w-fit text-xs whitespace-normal h-auto py-0.5 leading-snug">
+                                <Badge
+                                  key={issue}
+                                  variant="destructive"
+                                  className="w-fit text-xs whitespace-normal h-auto py-0.5 leading-snug"
+                                >
                                   {issue}
                                 </Badge>
                               ))}
                               {warnings.map((warn) => (
-                                <Badge key={warn} className="w-fit text-xs whitespace-normal h-auto py-0.5 leading-snug bg-amber-100 text-amber-800 border border-amber-300 hover:bg-amber-100 dark:bg-amber-900/40 dark:text-amber-300 dark:border-amber-700">
-                                  ⚠ {warn}
+                                <Badge
+                                  key={warn}
+                                  className={`w-fit text-xs whitespace-normal h-auto py-0.5 leading-snug border ${
+                                    isDuplicateIssue(warn)
+                                      ? 'bg-violet-100 text-violet-900 border-violet-300 dark:bg-violet-900/40 dark:text-violet-200 dark:border-violet-700'
+                                      : 'bg-amber-100 text-amber-800 border-amber-300 dark:bg-amber-900/40 dark:text-amber-300 dark:border-amber-700'
+                                  }`}
+                                >
+                                  {warn}
                                 </Badge>
                               ))}
                             </div>
@@ -1160,8 +1405,8 @@ export default function BulkUploadPage() {
                                     <SelectValue placeholder="Status" />
                                   </SelectTrigger>
                                   <SelectContent>
-                                    {STATUS_OPTIONS.map((status) => (
-                                      <SelectItem key={status} value={status}>{status}</SelectItem>
+                                    {STATUS_OPTIONS.map((statusOpt) => (
+                                      <SelectItem key={statusOpt} value={statusOpt}>{statusOpt}</SelectItem>
                                     ))}
                                   </SelectContent>
                                 </Select>
@@ -1203,14 +1448,54 @@ export default function BulkUploadPage() {
                 </TableBody>
               </Table>
             </div>
-            {previewFilter !== 'issues' && filteredValidationRows.length > 25 && (
+            {(previewFilter === 'all' || previewFilter === 'ready') && filteredValidationRows.length > 40 && (
               <p className="text-sm text-muted-foreground mt-4 text-center">
-                Showing first 25 of {filteredValidationRows.length} {previewFilter === 'all' ? 'students' : 'ready students'}. Switch to <strong>Needs Fixing</strong> to see all rows with issues.
+                Showing first 40 of {filteredValidationRows.length}. Use <strong>Needs Fixing</strong>, <strong>Duplicates</strong>, or <strong>Dates</strong> to review problem rows.
               </p>
             )}
           </CardContent>
         </Card>
       )}
+
+      <Dialog open={confirmUploadOpen} onOpenChange={setConfirmUploadOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <ShieldAlert className="h-5 w-5 text-amber-600" />
+              Confirm bulk upload
+            </DialogTitle>
+            <DialogDescription>
+              Only rows with no blocking issues will be uploaded. Review the summary before continuing.
+            </DialogDescription>
+          </DialogHeader>
+          <ul className="text-sm space-y-2 py-2">
+            <li className="flex justify-between gap-4">
+              <span>Ready to upload</span>
+              <strong>{readyRows.length}</strong>
+            </li>
+            <li className="flex justify-between gap-4 text-destructive">
+              <span>Blocked (will be skipped)</span>
+              <strong>{rowsWithIssues.length}</strong>
+            </li>
+            <li className="flex justify-between gap-4 text-amber-800 dark:text-amber-300">
+              <span>Ready but with warnings</span>
+              <strong>{rowsWithWarningsOnly.length}</strong>
+            </li>
+            <li className="flex justify-between gap-4 text-violet-800 dark:text-violet-300">
+              <span>Duplicate-related rows in file</span>
+              <strong>{duplicateRows.length}</strong>
+            </li>
+          </ul>
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button type="button" variant="outline" onClick={() => setConfirmUploadOpen(false)}>
+              Go back and fix
+            </Button>
+            <Button type="button" onClick={handleUpload} disabled={uploading || readyRows.length === 0}>
+              {uploading ? 'Uploading…' : `Upload ${readyRows.length} ready`}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Success Message */}
       {success && (
