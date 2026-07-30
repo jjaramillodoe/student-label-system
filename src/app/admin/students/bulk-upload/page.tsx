@@ -1,6 +1,7 @@
 "use client";
 import React, { useState, useRef } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 import { 
   ArrowLeft, 
@@ -289,6 +290,7 @@ function normalizeUploadRows(rows: Record<string, string>[]) {
 
 export default function BulkUploadPage() {
   const { data: session, status } = useSession();
+  const router = useRouter();
   const [preview, setPreview] = useState<any[]>([]);
   const [uploading, setUploading] = useState(false);
   const [success, setSuccess] = useState('');
@@ -326,8 +328,21 @@ export default function BulkUploadPage() {
         const cabinetsData = await cabinetRes.json();
         const studentsData = await studentRes.json();
         const schoolsData = await schoolRes.json();
-        setCabinets(Array.isArray(cabinetsData) ? cabinetsData : []);
-        setExistingStudents(Array.isArray(studentsData) ? studentsData : []);
+        const normalizedCabinets = (Array.isArray(cabinetsData) ? cabinetsData : []).map((cabinet: any) => ({
+          ...cabinet,
+          _id: String(cabinet._id),
+          drawers: Array.isArray(cabinet.drawers)
+            ? cabinet.drawers.map((drawer: any) => ({ ...drawer, _id: String(drawer._id) }))
+            : [],
+        }));
+        setCabinets(normalizedCabinets);
+        if (!studentRes.ok || !Array.isArray(studentsData)) {
+          console.error('Failed to load existing students for duplicate checks', studentsData);
+          setExistingStudents([]);
+          setError('Could not load existing students for duplicate checks. Refresh before uploading.');
+        } else {
+          setExistingStudents(studentsData);
+        }
 
         // Find the agencyId for the user's school
         const userSchool = (session?.user as any)?.school || '';
@@ -496,6 +511,9 @@ export default function BulkUploadPage() {
 
       if (labelId && existingStudentIds.has(labelId)) {
         issues.push(`Duplicate label ID already in system (${labelId})`);
+      }
+      if (studentId && existingStudentIds.has(studentId)) {
+        issues.push(`Duplicate student ID already in system (${studentId}) — same name/DOB identity exists`);
       }
       const labelDupes = fileStudentIds.get(labelId) || [];
       if (labelId && labelDupes.length > 1) {
@@ -753,7 +771,7 @@ export default function BulkUploadPage() {
   }
 
   function handleCabinetChange(value: string) {
-    const cabinet = cabinets.find(c => c._id === value);
+    const cabinet = cabinets.find(c => String(c._id) === String(value));
     setSelectedCabinet(cabinet || null);
     setSelectedDrawer(''); // Reset drawer selection when cabinet changes
   }
@@ -841,8 +859,8 @@ export default function BulkUploadPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           students: studentsToUpload,
-          targetCabinetId: selectedCabinet._id,
-          targetDrawerId: selectedDrawer,
+          targetCabinetId: String(selectedCabinet._id),
+          targetDrawerId: String(selectedDrawer),
           autoCreateCabinets,
         }),
       });
@@ -857,15 +875,28 @@ export default function BulkUploadPage() {
       const data = await res.json();
       successCount = data.insertedCount || studentsToUpload.length;
       const uploadedIndexes = new Set(readyRows.map(row => row.index));
-      setSuccess(`Successfully imported ${successCount} ready student${successCount !== 1 ? 's' : ''}.${data.cabinetsCreated ? ` Created ${data.cabinetsCreated} new cabinet${data.cabinetsCreated !== 1 ? 's' : ''}.` : ''} ${rowsWithIssues.length ? `${rowsWithIssues.length} row${rowsWithIssues.length !== 1 ? 's' : ''} still need fixing.` : ''}`);
+      const leftoverIssues = rowsWithIssues.length;
+      setSuccess(`Successfully imported ${successCount} ready student${successCount !== 1 ? 's' : ''}.${data.cabinetsCreated ? ` Created ${data.cabinetsCreated} new cabinet${data.cabinetsCreated !== 1 ? 's' : ''}.` : ''} ${leftoverIssues ? `${leftoverIssues} row${leftoverIssues !== 1 ? 's' : ''} still need fixing.` : ''}`);
       setPreview(current => current.filter((_, index) => !uploadedIndexes.has(index)));
-      setPreviewFilter(rowsWithIssues.length ? 'issues' : 'all');
+      setPreviewFilter(leftoverIssues ? 'issues' : 'all');
       const refreshedCabinets = await fetch('/api/cabinets').then(response => response.json()).catch(() => null);
-      if (Array.isArray(refreshedCabinets)) setCabinets(refreshedCabinets);
-      if (rowsWithIssues.length === 0) {
+      if (Array.isArray(refreshedCabinets)) {
+        setCabinets(refreshedCabinets.map((cabinet: any) => ({
+          ...cabinet,
+          _id: String(cabinet._id),
+          drawers: Array.isArray(cabinet.drawers)
+            ? cabinet.drawers.map((drawer: any) => ({ ...drawer, _id: String(drawer._id) }))
+            : [],
+        })));
+      }
+      if (leftoverIssues === 0) {
         setFileName('');
         setSelectedCabinet(null);
         setSelectedDrawer('');
+        // Brief success state, then return to the main dashboard
+        setTimeout(() => {
+          router.push('/');
+        }, 600);
       }
     } catch (err) {
       setError('Error uploading students. Please check your data.');
@@ -936,7 +967,7 @@ export default function BulkUploadPage() {
                   </div>
                 ) : (
                   cabinets.map((cabinet) => (
-                    <SelectItem key={cabinet._id} value={cabinet._id}>
+                    <SelectItem key={cabinet._id} value={String(cabinet._id)}>
                       {cabinet.identifier ? `${cabinet.name} (${cabinet.identifier})` : cabinet.name}
                     </SelectItem>
                   ))
@@ -958,7 +989,7 @@ export default function BulkUploadPage() {
                 <SelectContent>
                   {selectedCabinet.drawers && selectedCabinet.drawers.length > 0 ? (
                     selectedCabinet.drawers.map((drawer: any) => (
-                      <SelectItem key={drawer._id} value={drawer._id}>
+                      <SelectItem key={drawer._id} value={String(drawer._id)}>
                         {drawer.name} ({drawer.currentCount || 0}/{drawer.capacity} used)
                       </SelectItem>
                     ))

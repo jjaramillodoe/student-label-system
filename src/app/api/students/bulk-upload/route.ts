@@ -132,6 +132,95 @@ function cloneNextCabinet(template: CabinetDoc, startIndex: number): NewCabinetD
   };
 }
 
+function drawerIdsEqual(a: unknown, b: unknown) {
+  return String(a ?? '') === String(b ?? '');
+}
+
+function buildStudentDoc(
+  student: StudentUploadRow,
+  opts: {
+    labelId: string;
+    studentId: string;
+    agencyId: string;
+    cabinetId: string;
+    drawerId: string;
+    school: string;
+    now: string;
+    createdBy: { name: string; email: string };
+  },
+) {
+  const doc: Record<string, unknown> = {
+    firstName: student.firstName,
+    lastName: student.lastName,
+    dob: student.dob,
+    fiscalYear: student.fiscalYear,
+    status: student.status,
+    startDate: student.startDate,
+    email: student.email || null,
+    phone: student.phone?.trim() || null,
+    address: student.address || null,
+    apt: student.apt || null,
+    city: student.city || null,
+    state: student.state || null,
+    zip: student.zip || null,
+    addressValidationStatus:
+      student.addressValidationStatus || (student.address ? 'unverified' : 'empty'),
+    labelId: opts.labelId,
+    studentId: opts.studentId,
+    agencyId: opts.agencyId,
+    endDate: null,
+    archived: false,
+    cabinet: opts.cabinetId,
+    drawer: opts.drawerId,
+    school: opts.school,
+    createdAt: opts.now,
+    updatedAt: opts.now,
+    createdBy: opts.createdBy,
+    importSource: 'bulk-upload',
+  };
+
+  if (student.addressFlags?.length) {
+    doc.addressFlags = student.addressFlags;
+  }
+  if (student.addressStandardized) {
+    doc.addressStandardized = student.addressStandardized;
+  }
+  if (student.addressValidationStatus === 'verified') {
+    doc.addressVerifiedAt = opts.now;
+  }
+
+  return doc;
+}
+
+function bulkUploadErrorMessage(error: unknown): string {
+  if (!error || typeof error !== 'object') {
+    return 'Failed to bulk upload students';
+  }
+  const err = error as {
+    code?: number;
+    codeName?: string;
+    message?: string;
+    keyValue?: Record<string, unknown>;
+  };
+
+  if (err.code === 11000 || err.codeName === 'DuplicateKey') {
+    const key = err.keyValue ? Object.keys(err.keyValue)[0] : null;
+    const value = key ? err.keyValue?.[key] : null;
+    if (key === 'studentId') {
+      return `Duplicate student ID already exists (${value}). Someone with the same name and DOB may already be in the system.`;
+    }
+    if (key === 'labelId') {
+      return `Duplicate label ID already exists (${value}). Remove or regenerate that row and try again.`;
+    }
+    return `Duplicate key conflict${key ? ` on ${key}` : ''}. Check for students already in the system.`;
+  }
+
+  if (typeof err.message === 'string' && err.message.trim()) {
+    return err.message;
+  }
+  return 'Failed to bulk upload students';
+}
+
 export async function POST(req: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
@@ -156,10 +245,13 @@ export async function POST(req: NextRequest) {
       autoCreateCabinets?: boolean;
     };
 
+    const cabinetId = String(targetCabinetId || '');
+    const drawerId = String(targetDrawerId || '');
+
     if (!Array.isArray(students) || students.length === 0) {
       return NextResponse.json({ error: 'No students provided' }, { status: 400 });
     }
-    if (!isValidObjectId(targetCabinetId) || !targetDrawerId) {
+    if (!isValidObjectId(cabinetId) || !drawerId) {
       return NextResponse.json({ error: 'Invalid storage assignment' }, { status: 400 });
     }
 
@@ -167,7 +259,7 @@ export async function POST(req: NextRequest) {
     const db = client.db('student-label');
     const cabinetsCollection = db.collection<CabinetDoc>('cabinets');
     const studentsCollection = db.collection('students');
-    const targetCabinet = await cabinetsCollection.findOne({ _id: new ObjectId(targetCabinetId) });
+    const targetCabinet = await cabinetsCollection.findOne({ _id: new ObjectId(cabinetId) });
 
     if (!targetCabinet) {
       return NextResponse.json({ error: 'Target cabinet not found' }, { status: 404 });
@@ -175,7 +267,7 @@ export async function POST(req: NextRequest) {
     if (role !== 'Admin' && targetCabinet.school !== session.user.school) {
       return NextResponse.json({ error: 'Forbidden for this school' }, { status: 403 });
     }
-    if (!targetCabinet.drawers.some(drawer => drawer._id === targetDrawerId)) {
+    if (!targetCabinet.drawers.some(drawer => drawerIdsEqual(drawer._id, drawerId))) {
       return NextResponse.json({ error: 'Target drawer not found' }, { status: 404 });
     }
 
@@ -188,40 +280,62 @@ export async function POST(req: NextRequest) {
     function getAvailableDrawers() {
       const drawers: Array<{ cabinet: CabinetDoc; drawer: DrawerDoc; available: number }> = [];
       let include = false;
+      let foundTarget = false;
 
-      cabinets.sort(sortCabinetsByRange).forEach((cabinet) => {
-        const sortedDrawers = [...cabinet.drawers].sort((a, b) => (
-          labelToIndex(getDrawerLabel(a, 0)) - labelToIndex(getDrawerLabel(b, 0))
-        ));
+      [...cabinets].sort(sortCabinetsByRange).forEach((cabinet) => {
+        cabinet.drawers
+          .map((drawer, index) => ({ drawer, index }))
+          .sort((a, b) => (
+            labelToIndex(getDrawerLabel(a.drawer, a.index))
+            - labelToIndex(getDrawerLabel(b.drawer, b.index))
+          ))
+          .forEach(({ drawer }) => {
+            if (
+              cabinet._id.toString() === cabinetId
+              && drawerIdsEqual(drawer._id, drawerId)
+            ) {
+              include = true;
+              foundTarget = true;
+            }
+            if (!include) return;
 
-        sortedDrawers.forEach((drawer) => {
-          if (cabinet._id.toString() === targetCabinetId && drawer._id === targetDrawerId) {
-            include = true;
-          }
-          if (!include) return;
-
-          const available = (drawer.capacity || 0) - (drawer.currentCount || 0);
-          if (available > 0) {
-            drawers.push({ cabinet, drawer, available });
-          }
-        });
+            const available = (drawer.capacity || 0) - (drawer.currentCount || 0);
+            if (available > 0) {
+              drawers.push({ cabinet, drawer, available });
+            }
+          });
       });
 
-      return drawers;
+      return { drawers, foundTarget };
     }
 
-    let availableDrawers = getAvailableDrawers();
+    let { drawers: availableDrawers, foundTarget } = getAvailableDrawers();
+    if (!foundTarget) {
+      return NextResponse.json({
+        error: 'Could not allocate to the selected drawer. Re-select the cabinet/drawer and try again.',
+      }, { status: 400 });
+    }
     let availableCount = availableDrawers.reduce((sum, item) => sum + item.available, 0);
 
+    const MAX_AUTO_CABINETS = 25;
+    let autoCreateAttempts = 0;
     while (autoCreateCabinets && availableCount < students.length) {
-      const nextStartIndex = Math.max(...cabinets.map(getCabinetEndIndex)) + 1;
+      if (autoCreateAttempts >= MAX_AUTO_CABINETS) {
+        return NextResponse.json({
+          error: `Could not create enough cabinet space after ${MAX_AUTO_CABINETS} new cabinets. ${availableCount} spaces available for ${students.length} students.`,
+        }, { status: 400 });
+      }
+      autoCreateAttempts += 1;
+
+      const ends = cabinets.map(getCabinetEndIndex).filter((n) => Number.isFinite(n));
+      const nextStartIndex = (ends.length ? Math.max(...ends) : 0) + 1;
       const nextCabinet = cloneNextCabinet(targetCabinet, nextStartIndex);
       const insertResult = await db.collection('cabinets').insertOne(nextCabinet);
       const cabinetWithId = { ...nextCabinet, _id: insertResult.insertedId } as CabinetDoc;
 
       cabinets.push(cabinetWithId);
       createdCabinets.push(cabinetWithId);
-      availableDrawers = getAvailableDrawers();
+      ({ drawers: availableDrawers } = getAvailableDrawers());
       availableCount = availableDrawers.reduce((sum, item) => sum + item.available, 0);
     }
 
@@ -241,11 +355,10 @@ export async function POST(req: NextRequest) {
     const agencyId = resolveAgencyId(school, schoolDoc?.agencyId);
 
     // ── Pre-compute labelId counters per {year}-{initials} prefix ─────────────
-    // Group students by prefix so we can query existing max counters in bulk.
     type PrefixGroup = { students: typeof students; nextCounter: number };
     const prefixGroups = new Map<string, PrefixGroup>();
     for (const s of students) {
-      if (s.labelId) continue; // client already generated it — skip
+      if (s.labelId) continue;
       const initials = `${(s.firstName?.[0] || '').toUpperCase()}${(s.lastName?.[0] || '').toUpperCase()}`;
       const birthYear = s.dob?.split('-')[0] || '0000';
       const prefix = `${birthYear}-${initials}`;
@@ -253,7 +366,6 @@ export async function POST(req: NextRequest) {
       prefixGroups.get(prefix)!.students.push(s);
     }
 
-    // Query existing max counter for each prefix once (not per student)
     await Promise.all(
       Array.from(prefixGroups.entries()).map(async ([prefix, group]) => {
         const pattern = new RegExp(`^${prefix}-\\d{7}$`);
@@ -269,10 +381,9 @@ export async function POST(req: NextRequest) {
           }, 0);
           group.nextCounter = max + 1;
         }
-      })
+      }),
     );
 
-    // Assign counters within each prefix group to avoid collisions
     const prefixCounters = new Map<string, number>();
     for (const [prefix, group] of prefixGroups) {
       prefixCounters.set(prefix, group.nextCounter);
@@ -280,20 +391,22 @@ export async function POST(req: NextRequest) {
 
     // ── Build documents ───────────────────────────────────────────────────────
     const cabinetUpdates = new Map<string, { cabinetId: ObjectId; drawerId: string; count: number }>();
+    const plannedStudentIds: string[] = [];
+
     const docs = students.map((student) => {
       const slot = availableDrawers.find(item => item.available > 0);
       if (!slot) throw new Error('No available drawer slot');
 
       slot.available--;
-      const updateKey = `${slot.cabinet._id.toString()}:${slot.drawer._id}`;
+      const slotDrawerId = String(slot.drawer._id);
+      const updateKey = `${slot.cabinet._id.toString()}:${slotDrawerId}`;
       const existingUpdate = cabinetUpdates.get(updateKey);
       cabinetUpdates.set(updateKey, {
         cabinetId: slot.cabinet._id,
-        drawerId: slot.drawer._id,
+        drawerId: slotDrawerId,
         count: (existingUpdate?.count || 0) + 1,
       });
 
-      // Resolve labelId
       let labelId = student.labelId || '';
       if (!labelId && student.firstName && student.lastName && student.dob) {
         const initials = `${(student.firstName[0] || '').toUpperCase()}${(student.lastName[0] || '').toUpperCase()}`;
@@ -304,45 +417,51 @@ export async function POST(req: NextRequest) {
         prefixCounters.set(prefix, counter + 1);
       }
 
-      // Generate demographic studentId
       const studentId =
         student.firstName && student.lastName && student.dob
           ? generateStudentId(student.firstName, student.lastName, agencyId, student.dob)
           : '';
 
-      // Strip legacy studentId from CSV row before storing
-      const { studentId: _ignored, labelId: _labelIgnored, ...rest } = student as any;
+      if (studentId) plannedStudentIds.push(studentId);
 
-      return {
-        ...rest,
+      return buildStudentDoc(student, {
         labelId,
         studentId,
         agencyId,
-        email: student.email || null,
-        phone: student.phone?.trim() || null,
-        address: student.address || null,
-        apt: student.apt || null,
-        city: student.city || null,
-        state: student.state || null,
-        zip: student.zip || null,
-        addressFlags: student.addressFlags?.length ? student.addressFlags : undefined,
-        addressValidationStatus: student.addressValidationStatus || (student.address ? 'unverified' : 'empty'),
-        addressStandardized: student.addressStandardized,
-        addressVerifiedAt: student.addressValidationStatus === 'verified' ? now : undefined,
-        endDate: null,
-        archived: false,
-        cabinet: slot.cabinet._id.toString(),
-        drawer: slot.drawer._id,
+        cabinetId: slot.cabinet._id.toString(),
+        drawerId: slotDrawerId,
         school,
-        createdAt: now,
-        updatedAt: now,
+        now,
         createdBy: {
           name: session.user.name || session.user.email || 'Unknown',
           email: session.user.email || '',
         },
-        importSource: 'bulk-upload',
-      };
+      });
     });
+
+    // Preflight unique studentId collisions (sparse unique index)
+    const duplicateInBatch = plannedStudentIds.filter((id, i) => plannedStudentIds.indexOf(id) !== i);
+    if (duplicateInBatch.length > 0) {
+      return NextResponse.json({
+        error: `Duplicate student IDs within upload (same name + DOB): ${[...new Set(duplicateInBatch)].slice(0, 5).join(', ')}`,
+      }, { status: 400 });
+    }
+
+    if (plannedStudentIds.length > 0) {
+      const existingIds = await studentsCollection
+        .find({ studentId: { $in: plannedStudentIds } })
+        .project({ studentId: 1, firstName: 1, lastName: 1, dob: 1 })
+        .toArray();
+      if (existingIds.length > 0) {
+        const sample = existingIds
+          .slice(0, 5)
+          .map((s) => `${s.lastName || ''} ${s.firstName || ''} (${s.studentId})`.trim())
+          .join('; ');
+        return NextResponse.json({
+          error: `Cannot upload — ${existingIds.length} student(s) already exist with the same name/DOB identity. Examples: ${sample}`,
+        }, { status: 409 });
+      }
+    }
 
     await studentsCollection.insertMany(docs);
 
@@ -372,6 +491,6 @@ export async function POST(req: NextRequest) {
     });
   } catch (error) {
     console.error('Error bulk uploading students:', error);
-    return NextResponse.json({ error: 'Failed to bulk upload students' }, { status: 500 });
+    return NextResponse.json({ error: bulkUploadErrorMessage(error) }, { status: 500 });
   }
 }
