@@ -66,6 +66,9 @@ import {
   isBulkIsoDate,
   isDateIssue,
   isDuplicateIssue,
+  bulkIssueBadgeClass,
+  bulkIssueCategoryLabel,
+  type BulkIssueCategory,
 } from '@/lib/bulkUploadValidation';
 import { formatHumanDate } from '@/lib/utils';
 
@@ -1128,13 +1131,12 @@ export default function BulkUploadPage() {
               </Alert>
             </div>
 
-            {(issueSummary.duplicate || issueSummary.date || issueSummary.status || issueSummary.email) && (
+            {(issueSummary.duplicate || issueSummary.date || issueSummary.status || issueSummary.email || issueSummary.required) && (
               <div className="flex flex-wrap gap-2 text-xs">
-                <span className="text-muted-foreground self-center font-medium">Issue types:</span>
+                <span className="text-muted-foreground self-center font-medium">Jump to:</span>
                 {issueSummary.duplicate ? (
                   <Badge
-                    variant="outline"
-                    className="cursor-pointer border-violet-300 text-violet-800 bg-violet-50"
+                    className={`cursor-pointer ${bulkIssueBadgeClass('duplicate', 'issue')}`}
                     onClick={() => setPreviewFilter('duplicates')}
                   >
                     Duplicates ×{issueSummary.duplicate}
@@ -1142,25 +1144,33 @@ export default function BulkUploadPage() {
                 ) : null}
                 {issueSummary.date ? (
                   <Badge
-                    variant="outline"
-                    className="cursor-pointer border-amber-300 text-amber-900 bg-amber-50"
+                    className={`cursor-pointer ${bulkIssueBadgeClass('date', 'issue')}`}
                     onClick={() => setPreviewFilter('dates')}
                   >
                     Dates ×{issueSummary.date}
                   </Badge>
                 ) : null}
                 {issueSummary.status ? (
-                  <Badge variant="outline" className="cursor-pointer" onClick={() => setPreviewFilter('issues')}>
+                  <Badge
+                    className={`cursor-pointer ${bulkIssueBadgeClass('status', 'issue')}`}
+                    onClick={() => setPreviewFilter('issues')}
+                  >
                     Status / FY ×{issueSummary.status}
                   </Badge>
                 ) : null}
                 {issueSummary.email ? (
-                  <Badge variant="outline" className="cursor-pointer" onClick={() => setPreviewFilter('issues')}>
+                  <Badge
+                    className={`cursor-pointer ${bulkIssueBadgeClass('email', 'issue')}`}
+                    onClick={() => setPreviewFilter('issues')}
+                  >
                     Email ×{issueSummary.email}
                   </Badge>
                 ) : null}
                 {issueSummary.required ? (
-                  <Badge variant="outline" className="cursor-pointer" onClick={() => setPreviewFilter('issues')}>
+                  <Badge
+                    className={`cursor-pointer ${bulkIssueBadgeClass('required', 'issue')}`}
+                    onClick={() => setPreviewFilter('issues')}
+                  >
                     Required ×{issueSummary.required}
                   </Badge>
                 ) : null}
@@ -1269,19 +1279,22 @@ export default function BulkUploadPage() {
               </Button>
             </div>
             <div className="flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
-              <span className="font-medium">Badge legend:</span>
-              <span className="flex items-center gap-1.5">
-                <span className="inline-block h-3 w-3 rounded-full bg-destructive" />
-                Red = blocking (fix or delete before that row uploads)
-              </span>
-              <span className="flex items-center gap-1.5">
-                <span className="inline-block h-3 w-3 rounded-full bg-amber-400" />
-                Amber = date / soft warning (review; upload allowed if no red)
-              </span>
-              <span className="flex items-center gap-1.5">
-                <span className="inline-block h-3 w-3 rounded-full bg-violet-500" />
-                Violet = duplicate / possible same person
-              </span>
+              <span className="font-medium">Issue colors:</span>
+              {([
+                ['duplicate', 'Duplicates'],
+                ['date', 'Dates'],
+                ['email', 'Email'],
+                ['status', 'Status / FY'],
+                ['required', 'Required'],
+                ['other', 'Other'],
+              ] as [BulkIssueCategory, string][]).map(([cat, label]) => (
+                <span key={cat} className="flex items-center gap-1.5">
+                  <Badge className={`${bulkIssueBadgeClass(cat, 'issue')} !py-0 !text-[10px]`}>
+                    {label}
+                  </Badge>
+                </span>
+              ))}
+              <span className="text-muted-foreground/80">· Lighter tint = warning (still uploadable)</span>
             </div>
             {(previewFilter === 'issues' || previewFilter === 'duplicates' || previewFilter === 'dates')
               && filteredValidationRows.length > 0 && (
@@ -1354,27 +1367,36 @@ export default function BulkUploadPage() {
                             <Badge variant="outline">OK</Badge>
                           ) : (
                             <div className="flex flex-col gap-1">
-                              {issues.map((issue) => (
-                                <Badge
-                                  key={issue}
-                                  variant="destructive"
-                                  className="w-fit text-xs whitespace-normal h-auto py-0.5 leading-snug"
-                                >
-                                  {issue}
-                                </Badge>
-                              ))}
-                              {warnings.map((warn) => (
-                                <Badge
-                                  key={warn}
-                                  className={`w-fit text-xs whitespace-normal h-auto py-0.5 leading-snug border ${
-                                    isDuplicateIssue(warn)
-                                      ? 'bg-violet-100 text-violet-900 border-violet-300 dark:bg-violet-900/40 dark:text-violet-200 dark:border-violet-700'
-                                      : 'bg-amber-100 text-amber-800 border-amber-300 dark:bg-amber-900/40 dark:text-amber-300 dark:border-amber-700'
-                                  }`}
-                                >
-                                  {warn}
-                                </Badge>
-                              ))}
+                              {issues.map((issue) => {
+                                const cat = categorizeBulkIssue(issue);
+                                return (
+                                  <Badge
+                                    key={issue}
+                                    className={bulkIssueBadgeClass(cat, 'issue')}
+                                    title={`${bulkIssueCategoryLabel(cat)} · blocking`}
+                                  >
+                                    <span className="opacity-80 mr-1 text-[9px] uppercase tracking-wide">
+                                      {bulkIssueCategoryLabel(cat)}
+                                    </span>
+                                    {issue}
+                                  </Badge>
+                                );
+                              })}
+                              {warnings.map((warn) => {
+                                const cat = categorizeBulkIssue(warn);
+                                return (
+                                  <Badge
+                                    key={warn}
+                                    className={bulkIssueBadgeClass(cat, 'warning')}
+                                    title={`${bulkIssueCategoryLabel(cat)} · warning`}
+                                  >
+                                    <span className="opacity-80 mr-1 text-[9px] uppercase tracking-wide">
+                                      {bulkIssueCategoryLabel(cat)}
+                                    </span>
+                                    {warn}
+                                  </Badge>
+                                );
+                              })}
                             </div>
                           )}
                         </TableCell>

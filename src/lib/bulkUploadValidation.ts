@@ -210,6 +210,57 @@ export function isDateIssue(message: string): boolean {
   return categorizeBulkIssue(message) === 'date';
 }
 
+/** Tailwind classes for issue/warning badges by category (blocking vs soft still distinguished by border weight). */
+export function bulkIssueBadgeClass(
+  category: BulkIssueCategory,
+  kind: 'issue' | 'warning' = 'issue',
+): string {
+  const base = 'w-fit text-xs whitespace-normal h-auto py-0.5 leading-snug border';
+  const byCat: Record<BulkIssueCategory, { issue: string; warning: string }> = {
+    duplicate: {
+      issue: 'bg-violet-600 text-white border-violet-700 hover:bg-violet-600',
+      warning: 'bg-violet-100 text-violet-900 border-violet-300 dark:bg-violet-900/40 dark:text-violet-200 dark:border-violet-700',
+    },
+    date: {
+      issue: 'bg-amber-500 text-amber-950 border-amber-600 hover:bg-amber-500',
+      warning: 'bg-amber-100 text-amber-900 border-amber-300 dark:bg-amber-900/40 dark:text-amber-200 dark:border-amber-700',
+    },
+    email: {
+      issue: 'bg-sky-600 text-white border-sky-700 hover:bg-sky-600',
+      warning: 'bg-sky-100 text-sky-900 border-sky-300 dark:bg-sky-900/40 dark:text-sky-200 dark:border-sky-700',
+    },
+    status: {
+      issue: 'bg-orange-600 text-white border-orange-700 hover:bg-orange-600',
+      warning: 'bg-orange-100 text-orange-900 border-orange-300 dark:bg-orange-900/40 dark:text-orange-200 dark:border-orange-700',
+    },
+    required: {
+      issue: 'bg-destructive text-destructive-foreground border-destructive',
+      warning: 'bg-destructive/10 text-destructive border-destructive/40',
+    },
+    storage: {
+      issue: 'bg-rose-700 text-white border-rose-800 hover:bg-rose-700',
+      warning: 'bg-rose-100 text-rose-900 border-rose-300 dark:bg-rose-900/40 dark:text-rose-200 dark:border-rose-700',
+    },
+    other: {
+      issue: 'bg-slate-700 text-white border-slate-800 hover:bg-slate-700',
+      warning: 'bg-slate-100 text-slate-800 border-slate-300 dark:bg-slate-900/40 dark:text-slate-200 dark:border-slate-600',
+    },
+  };
+  return `${base} ${byCat[category][kind]}`;
+}
+
+export function bulkIssueCategoryLabel(category: BulkIssueCategory): string {
+  switch (category) {
+    case 'duplicate': return 'Duplicate';
+    case 'date': return 'Date';
+    case 'email': return 'Email';
+    case 'status': return 'Status / FY';
+    case 'required': return 'Required';
+    case 'storage': return 'Storage';
+    default: return 'Other';
+  }
+}
+
 /** 1-based CSV row numbers (header = row 1, first data row = 2). */
 export function csvRowNumber(previewIndex: number): number {
   return previewIndex + 2;
