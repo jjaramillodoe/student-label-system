@@ -68,6 +68,7 @@ import {
   isDuplicateIssue,
   bulkIssueBadgeClass,
   bulkIssueCategoryLabel,
+  bulkFieldIssueClass,
   type BulkIssueCategory,
 } from '@/lib/bulkUploadValidation';
 import { formatHumanDate } from '@/lib/utils';
@@ -1105,27 +1106,27 @@ export default function BulkUploadPage() {
               </Alert>
             )}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-              <Alert variant={issueCount > 0 ? 'destructive' : 'success'}>
+              <Alert variant={issueCount > 0 ? 'destructive' : 'success'} className="text-sm">
                 {issueCount > 0 ? <AlertCircle className="h-4 w-4" /> : <CheckCircle2 className="h-4 w-4" />}
-                <AlertDescription>
+                <AlertDescription className="font-medium">
                   {rowsWithIssues.length > 0
                     ? `${rowsWithIssues.length} row(s) blocked · ${issueCount} issue(s)`
                     : 'No blocking issues'}
                 </AlertDescription>
               </Alert>
-              <Alert>
+              <Alert className={`text-sm ${readyRows.length > 0 ? 'border-emerald-300 bg-emerald-50/70 text-emerald-900 dark:bg-emerald-950/20 dark:text-emerald-200 dark:border-emerald-800' : ''}`}>
                 <Users className="h-4 w-4" />
-                <AlertDescription>{readyRows.length} row(s) ready to upload</AlertDescription>
+                <AlertDescription className="font-medium">{readyRows.length} row(s) ready to upload</AlertDescription>
               </Alert>
-              <Alert className={duplicateRows.length ? 'border-violet-300 bg-violet-50/60 dark:bg-violet-950/20' : undefined}>
+              <Alert className={`text-sm ${duplicateRows.length ? 'border-teal-300 bg-teal-50/70 text-teal-950 dark:bg-teal-950/20 dark:text-teal-100 dark:border-teal-800' : ''}`}>
                 <Copy className="h-4 w-4" />
-                <AlertDescription>
+                <AlertDescription className="font-medium">
                   {duplicateRows.length} duplicate / possible-dupe row(s)
                 </AlertDescription>
               </Alert>
-              <Alert className={dateIssueRows.length ? 'border-amber-300 bg-amber-50/60 dark:bg-amber-950/20' : undefined}>
+              <Alert className={`text-sm ${dateIssueRows.length ? 'border-amber-300 bg-amber-50/70 text-amber-950 dark:bg-amber-950/20 dark:text-amber-100 dark:border-amber-800' : ''}`}>
                 <Calendar className="h-4 w-4" />
-                <AlertDescription>
+                <AlertDescription className="font-medium">
                   {dateIssueRows.length} row(s) with date concerns
                 </AlertDescription>
               </Alert>
@@ -1255,7 +1256,7 @@ export default function BulkUploadPage() {
                 type="button"
                 variant={previewFilter === 'duplicates' ? 'default' : 'outline'}
                 size="sm"
-                className={previewFilter === 'duplicates' ? '' : 'border-violet-300 text-violet-800'}
+                className={previewFilter === 'duplicates' ? '' : 'border-teal-300 text-teal-900'}
                 onClick={() => setPreviewFilter('duplicates')}
               >
                 Duplicates ({duplicateRows.length})
@@ -1278,23 +1279,24 @@ export default function BulkUploadPage() {
                 Warnings only ({rowsWithWarningsOnly.length})
               </Button>
             </div>
-            <div className="flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
-              <span className="font-medium">Issue colors:</span>
+            <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+              <span className="font-medium text-foreground/80">Issue colors:</span>
               {([
                 ['duplicate', 'Duplicates'],
                 ['date', 'Dates'],
                 ['email', 'Email'],
                 ['status', 'Status / FY'],
                 ['required', 'Required'],
-                ['other', 'Other'],
+                ['storage', 'Storage'],
               ] as [BulkIssueCategory, string][]).map(([cat, label]) => (
-                <span key={cat} className="flex items-center gap-1.5">
-                  <Badge className={`${bulkIssueBadgeClass(cat, 'issue')} !py-0 !text-[10px]`}>
-                    {label}
-                  </Badge>
+                <span
+                  key={cat}
+                  className={`${bulkIssueBadgeClass(cat, 'issue')} !max-w-none !py-0.5 !px-2 text-[11px]`}
+                >
+                  {label}
                 </span>
               ))}
-              <span className="text-muted-foreground/80">· Lighter tint = warning (still uploadable)</span>
+              <span className="text-muted-foreground">· Soft tint = warning (upload still allowed)</span>
             </div>
             {(previewFilter === 'issues' || previewFilter === 'duplicates' || previewFilter === 'dates')
               && filteredValidationRows.length > 0 && (
@@ -1336,72 +1338,86 @@ export default function BulkUploadPage() {
                     0,
                     previewFilter === 'all' || previewFilter === 'ready' ? 40 : undefined,
                   ).map(({ row, index, labelId, studentId, issues, warnings, csvRow }) => {
-                    const issueFields = new Set<string>();
-                    if (!row.firstName) issueFields.add('firstName');
-                    if (!row.lastName) issueFields.add('lastName');
-                    if (!isValidDate(row.dob) || issues.some(m => /dob/i.test(m))) issueFields.add('dob');
-                    if (!isValidDate(row.startDate) || issues.some(m => /start date/i.test(m))) {
-                      issueFields.add('startDate');
-                    }
-                    if (!FISCAL_YEAR_OPTIONS.includes(row.fiscalYear)) issueFields.add('fiscalYear');
-                    if (!STATUS_OPTIONS.includes(row.status) || STATUS_EXPORT_ONLY[row.status]) {
-                      issueFields.add('status');
-                    }
-                    if (getEmailIssue(row.email)) issueFields.add('email');
+                    const fieldCategory = (key: string): BulkIssueCategory | null => {
+                      if (key === 'firstName' || key === 'lastName') {
+                        return (!row[key] || issues.some(m => m.toLowerCase().includes(key === 'firstName' ? 'first name' : 'last name')))
+                          ? 'required' : null;
+                      }
+                      if (key === 'dob') {
+                        return issues.some(isDateIssue) || !isValidDate(row.dob) || warnings.some(isDateIssue)
+                          ? 'date' : null;
+                      }
+                      if (key === 'startDate') {
+                        return issues.some(m => /start date/i.test(m)) || !isValidDate(row.startDate)
+                          ? 'date' : null;
+                      }
+                      if (key === 'fiscalYear' || key === 'status') {
+                        return (!STATUS_OPTIONS.includes(row.status) && key === 'status')
+                          || STATUS_EXPORT_ONLY[row.status]
+                          || (!FISCAL_YEAR_OPTIONS.includes(row.fiscalYear) && key === 'fiscalYear')
+                          ? 'status' : null;
+                      }
+                      if (key === 'email' && getEmailIssue(row.email)) return 'email';
+                      return null;
+                    };
+
                     const rowBg = issues.length > 0
-                      ? 'bg-destructive/5'
+                      ? 'bg-red-50/40 dark:bg-red-950/10'
                       : warnings.some(isDateIssue)
-                        ? 'bg-amber-50 dark:bg-amber-950/20'
+                        ? 'bg-amber-50/50 dark:bg-amber-950/15'
                         : warnings.some(isDuplicateIssue)
-                          ? 'bg-violet-50/80 dark:bg-violet-950/20'
+                          ? 'bg-teal-50/50 dark:bg-teal-950/15'
                           : warnings.length > 0
-                            ? 'bg-amber-50/50 dark:bg-amber-950/10'
+                            ? 'bg-muted/40'
                             : '';
                     return (
                       <TableRow key={index} className={rowBg}>
-                        <TableCell className="font-mono text-xs text-muted-foreground align-top pt-3">
+                        <TableCell className="font-mono text-xs text-muted-foreground align-top pt-3 tabular-nums">
                           {csvRow}
                         </TableCell>
                         <TableCell>
                           {issues.length === 0 && warnings.length === 0 ? (
-                            <Badge variant="outline">OK</Badge>
+                            <Badge variant="outline" className="font-medium text-emerald-700 border-emerald-300 bg-emerald-50">
+                              OK
+                            </Badge>
                           ) : (
-                            <div className="flex flex-col gap-1">
+                            <div className="flex flex-col gap-1.5">
                               {issues.map((issue) => {
                                 const cat = categorizeBulkIssue(issue);
                                 return (
-                                  <Badge
+                                  <div
                                     key={issue}
                                     className={bulkIssueBadgeClass(cat, 'issue')}
                                     title={`${bulkIssueCategoryLabel(cat)} · blocking`}
                                   >
-                                    <span className="opacity-80 mr-1 text-[9px] uppercase tracking-wide">
+                                    <div className="text-[10px] font-semibold uppercase tracking-wide opacity-70 mb-0.5">
                                       {bulkIssueCategoryLabel(cat)}
-                                    </span>
-                                    {issue}
-                                  </Badge>
+                                    </div>
+                                    <div className="font-medium">{issue}</div>
+                                  </div>
                                 );
                               })}
                               {warnings.map((warn) => {
                                 const cat = categorizeBulkIssue(warn);
                                 return (
-                                  <Badge
+                                  <div
                                     key={warn}
                                     className={bulkIssueBadgeClass(cat, 'warning')}
                                     title={`${bulkIssueCategoryLabel(cat)} · warning`}
                                   >
-                                    <span className="opacity-80 mr-1 text-[9px] uppercase tracking-wide">
-                                      {bulkIssueCategoryLabel(cat)}
-                                    </span>
-                                    {warn}
-                                  </Badge>
+                                    <div className="text-[10px] font-semibold uppercase tracking-wide opacity-70 mb-0.5">
+                                      {bulkIssueCategoryLabel(cat)} · warning
+                                    </div>
+                                    <div className="font-medium">{warn}</div>
+                                  </div>
                                 );
                               })}
                             </div>
                           )}
                         </TableCell>
                         {EDITABLE_COLUMNS.map((key) => {
-                          const hasIssue = issueFields.has(key);
+                          const cat = fieldCategory(key);
+                          const fieldClass = bulkFieldIssueClass(cat);
                           return (
                             <TableCell key={key} className="min-w-[160px]">
                               {key === 'fiscalYear' ? (
@@ -1409,7 +1425,7 @@ export default function BulkUploadPage() {
                                   value={row[key] || ''}
                                   onValueChange={(value) => updatePreviewCell(index, key, value)}
                                 >
-                                  <SelectTrigger className={hasIssue ? 'border-destructive ring-1 ring-destructive' : ''}>
+                                  <SelectTrigger className={fieldClass}>
                                     <SelectValue placeholder="Fiscal year" />
                                   </SelectTrigger>
                                   <SelectContent>
@@ -1423,7 +1439,7 @@ export default function BulkUploadPage() {
                                   value={row[key] || ''}
                                   onValueChange={(value) => updatePreviewCell(index, key, value)}
                                 >
-                                  <SelectTrigger className={hasIssue ? 'border-destructive ring-1 ring-destructive' : ''}>
+                                  <SelectTrigger className={fieldClass}>
                                     <SelectValue placeholder="Status" />
                                   </SelectTrigger>
                                   <SelectContent>
@@ -1437,7 +1453,7 @@ export default function BulkUploadPage() {
                                   type={key === 'dob' || key === 'startDate' ? 'date' : key === 'email' ? 'email' : 'text'}
                                   value={row[key] || ''}
                                   onChange={(e) => updatePreviewCell(index, key, e.target.value)}
-                                  className={hasIssue ? 'border-destructive ring-1 ring-destructive focus-visible:ring-destructive' : ''}
+                                  className={fieldClass}
                                 />
                               )}
                             </TableCell>
@@ -1445,7 +1461,7 @@ export default function BulkUploadPage() {
                         })}
                         <TableCell>
                           <div className="flex flex-col gap-0.5">
-                            <span className="font-mono text-xs font-medium">{labelId}</span>
+                            <span className="font-mono text-xs font-medium tabular-nums">{labelId}</span>
                             {studentId && (
                               <span className="font-mono text-[10px] text-muted-foreground truncate max-w-[160px]" title={studentId}>
                                 {studentId}
@@ -1503,7 +1519,7 @@ export default function BulkUploadPage() {
               <span>Ready but with warnings</span>
               <strong>{rowsWithWarningsOnly.length}</strong>
             </li>
-            <li className="flex justify-between gap-4 text-violet-800 dark:text-violet-300">
+            <li className="flex justify-between gap-4 text-teal-800 dark:text-teal-300">
               <span>Duplicate-related rows in file</span>
               <strong>{duplicateRows.length}</strong>
             </li>
