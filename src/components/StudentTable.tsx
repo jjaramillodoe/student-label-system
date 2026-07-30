@@ -25,7 +25,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { cn } from "@/lib/utils";
+import { cn, formatShortDate, parseCalendarDate } from "@/lib/utils";
 import { formatFullName, formatFullNameLower } from "@/lib/personName";
 import { getStudentStorageDisplay } from "@/lib/studentLocation";
 
@@ -115,12 +115,7 @@ const StudentTable: React.FC<StudentTableProps> = ({
 
   const formatDate = (dateString: string) => {
     if (!dateString) return '-';
-    try {
-      const date = new Date(dateString);
-      return date.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
-    } catch {
-      return dateString;
-    }
+    return formatShortDate(dateString) ?? dateString;
   };
 
   const handleSort = (column: SortColumn) => {
@@ -155,8 +150,8 @@ const StudentTable: React.FC<StudentTableProps> = ({
           bValue = formatFullNameLower(b);
           break;
         case 'dob':
-          aValue = a.dob ? new Date(a.dob).getTime() : 0;
-          bValue = b.dob ? new Date(b.dob).getTime() : 0;
+          aValue = parseCalendarDate(a.dob)?.getTime() ?? 0;
+          bValue = parseCalendarDate(b.dob)?.getTime() ?? 0;
           break;
         case 'fiscalYear':
           aValue = a.fiscalYear || '';
@@ -174,8 +169,8 @@ const StudentTable: React.FC<StudentTableProps> = ({
           break;
         }
         case 'startDate':
-          aValue = a.startDate ? new Date(a.startDate).getTime() : 0;
-          bValue = b.startDate ? new Date(b.startDate).getTime() : 0;
+          aValue = parseCalendarDate(a.startDate)?.getTime() ?? 0;
+          bValue = parseCalendarDate(b.startDate)?.getTime() ?? 0;
           break;
         default:
           return 0;

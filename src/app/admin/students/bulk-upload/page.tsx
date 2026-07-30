@@ -1309,7 +1309,7 @@ export default function BulkUploadPage() {
               <div className="flex items-start gap-2 rounded-md border border-amber-200 bg-amber-50 dark:bg-amber-950/30 dark:border-amber-800 px-4 py-2 text-sm text-amber-800 dark:text-amber-300">
                 <Pencil className="h-4 w-4 shrink-0 mt-0.5" />
                 <span>
-                  Click any cell to fix values — validation updates instantly. Delete duplicate rows you do not want to import.
+                  Click any cell to fix values — validation updates instantly. Use the Remove button at the left to drop duplicate or unwanted rows before upload.
                   {previewFilter === 'dates' && (
                     <> Tip: start date equal to DOB usually means DOB was pasted into the start-date column.</>
                   )}
@@ -1320,6 +1320,9 @@ export default function BulkUploadPage() {
               <Table>
                 <TableHeader>
                   <TableRow>
+                    <TableHead className="w-14 sticky left-0 z-20 bg-background text-black font-semibold shadow-[1px_0_0_0_hsl(var(--border))]">
+                      <span className="sr-only">Remove</span>
+                    </TableHead>
                     <TableHead className="w-14 text-black font-semibold">CSV#</TableHead>
                     <TableHead className="min-w-[220px] text-black font-semibold">Issues</TableHead>
                     {EDITABLE_COLUMNS.map((key) => (
@@ -1336,7 +1339,6 @@ export default function BulkUploadPage() {
                         <span className="text-[10px] font-medium text-black/60">Student ID</span>
                       </div>
                     </TableHead>
-                    <TableHead className="w-10" />
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -1376,8 +1378,25 @@ export default function BulkUploadPage() {
                           : warnings.length > 0
                             ? 'bg-muted/40'
                             : '';
+                    const isDuplicateRow = issues.some(isDuplicateIssue) || warnings.some(isDuplicateIssue);
                     return (
                       <TableRow key={index} className={rowBg}>
+                        <TableCell className="sticky left-0 z-10 align-top pt-2 bg-inherit shadow-[1px_0_0_0_hsl(var(--border))]">
+                          <Button
+                            variant={isDuplicateRow ? 'outline' : 'ghost'}
+                            size={isDuplicateRow ? 'sm' : 'icon'}
+                            className={
+                              isDuplicateRow
+                                ? 'h-8 gap-1.5 border-teal-600 bg-teal-50 px-2 text-teal-900 hover:bg-teal-100 hover:text-teal-950'
+                                : 'h-8 w-8 text-muted-foreground hover:text-destructive hover:bg-destructive/10'
+                            }
+                            title="Remove this row from the upload"
+                            onClick={() => deletePreviewRow(index)}
+                          >
+                            <Trash2 className="h-4 w-4 shrink-0" />
+                            {isDuplicateRow ? <span className="text-xs font-semibold">Remove</span> : null}
+                          </Button>
+                        </TableCell>
                         <TableCell className="font-mono text-xs text-black align-top pt-3 tabular-nums">
                           {csvRow}
                         </TableCell>
@@ -1474,17 +1493,6 @@ export default function BulkUploadPage() {
                               </span>
                             )}
                           </div>
-                        </TableCell>
-                        <TableCell className="w-10">
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-7 w-7 text-muted-foreground hover:text-destructive hover:bg-destructive/10"
-                            title="Remove this row from the upload"
-                            onClick={() => deletePreviewRow(index)}
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
                         </TableCell>
                       </TableRow>
                     );
