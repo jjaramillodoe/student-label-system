@@ -28,6 +28,10 @@ import {
 import { cn, formatShortDate, parseCalendarDate } from "@/lib/utils";
 import { formatFullName, formatFullNameLower } from "@/lib/personName";
 import { getStudentStorageDisplay } from "@/lib/studentLocation";
+import {
+  formatStudentAddressStacked,
+  type StudentAddressInput,
+} from "@/lib/addressValidation";
 
 export type Student = {
   _id?: string;
@@ -41,6 +45,18 @@ export type Student = {
   drawer: string;
   drawerSection?: string;
   email?: string | null;
+  address?: string | null;
+  apt?: string | null;
+  city?: string | null;
+  state?: string | null;
+  zip?: string | null;
+  addressStandardized?: {
+    address: string;
+    apt?: string;
+    city: string;
+    state: string;
+    zip: string;
+  } | null;
   /** Barcode printed on the physical label: {year}-{initials}-{counter} */
   labelId?: string;
   /** Demographic ID: {LASTNAME}{FIRSTNAME}{AGENCYID}{DOBDIGITS} */
@@ -58,6 +74,25 @@ export type Student = {
   createdAt?: string;
 };
 
+function studentAddressInput(student: Student): StudentAddressInput {
+  if (student.addressStandardized?.address?.trim()) {
+    return {
+      address: student.addressStandardized.address,
+      apt: student.apt || student.addressStandardized.apt,
+      city: student.addressStandardized.city,
+      state: student.addressStandardized.state,
+      zip: student.addressStandardized.zip,
+    };
+  }
+  return {
+    address: student.address ?? undefined,
+    apt: student.apt ?? undefined,
+    city: student.city ?? undefined,
+    state: student.state ?? undefined,
+    zip: student.zip ?? undefined,
+  };
+}
+
 interface StudentTableProps {
   students: Student[];
   selectedIds: string[];
@@ -73,7 +108,7 @@ interface StudentTableProps {
   drawerMap: Record<string, string>;
 }
 
-type SortColumn = 'studentId' | 'name' | 'dob' | 'fiscalYear' | 'status' | 'location' | 'startDate' | null;
+type SortColumn = 'studentId' | 'name' | 'address' | 'dob' | 'fiscalYear' | 'status' | 'location' | 'startDate' | null;
 type SortDirection = 'asc' | 'desc' | null;
 
 const StudentTable: React.FC<StudentTableProps> = ({
@@ -150,6 +185,13 @@ const StudentTable: React.FC<StudentTableProps> = ({
           aValue = formatFullNameLower(a);
           bValue = formatFullNameLower(b);
           break;
+        case 'address': {
+          const aAddr = formatStudentAddressStacked(studentAddressInput(a));
+          const bAddr = formatStudentAddressStacked(studentAddressInput(b));
+          aValue = [aAddr?.streetLine, aAddr?.cityStateZip].filter(Boolean).join(' ').toLowerCase();
+          bValue = [bAddr?.streetLine, bAddr?.cityStateZip].filter(Boolean).join(' ').toLowerCase();
+          break;
+        }
         case 'dob':
           aValue = parseCalendarDate(a.dob)?.getTime() ?? 0;
           bValue = parseCalendarDate(b.dob)?.getTime() ?? 0;
@@ -209,6 +251,7 @@ const StudentTable: React.FC<StudentTableProps> = ({
             <col style={{ width: '2.5rem' }} />
             <col style={{ width: '10.5rem' }} />
             <col style={{ width: '11.5rem' }} />
+            <col style={{ width: '12.5rem' }} />
             <col style={{ width: '6.25rem' }} />
             <col style={{ width: '5.5rem' }} />
             <col style={{ width: '6.25rem' }} />
@@ -246,6 +289,15 @@ const StudentTable: React.FC<StudentTableProps> = ({
                 <div className="flex items-center gap-1.5">
                   Name
                   <SortIcon column="name" />
+                </div>
+              </TableHead>
+              <TableHead
+                className="font-semibold cursor-pointer hover:bg-muted/70 transition-colors select-none px-2"
+                onClick={() => handleSort('address')}
+              >
+                <div className="flex items-center gap-1.5">
+                  Address
+                  <SortIcon column="address" />
                 </div>
               </TableHead>
               <TableHead 
@@ -301,7 +353,7 @@ const StudentTable: React.FC<StudentTableProps> = ({
           <TableBody>
             {sortedStudents.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={9} className="h-32 text-center">
+                <TableCell colSpan={10} className="h-32 text-center">
                   <div className="flex flex-col items-center justify-center gap-3 text-muted-foreground py-8">
                     <div className="rounded-full bg-muted p-4">
                       <Users className="h-8 w-8" />
@@ -389,6 +441,25 @@ const StudentTable: React.FC<StudentTableProps> = ({
                           )}
                         </div>
                       </button>
+                    </TableCell>
+                    <TableCell className="px-2 align-top min-w-0">
+                      {(() => {
+                        const stacked = formatStudentAddressStacked(studentAddressInput(student));
+                        if (!stacked?.streetLine && !stacked?.cityStateZip) {
+                          return <span className="text-muted-foreground text-xs">—</span>;
+                        }
+                        const full = [stacked.streetLine, stacked.cityStateZip].filter(Boolean).join(', ');
+                        return (
+                          <div className="flex flex-col gap-0.5 text-xs leading-snug min-w-0" title={full}>
+                            {stacked.streetLine ? (
+                              <span className="font-medium truncate">{stacked.streetLine}</span>
+                            ) : null}
+                            {stacked.cityStateZip ? (
+                              <span className="text-muted-foreground truncate">{stacked.cityStateZip}</span>
+                            ) : null}
+                          </div>
+                        );
+                      })()}
                     </TableCell>
                     <TableCell className="whitespace-nowrap text-sm px-2 align-top">
                       {formatDate(student.dob)}
