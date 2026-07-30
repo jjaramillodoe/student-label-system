@@ -364,7 +364,7 @@ const StudentTable: React.FC<StudentTableProps> = ({
                         </Tooltip>
                       </TooltipProvider>
                     </TableCell>
-                    <TableCell className="px-2 align-top max-w-[220px]">
+                    <TableCell className="px-2 align-top max-w-[120px]">
                       <button
                         onClick={() => onDetails(student)}
                         className="font-medium text-primary hover:underline cursor-pointer text-left"
@@ -408,13 +408,15 @@ const StudentTable: React.FC<StudentTableProps> = ({
                         )}
                       </div>
                     </TableCell>
+                    // make the font size smaller and different color for the primary and secondary labels
                     <TableCell className="w-[1%] whitespace-nowrap px-2 align-top">
-                      <div className="flex flex-col gap-0.5 text-sm leading-snug">
+                      <div className="flex flex-col gap-0.5 text-xs leading-snug">
                         <div className="flex items-baseline gap-1">
-                          <span className="text-muted-foreground shrink-0">{storage.primaryLabel}:</span>
+                          <span className="text-muted-foreground shrink-0 text-xs">{storage.primaryLabel}:</span>
                           <span
                             className={cn(
-                              'font-medium',
+                              'font-medium text-xs',
+                              storage.isArchived && storage.primary === 'No box assigned' && 'text-amber-700 dark:text-amber-400',
                               storage.isArchived && storage.primary === 'No box assigned' && 'text-amber-700 dark:text-amber-400',
                             )}
                             title={storage.primary}
@@ -423,10 +425,11 @@ const StudentTable: React.FC<StudentTableProps> = ({
                           </span>
                         </div>
                         <div className="flex items-baseline gap-1">
-                          <span className="text-muted-foreground shrink-0">{storage.secondaryLabel}:</span>
+                          <span className="text-muted-foreground shrink-0 text-xs">{storage.secondaryLabel}:</span>
                           <span
                             className={cn(
-                              'font-medium',
+                              'font-medium text-xs',
+                              storage.isArchived && storage.secondary.includes('Move to boxes') && 'text-amber-600 dark:text-amber-500 text-xs',
                               storage.isArchived && storage.secondary.includes('Move to boxes') && 'text-amber-600 dark:text-amber-500 text-xs',
                             )}
                             title={storage.secondary}
@@ -436,15 +439,15 @@ const StudentTable: React.FC<StudentTableProps> = ({
                         </div>
                         {storage.section ? (
                           <div className="flex items-baseline gap-1">
-                            <span className="text-muted-foreground shrink-0">Sec:</span>
-                            <span className="font-medium" title={storage.section}>
+                            <span className="text-muted-foreground shrink-0 text-xs">Sec:</span>
+                            <span className="font-medium text-xs" title={storage.section}>
                               {storage.section}
                             </span>
                           </div>
                         ) : null}
                       </div>
                     </TableCell>
-                    <TableCell className="w-[1%] whitespace-nowrap text-sm text-muted-foreground px-2 align-top">
+                    <TableCell className="w-[1%] whitespace-nowrap text-xs text-muted-foreground px-2 align-top">
                       {formatDate(student.startDate)}
                     </TableCell>
                     <TableCell className="w-10 px-1 align-top">
