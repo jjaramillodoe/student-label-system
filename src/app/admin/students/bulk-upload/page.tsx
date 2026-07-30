@@ -68,6 +68,7 @@ import {
   isDuplicateIssue,
   bulkIssueBadgeClass,
   bulkIssueCategoryLabel,
+  bulkIssueCategoryLabelClass,
   bulkFieldIssueClass,
   type BulkIssueCategory,
 } from '@/lib/bulkUploadValidation';
@@ -1133,47 +1134,52 @@ export default function BulkUploadPage() {
             </div>
 
             {(issueSummary.duplicate || issueSummary.date || issueSummary.status || issueSummary.email || issueSummary.required) && (
-              <div className="flex flex-wrap gap-2 text-xs">
-                <span className="text-muted-foreground self-center font-medium">Jump to:</span>
+              <div className="flex flex-wrap gap-2 text-xs items-center">
+                <span className="text-black font-semibold self-center">Jump to:</span>
                 {issueSummary.duplicate ? (
-                  <Badge
-                    className={`cursor-pointer ${bulkIssueBadgeClass('duplicate', 'issue')}`}
+                  <button
+                    type="button"
+                    className={`cursor-pointer ${bulkIssueBadgeClass('duplicate', 'issue')} !max-w-none`}
                     onClick={() => setPreviewFilter('duplicates')}
                   >
                     Duplicates ×{issueSummary.duplicate}
-                  </Badge>
+                  </button>
                 ) : null}
                 {issueSummary.date ? (
-                  <Badge
-                    className={`cursor-pointer ${bulkIssueBadgeClass('date', 'issue')}`}
+                  <button
+                    type="button"
+                    className={`cursor-pointer ${bulkIssueBadgeClass('date', 'issue')} !max-w-none`}
                     onClick={() => setPreviewFilter('dates')}
                   >
                     Dates ×{issueSummary.date}
-                  </Badge>
+                  </button>
                 ) : null}
                 {issueSummary.status ? (
-                  <Badge
-                    className={`cursor-pointer ${bulkIssueBadgeClass('status', 'issue')}`}
+                  <button
+                    type="button"
+                    className={`cursor-pointer ${bulkIssueBadgeClass('status', 'issue')} !max-w-none`}
                     onClick={() => setPreviewFilter('issues')}
                   >
                     Status / FY ×{issueSummary.status}
-                  </Badge>
+                  </button>
                 ) : null}
                 {issueSummary.email ? (
-                  <Badge
-                    className={`cursor-pointer ${bulkIssueBadgeClass('email', 'issue')}`}
+                  <button
+                    type="button"
+                    className={`cursor-pointer ${bulkIssueBadgeClass('email', 'issue')} !max-w-none`}
                     onClick={() => setPreviewFilter('issues')}
                   >
                     Email ×{issueSummary.email}
-                  </Badge>
+                  </button>
                 ) : null}
                 {issueSummary.required ? (
-                  <Badge
-                    className={`cursor-pointer ${bulkIssueBadgeClass('required', 'issue')}`}
+                  <button
+                    type="button"
+                    className={`cursor-pointer ${bulkIssueBadgeClass('required', 'issue')} !max-w-none`}
                     onClick={() => setPreviewFilter('issues')}
                   >
                     Required ×{issueSummary.required}
-                  </Badge>
+                  </button>
                 ) : null}
               </div>
             )}
@@ -1279,8 +1285,8 @@ export default function BulkUploadPage() {
                 Warnings only ({rowsWithWarningsOnly.length})
               </Button>
             </div>
-            <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-              <span className="font-medium text-foreground/80">Issue colors:</span>
+            <div className="flex flex-wrap items-center gap-2 text-xs text-black">
+              <span className="font-semibold">Issue colors:</span>
               {([
                 ['duplicate', 'Duplicates'],
                 ['date', 'Dates'],
@@ -1296,7 +1302,7 @@ export default function BulkUploadPage() {
                   {label}
                 </span>
               ))}
-              <span className="text-muted-foreground">· Soft tint = warning (upload still allowed)</span>
+              <span className="text-black/70">· Lighter fill = warning (upload still allowed)</span>
             </div>
             {(previewFilter === 'issues' || previewFilter === 'duplicates' || previewFilter === 'dates')
               && filteredValidationRows.length > 0 && (
@@ -1314,20 +1320,20 @@ export default function BulkUploadPage() {
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead className="w-14">CSV#</TableHead>
-                    <TableHead className="min-w-[220px]">Issues</TableHead>
+                    <TableHead className="w-14 text-black font-semibold">CSV#</TableHead>
+                    <TableHead className="min-w-[220px] text-black font-semibold">Issues</TableHead>
                     {EDITABLE_COLUMNS.map((key) => (
-                      <TableHead key={key} className="font-semibold">
+                      <TableHead key={key} className="font-semibold text-black">
                         <span className="flex items-center gap-1">
                           {key}
-                          <Pencil className="h-3 w-3 text-muted-foreground opacity-50" />
+                          <Pencil className="h-3 w-3 text-black/40" />
                         </span>
                       </TableHead>
                     ))}
-                    <TableHead className="min-w-[160px]">
+                    <TableHead className="min-w-[160px] text-black font-semibold">
                       <div className="flex flex-col leading-tight">
                         <span>Label ID</span>
-                        <span className="text-[10px] font-normal text-muted-foreground">Student ID</span>
+                        <span className="text-[10px] font-medium text-black/60">Student ID</span>
                       </div>
                     </TableHead>
                     <TableHead className="w-10" />
@@ -1372,14 +1378,14 @@ export default function BulkUploadPage() {
                             : '';
                     return (
                       <TableRow key={index} className={rowBg}>
-                        <TableCell className="font-mono text-xs text-muted-foreground align-top pt-3 tabular-nums">
+                        <TableCell className="font-mono text-xs text-black align-top pt-3 tabular-nums">
                           {csvRow}
                         </TableCell>
                         <TableCell>
                           {issues.length === 0 && warnings.length === 0 ? (
-                            <Badge variant="outline" className="font-medium text-emerald-700 border-emerald-300 bg-emerald-50">
+                            <span className="inline-flex items-center rounded-md border border-emerald-600 bg-emerald-100 px-2 py-0.5 text-xs font-semibold text-black">
                               OK
-                            </Badge>
+                            </span>
                           ) : (
                             <div className="flex flex-col gap-1.5">
                               {issues.map((issue) => {
@@ -1390,10 +1396,10 @@ export default function BulkUploadPage() {
                                     className={bulkIssueBadgeClass(cat, 'issue')}
                                     title={`${bulkIssueCategoryLabel(cat)} · blocking`}
                                   >
-                                    <div className="text-[10px] font-semibold uppercase tracking-wide opacity-70 mb-0.5">
+                                    <div className={`text-[10px] font-bold uppercase tracking-wide mb-0.5 ${bulkIssueCategoryLabelClass(cat)}`}>
                                       {bulkIssueCategoryLabel(cat)}
                                     </div>
-                                    <div className="font-medium">{issue}</div>
+                                    <div className="font-semibold text-black">{issue}</div>
                                   </div>
                                 );
                               })}
@@ -1405,10 +1411,10 @@ export default function BulkUploadPage() {
                                     className={bulkIssueBadgeClass(cat, 'warning')}
                                     title={`${bulkIssueCategoryLabel(cat)} · warning`}
                                   >
-                                    <div className="text-[10px] font-semibold uppercase tracking-wide opacity-70 mb-0.5">
+                                    <div className={`text-[10px] font-bold uppercase tracking-wide mb-0.5 ${bulkIssueCategoryLabelClass(cat)}`}>
                                       {bulkIssueCategoryLabel(cat)} · warning
                                     </div>
-                                    <div className="font-medium">{warn}</div>
+                                    <div className="font-semibold text-black">{warn}</div>
                                   </div>
                                 );
                               })}
@@ -1453,7 +1459,7 @@ export default function BulkUploadPage() {
                                   type={key === 'dob' || key === 'startDate' ? 'date' : key === 'email' ? 'email' : 'text'}
                                   value={row[key] || ''}
                                   onChange={(e) => updatePreviewCell(index, key, e.target.value)}
-                                  className={fieldClass}
+                                  className={`text-black ${fieldClass}`}
                                 />
                               )}
                             </TableCell>

@@ -210,44 +210,44 @@ export function isDateIssue(message: string): boolean {
   return categorizeBulkIssue(message) === 'date';
 }
 
-/** Tailwind classes for issue/warning chips by category (soft tint + border — readable for long messages). */
+/** Tailwind classes for issue/warning chips — black text on tinted fills (high contrast). */
 export function bulkIssueBadgeClass(
   category: BulkIssueCategory,
   kind: 'issue' | 'warning' = 'issue',
 ): string {
-  // Override Badge's rounded-full / font-semibold for multi-line review chips
   const base =
     'rounded-md font-medium normal-case tracking-normal shadow-none '
-    + 'w-fit max-w-[280px] text-xs whitespace-normal h-auto py-1 px-2 leading-snug border border-l-4';
+    + '!text-black w-fit max-w-[300px] text-xs whitespace-normal h-auto py-1.5 px-2.5 leading-snug '
+    + 'border-2 border-l-4';
 
   const byCat: Record<BulkIssueCategory, { issue: string; warning: string }> = {
     duplicate: {
-      issue: 'bg-teal-50 text-teal-950 border-teal-200 border-l-teal-600 dark:bg-teal-950/40 dark:text-teal-100 dark:border-teal-800 dark:border-l-teal-400',
-      warning: 'bg-teal-50/70 text-teal-900 border-teal-200/80 border-l-teal-400 dark:bg-teal-950/25 dark:text-teal-200 dark:border-teal-800',
+      issue: 'bg-teal-200 border-teal-600 border-l-teal-800',
+      warning: 'bg-teal-100 border-teal-500 border-l-teal-600',
     },
     date: {
-      issue: 'bg-amber-50 text-amber-950 border-amber-200 border-l-amber-500 dark:bg-amber-950/40 dark:text-amber-100 dark:border-amber-800 dark:border-l-amber-400',
-      warning: 'bg-amber-50/70 text-amber-900 border-amber-200/80 border-l-amber-400 dark:bg-amber-950/25 dark:text-amber-200 dark:border-amber-800',
+      issue: 'bg-amber-200 border-amber-600 border-l-amber-800',
+      warning: 'bg-amber-100 border-amber-500 border-l-amber-600',
     },
     email: {
-      issue: 'bg-sky-50 text-sky-950 border-sky-200 border-l-sky-600 dark:bg-sky-950/40 dark:text-sky-100 dark:border-sky-800 dark:border-l-sky-400',
-      warning: 'bg-sky-50/70 text-sky-900 border-sky-200/80 border-l-sky-400 dark:bg-sky-950/25 dark:text-sky-200 dark:border-sky-800',
+      issue: 'bg-sky-200 border-sky-600 border-l-sky-800',
+      warning: 'bg-sky-100 border-sky-500 border-l-sky-600',
     },
     status: {
-      issue: 'bg-orange-50 text-orange-950 border-orange-200 border-l-orange-600 dark:bg-orange-950/40 dark:text-orange-100 dark:border-orange-800 dark:border-l-orange-400',
-      warning: 'bg-orange-50/70 text-orange-900 border-orange-200/80 border-l-orange-400 dark:bg-orange-950/25 dark:text-orange-200 dark:border-orange-800',
+      issue: 'bg-orange-200 border-orange-600 border-l-orange-800',
+      warning: 'bg-orange-100 border-orange-500 border-l-orange-600',
     },
     required: {
-      issue: 'bg-red-50 text-red-950 border-red-200 border-l-red-600 dark:bg-red-950/40 dark:text-red-100 dark:border-red-800 dark:border-l-red-400',
-      warning: 'bg-red-50/70 text-red-900 border-red-200/80 border-l-red-400 dark:bg-red-950/25 dark:text-red-200 dark:border-red-800',
+      issue: 'bg-red-200 border-red-600 border-l-red-800',
+      warning: 'bg-red-100 border-red-500 border-l-red-600',
     },
     storage: {
-      issue: 'bg-rose-50 text-rose-950 border-rose-200 border-l-rose-600 dark:bg-rose-950/40 dark:text-rose-100 dark:border-rose-800 dark:border-l-rose-400',
-      warning: 'bg-rose-50/70 text-rose-900 border-rose-200/80 border-l-rose-400 dark:bg-rose-950/25 dark:text-rose-200 dark:border-rose-800',
+      issue: 'bg-rose-200 border-rose-600 border-l-rose-800',
+      warning: 'bg-rose-100 border-rose-500 border-l-rose-600',
     },
     other: {
-      issue: 'bg-slate-50 text-slate-900 border-slate-200 border-l-slate-600 dark:bg-slate-900/50 dark:text-slate-100 dark:border-slate-700 dark:border-l-slate-400',
-      warning: 'bg-slate-50/70 text-slate-800 border-slate-200/80 border-l-slate-400 dark:bg-slate-900/30 dark:text-slate-200 dark:border-slate-700',
+      issue: 'bg-slate-200 border-slate-600 border-l-slate-800',
+      warning: 'bg-slate-100 border-slate-500 border-l-slate-600',
     },
   };
   return `${base} ${byCat[category][kind]}`;
@@ -257,13 +257,13 @@ export function bulkIssueBadgeClass(
 export function bulkFieldIssueClass(category: BulkIssueCategory | null): string {
   if (!category) return '';
   const map: Record<BulkIssueCategory, string> = {
-    duplicate: 'border-teal-500 ring-1 ring-teal-500/40 focus-visible:ring-teal-500',
-    date: 'border-amber-500 ring-1 ring-amber-500/40 focus-visible:ring-amber-500',
-    email: 'border-sky-500 ring-1 ring-sky-500/40 focus-visible:ring-sky-500',
-    status: 'border-orange-500 ring-1 ring-orange-500/40 focus-visible:ring-orange-500',
-    required: 'border-red-500 ring-1 ring-red-500/40 focus-visible:ring-red-500',
-    storage: 'border-rose-500 ring-1 ring-rose-500/40 focus-visible:ring-rose-500',
-    other: 'border-slate-500 ring-1 ring-slate-500/40 focus-visible:ring-slate-500',
+    duplicate: 'border-teal-700 ring-1 ring-teal-600/60 focus-visible:ring-teal-700 text-black',
+    date: 'border-amber-700 ring-1 ring-amber-600/60 focus-visible:ring-amber-700 text-black',
+    email: 'border-sky-700 ring-1 ring-sky-600/60 focus-visible:ring-sky-700 text-black',
+    status: 'border-orange-700 ring-1 ring-orange-600/60 focus-visible:ring-orange-700 text-black',
+    required: 'border-red-700 ring-1 ring-red-600/60 focus-visible:ring-red-700 text-black',
+    storage: 'border-rose-700 ring-1 ring-rose-600/60 focus-visible:ring-rose-700 text-black',
+    other: 'border-slate-700 ring-1 ring-slate-600/60 focus-visible:ring-slate-700 text-black',
   };
   return map[category];
 }
@@ -278,6 +278,19 @@ export function bulkIssueCategoryLabel(category: BulkIssueCategory): string {
     case 'storage': return 'Storage';
     default: return 'Other';
   }
+}
+
+export function bulkIssueCategoryLabelClass(category: BulkIssueCategory): string {
+  const map: Record<BulkIssueCategory, string> = {
+    duplicate: 'text-teal-950',
+    date: 'text-amber-950',
+    email: 'text-sky-950',
+    status: 'text-orange-950',
+    required: 'text-red-950',
+    storage: 'text-rose-950',
+    other: 'text-slate-950',
+  };
+  return map[category];
 }
 
 /** 1-based CSV row numbers (header = row 1, first data row = 2). */
