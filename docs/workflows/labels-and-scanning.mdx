@@ -12,7 +12,17 @@ Labels are printed in **batches** from the Dashboard or Print Queue — not one-
 | **Avery 5163** | 2" × 4" | 10 | Default file labels |
 | **Avery 94205** | 1.5" × 3.75" clear | 10 | Compact / clear stock |
 
-Both layouts include student name, DOB, barcode (**Label ID**), and QR code.
+### What appears on each label
+
+| Element | Detail |
+| --- | --- |
+| **Name** | **Last, First** (comma for filing) |
+| **DOB** | Calendar date (`YYYY-MM-DD` on the sheet) |
+| **Sequence** | 5-digit batch number (`00001`, `00002`, …) in print order |
+| **Barcode** | **Label ID** (e.g. `1990-TP-0000010`) |
+| **QR** | Opens the public student page |
+
+The 5-digit sequence is the position in **this print job**, not the 7-digit counter inside the Label ID.
 
 ### Recommended print path (Avery)
 
@@ -26,6 +36,10 @@ Browser CSS print is not used for Avery sheets.
 <Tip>
   Print in multiples of **10** labels to avoid wasting partial sheets.
 </Tip>
+
+<Frame caption="Avery 5163 preview — name, DOB, sequence, barcode, and QR per label">
+  <img src="/images/screenshots/avery-print-preview.png" alt="Avery 5163 label sheet preview with ten student labels" />
+</Frame>
 
 <Frame caption="Admin → Print Queue — batch label printing">
   <img src="/images/screenshots/avery-label-sheet.png" alt="Label Print Queue page for batch Avery label printing" />

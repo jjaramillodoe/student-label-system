@@ -1,16 +1,42 @@
 ---
 title: Cabinets and drawers
-description: Track physical file storage and drawer capacity.
+description: Track physical file storage, drawer capacity, and automatic sections.
 ---
 
 ## Cabinets page
 
 **Admin → Cabinets** (`/admin/cabinets`) manages where student files live.
 
-- Create cabinets with multiple drawers and capacities
+- Create cabinets with multiple drawers
+- Drawer capacity presets: **100**, **200**, or **400** files
 - Filter by school, capacity status, usage, and name
-- **Smart Fill** creates standard cabinet structures quickly
-- **Sync** recalculates drawer counts when data drifts
+- **Smart Fill** creates standard cabinet structures quickly (default **400** per drawer)
+- **Sync Counts** recalculates drawer counts and refreshes automatic **sections**
+
+<Frame caption="Cabinet Management — capacity, drawers, and Sync Counts">
+  <img src="/images/screenshots/cabinets-page.png" alt="Cabinet Management with Main Cabinet A and B cards" />
+</Frame>
+
+## Automatic sections
+
+Each drawer is split into **8 sections** (about **1/8** of capacity) for physical filing:
+
+| Drawer capacity | Approx. per section | Labels |
+| --- | --- | --- |
+| 400 | 50 | Section 01–08 |
+| 200 | 25 | Section 01–08 |
+| 100 | ~13 | Section 01–08 |
+
+Sections are assigned **automatically** when a student is stored (intake, create, bulk upload, or move). They are **not** shown on the Intake form.
+
+Data Leads see them:
+
+- On cabinet cards (section occupancy grid under each drawer)
+- On the Dashboard location column: **Cab** / **Draw** / **Sec**
+
+<Tip>
+  After upgrading, click **Sync Counts** once so existing files get Section 01–08 assigned by created order within each drawer.
+</Tip>
 
 ## Cabinet Health
 
@@ -26,12 +52,8 @@ description: Track physical file storage and drawer capacity.
 
 ## Bulk move
 
-**Admin → Bulk Move** moves selected students with capacity validation before saving.
+**Admin → Bulk Move** moves selected students with capacity validation before saving. Moved students receive a new section in the target drawer.
 
 ## Archived files
 
 Archived students live in **archive boxes**, not active drawers. When they return through Intake, staff see the box location and QR instead of a new drawer assignment — see [Intake → Returning archived students](/workflows/intake#returning-archived-students).
-
-<Frame caption="Admin → Cabinets — active and archived cabinets with capacity">
-  <img src="/images/screenshots/cabinets-page.png" alt="Cabinet Management page showing archived and active Main Cabinet cards" />
-</Frame>

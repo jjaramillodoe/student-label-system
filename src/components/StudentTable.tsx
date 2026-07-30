@@ -408,7 +408,6 @@ const StudentTable: React.FC<StudentTableProps> = ({
                         )}
                       </div>
                     </TableCell>
-                    // make the font size smaller and different color for the primary and secondary labels
                     <TableCell className="w-[1%] whitespace-nowrap px-2 align-top">
                       <div className="flex flex-col gap-0.5 text-xs leading-snug">
                         <div className="flex items-baseline gap-1">

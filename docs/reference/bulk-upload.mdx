@@ -1,23 +1,25 @@
 ---
 title: Bulk upload
-description: Import students from CSV with address columns, apt field, and NYC Geoclient verification.
+description: Import students from CSV with preview validation, duplicate removal, and NYC address checks.
 ---
 
 **Admin → Bulk Upload** (`/admin/students/bulk-upload`)
 
-<Frame caption="Bulk Upload — CSV import with cabinet assignment">
-  <img src="/images/screenshots/bulk-upload.png" alt="Bulk Upload page for importing students from CSV" />
+<Frame caption="Bulk Upload — choose cabinet/drawer, then drop a CSV">
+  <img src="/images/screenshots/bulk-upload.png" alt="Bulk Upload page with storage assignment and file drop zone" />
 </Frame>
 
 ## Required columns
 
-Cabinet and drawer are selected on the upload screen for the entire file.
+Cabinet and drawer are selected on the upload screen for the entire file. After a successful upload with no leftover blocked rows, you return to the **Dashboard**.
 
 ```csv
 firstName,lastName,dob,fiscalYear,status,startDate,email
 ```
 
 `studentId` in the CSV is optional — the server generates Label ID and demographic Student ID.
+
+Dates may be `YYYY-MM-DD` or `M/D/YY` (normalized on import). Stored DOBs are calendar dates (no timezone day-shift).
 
 ## Optional address columns
 
@@ -37,14 +39,37 @@ address,apt,city,state,zip
   Apartment can live in `address` (e.g. `690 Grand St Apt 4B`) **or** a separate `apt` column. On import, the system normalizes into street + `apt` fields.
 </Tip>
 
+## Preview and validation
+
+After you load a file, the preview table shows every row with issue badges and filters (**All**, **Ready**, **Needs Fixing**, **Duplicates**, **Dates**, **Warnings**).
+
+<Frame caption="Preview — blocking issues, duplicates, date concerns, and per-row Remove">
+  <img src="/images/screenshots/bulk-upload-preview.png" alt="Bulk upload preview table with OK badges, date fields, and remove controls" />
+</Frame>
+
+### What gets checked
+
+| Category | Examples | Result |
+| --- | --- | --- |
+| **Required** | Missing first/last name, DOB, start date, fiscal year, status | Blocking |
+| **Dates** | Future DOB, impossible year (e.g. 1851), start date = DOB, start before DOB | Blocking or warning |
+| **Duplicates** | Same name + DOB in file or already in the system; duplicate email / Label ID | Blocking |
+| **Email** | Missing `@`, bad domain typos (e.g. `.con`, `hatmail.com`) | Blocking |
+| **Status** | `Archived` on create; unknown status values | Blocking |
+| **Fuzzy match** | Similar name + same DOB | Warning (upload still allowed) |
+
+Use the **Remove** control in the first column (sticky while you scroll) to drop duplicate or unwanted rows before upload. Duplicate rows show a clearer **Remove** button.
+
+Click any cell to fix values — validation updates immediately.
+
 ## Features
 
 - Download CSV template or sample file from the upload page
-- Preview rows before saving with inline editing
-- Validates missing names, invalid dates, placeholder emails, and duplicates
-- **Address warnings** — NYC ZIP/borough mismatches flagged in amber (upload is not blocked)
-- **Verify addresses** — NYC Geoclient batch verify on preview; **Apply standardized** updates street while keeping apt
-- Auto-generates Label ID and Student ID for each row
+- Inline editing of preview rows
+- Address warnings (NYC ZIP/borough) — amber, not blocking
+- **Verify addresses** — NYC Geoclient batch verify; **Apply standardized** updates street while keeping apt
+- Auto-generates Label ID and Student ID; assigns drawer **Section 01–08** automatically
+- Smart allocate across drawers / next cabinets when capacity runs out
 
 ### CSV template
 
@@ -56,6 +81,8 @@ Sample files in the app: `/student_bulk_upload_template.csv` and `/student_bulk_
 
 ## After import
 
-Review and verify addresses school-wide on **Admin → All Students** (`/admin/students/all`).
+Review students on the **Dashboard**. Location shows cabinet, drawer, and section (Data Lead view).
 
-See [Address and NYC verification](/reference/address-and-verification) for the full verify workflow.
+School-wide address review: **Admin → All Students** (`/admin/students/all`).
+
+See [Address and NYC verification](/reference/address-and-verification) and [Cabinets and drawers](/storage/cabinets-and-drawers).
