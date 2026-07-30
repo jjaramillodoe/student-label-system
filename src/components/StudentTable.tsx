@@ -204,11 +204,11 @@ const StudentTable: React.FC<StudentTableProps> = ({
   return (
     <div className="rounded-lg border border-border overflow-hidden bg-card shadow-sm">
       <div className="overflow-x-auto">
-        <Table className="table-fixed w-full">
+        <Table className="table-fixed w-max max-w-full">
           <colgroup>
             <col style={{ width: '2.5rem' }} />
             <col style={{ width: '10.5rem' }} />
-            <col />
+            <col style={{ width: '11.5rem' }} />
             <col style={{ width: '6.25rem' }} />
             <col style={{ width: '5.5rem' }} />
             <col style={{ width: '6.25rem' }} />
