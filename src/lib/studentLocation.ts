@@ -21,6 +21,8 @@ export type StudentStorageDisplay = {
   primary: string;
   /** Secondary line: storage location, drawer name, or school year */
   secondary: string;
+  /** Optional third line for Data Lead views: Section 01, etc. */
+  section: string | null;
   /** Label for primary line in compact table view */
   primaryLabel: 'Box' | 'Cab';
   /** Label for secondary line in compact table view */
@@ -34,6 +36,10 @@ export function getStudentStorageDisplay(
   options?: { showSection?: boolean },
 ): StudentStorageDisplay {
   const isArchived = Boolean(student.archived || student.status === 'Archived');
+  const section =
+    options?.showSection && !isArchived && student.drawerSection?.trim()
+      ? student.drawerSection.trim()
+      : null;
 
   if (isArchived) {
     if (student.archiveBoxLabel || student.archiveLocation) {
@@ -41,6 +47,7 @@ export function getStudentStorageDisplay(
         isArchived: true,
         primary: student.archiveBoxLabel || 'Archive box',
         secondary: student.archiveLocation || student.archiveSchoolYear || '—',
+        section: null,
         primaryLabel: 'Box',
         secondaryLabel: 'Location',
       };
@@ -53,6 +60,7 @@ export function getStudentStorageDisplay(
         isArchived: true,
         primary: cabinetName || '—',
         secondary: drawerName || '—',
+        section: null,
         primaryLabel: 'Cab',
         secondaryLabel: 'Draw',
       };
@@ -62,6 +70,7 @@ export function getStudentStorageDisplay(
       isArchived: true,
       primary: 'No box assigned',
       secondary: 'Move to boxes on archived cabinet',
+      section: null,
       primaryLabel: 'Box',
       secondaryLabel: 'Location',
     };
@@ -72,20 +81,17 @@ export function getStudentStorageDisplay(
     || student.cabinetName
     || student.cabinet
     || '—';
-  let drawerDisplay =
+  const drawerDisplay =
     drawerMap[student.drawer || '']
     || student.drawerName
     || student.drawer
     || '—';
 
-  if (options?.showSection && student.drawerSection?.trim()) {
-    drawerDisplay = `${drawerDisplay} · ${student.drawerSection.trim()}`;
-  }
-
   return {
     isArchived: false,
     primary: cabinetDisplay,
     secondary: drawerDisplay,
+    section,
     primaryLabel: 'Cab',
     secondaryLabel: 'Draw',
   };
