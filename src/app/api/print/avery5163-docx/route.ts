@@ -62,7 +62,7 @@ import {
   LABEL_TEXT_COLUMN_RATIO,
   labelNameFontSizeHalfPt,
 } from '@/lib/avery5163LabelStyle';
-import { formatFullName } from '@/lib/personName';
+import { formatLabelName, formatLabelSequence, labelSequenceAtIndex } from '@/lib/personName';
 
 // ── Page geometry (twips: 1 inch = 1440) ─────────────────────────────────────
 const T              = 1440;
@@ -201,14 +201,15 @@ function emptyCell(): TableCell {
   });
 }
 
-async function buildLabelCell(s: StudentData | null): Promise<TableCell> {
+async function buildLabelCell(s: StudentData | null, sequence?: number): Promise<TableCell> {
   if (!s?.firstName) return emptyCell();
 
   const labelId = s.labelId || s.studentId || '';
   const appUrl  = process.env.NEXT_PUBLIC_APP_URL ?? '';
-  const qrText  = labelId ? `${appUrl}/student/${labelId}` : formatFullName(s);
-  const fullName = formatFullName(s);
+  const qrText  = labelId ? `${appUrl}/student/${labelId}` : formatLabelName(s);
+  const fullName = formatLabelName(s);
   const nameSize = labelNameFontSizeHalfPt(fullName);
+  const seqText = sequence != null ? formatLabelSequence(sequence) : '';
 
   const [qrBuf, barBuf] = await Promise.all([
     makeQR(qrText),
@@ -216,7 +217,7 @@ async function buildLabelCell(s: StudentData | null): Promise<TableCell> {
   ]);
 
   // Horizontal layout inside a 4" × 2" label cell:
-  // [ name (wraps) / DOB / barcode ]  |  [ QR ]
+  // [ name (wraps) / DOB / seq / barcode ]  |  [ QR ]
   const INNER_W  = LABEL_W - LABEL_DOCX_CELL_MARGIN_LEFT - LABEL_DOCX_CELL_MARGIN_RIGHT;
   const LEFT_COL = Math.round(INNER_W * LABEL_TEXT_COLUMN_RATIO);
   const RIGHT_COL = INNER_W - LEFT_COL;
@@ -228,8 +229,14 @@ async function buildLabelCell(s: StudentData | null): Promise<TableCell> {
     ),
     textPara(
       [new TextRun({ text: `DOB: ${s.dob ?? ''}`, size: LABEL_DOB_FONT_SIZE_HALF_PT, font: 'Times New Roman' })],
-      240, LABEL_DOCX_DOB_AFTER, AlignmentType.LEFT,
+      240, seqText ? 8 : LABEL_DOCX_DOB_AFTER, AlignmentType.LEFT,
     ),
+    ...(seqText
+      ? [textPara(
+          [new TextRun({ text: seqText, bold: true, size: 22, font: 'Times New Roman' })],
+          240, LABEL_DOCX_DOB_AFTER, AlignmentType.LEFT,
+        )]
+      : []),
     ...(barBuf ? [imagePara(barBuf, 230, 22, 0, AlignmentType.LEFT)] : []),
   ];
 
@@ -285,7 +292,9 @@ async function buildDocument(students: StudentData[]): Promise<Buffer> {
 
   for (let p = 0; p < padded.length / 10; p++) {
     const slice = padded.slice(p * 10, p * 10 + 10);
-    const cells = await Promise.all(slice.map(buildLabelCell));
+    const cells = await Promise.all(
+      slice.map((s, i) => buildLabelCell(s, labelSequenceAtIndex(padded, p * 10 + i))),
+    );
 
     const rows = Array.from({ length: 5 }, (_, r) =>
       new TableRow({

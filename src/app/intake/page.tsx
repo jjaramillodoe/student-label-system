@@ -2634,9 +2634,9 @@ function ReprintHistoryLabel({ student }: { student: any }) {
               }}
             >
               {layout === 'avery5163' ? (
-                <Avery5163LabelContent student={student} />
+                <Avery5163LabelContent student={student} sequence={1} />
               ) : (
-                <Avery94205LabelContent student={student} />
+                <Avery94205LabelContent student={student} sequence={1} />
               )}
             </div>
           </div>

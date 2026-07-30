@@ -45,7 +45,7 @@ import {
   LABEL_TEXT_COLUMN_RATIO,
   labelNameFontSizeHalfPt,
 } from '@/lib/avery94205LabelStyle';
-import { formatFullName } from '@/lib/personName';
+import { formatLabelName, formatLabelSequence, labelSequenceAtIndex } from '@/lib/personName';
 
 const T              = 1440;
 const PAGE_W         = Math.round(AVERY94205.pageW    * T);   // 12240
@@ -169,14 +169,15 @@ function emptyCell(): TableCell {
   });
 }
 
-async function buildLabelCell(s: StudentData | null): Promise<TableCell> {
+async function buildLabelCell(s: StudentData | null, sequence?: number): Promise<TableCell> {
   if (!s?.firstName) return emptyCell();
 
   const labelId = s.labelId || s.studentId || '';
   const appUrl  = process.env.NEXT_PUBLIC_APP_URL ?? '';
-  const qrText  = labelId ? `${appUrl}/student/${labelId}` : formatFullName(s);
-  const fullName = formatFullName(s);
+  const qrText  = labelId ? `${appUrl}/student/${labelId}` : formatLabelName(s);
+  const fullName = formatLabelName(s);
   const nameSize = labelNameFontSizeHalfPt(fullName);
+  const seqText = sequence != null ? formatLabelSequence(sequence) : '';
 
   const [qrBuf, barBuf] = await Promise.all([
     makeQR(qrText),
@@ -194,8 +195,14 @@ async function buildLabelCell(s: StudentData | null): Promise<TableCell> {
     ),
     textPara(
       [new TextRun({ text: `DOB: ${s.dob ?? ''}`, size: LABEL_DOB_FONT_SIZE_HALF_PT, font: 'Times New Roman' })],
-      180, LABEL_DOCX_DOB_AFTER, AlignmentType.LEFT,
+      180, seqText ? 6 : LABEL_DOCX_DOB_AFTER, AlignmentType.LEFT,
     ),
+    ...(seqText
+      ? [textPara(
+          [new TextRun({ text: seqText, bold: true, size: 18, font: 'Times New Roman' })],
+          180, LABEL_DOCX_DOB_AFTER, AlignmentType.LEFT,
+        )]
+      : []),
     ...(barBuf ? [imagePara(barBuf, 180, 16, 0, AlignmentType.LEFT)] : []),
   ];
 
@@ -250,7 +257,9 @@ async function buildDocument(students: StudentData[]): Promise<Buffer> {
 
   for (let p = 0; p < padded.length / 10; p++) {
     const slice = padded.slice(p * 10, p * 10 + 10);
-    const cells = await Promise.all(slice.map(buildLabelCell));
+    const cells = await Promise.all(
+      slice.map((s, i) => buildLabelCell(s, labelSequenceAtIndex(padded, p * 10 + i))),
+    );
 
     const rows = Array.from({ length: AVERY94205.rows }, (_, r) =>
       new TableRow({

@@ -12,7 +12,7 @@ import Avery94205LabelContent from '@/components/Avery94205LabelContent';
 import AveryPrintGuidance from '@/components/AveryPrintGuidance';
 import { AVERY94205 } from '@/lib/avery94205Geometry';
 import { downloadAveryDocx, isAveryDocxLayout } from '@/lib/downloadAveryDocx';
-import { formatFullName } from '@/lib/personName';
+import { formatFullName, labelSequenceAtIndex } from '@/lib/personName';
 
 // Avery 5163 on Letter paper (8.5" × 11"):
 // 2 cols × 5 rows = 10 labels, each 4" wide × 2" tall
@@ -367,7 +367,10 @@ export default function PrintView({
                 pageBreakAfter: 'always',
               }}
             >
-              {pageLabels.map((student, idx) => (
+              {pageLabels.map((student, idx) => {
+                const globalIdx = pageIdx * 10 + idx;
+                const sequence = labelSequenceAtIndex(sheetStudents, globalIdx);
+                return (
                 <div
                   key={idx}
                   style={{
@@ -385,10 +388,11 @@ export default function PrintView({
                   className="print:border-none"
                 >
                   {student?.firstName ? (
-                    <Avery5163LabelContent student={student} />
+                    <Avery5163LabelContent student={student} sequence={sequence} />
                   ) : null}
                 </div>
-              ))}
+                );
+              })}
             </div>
           );
         })}
@@ -457,7 +461,10 @@ export default function PrintView({
                 pageBreakAfter: 'always',
               }}
             >
-              {pageLabels.map((student, idx) => (
+              {pageLabels.map((student, idx) => {
+                const globalIdx = pageIdx * AVERY94205.labelsPerSheet + idx;
+                const sequence = labelSequenceAtIndex(sheetStudents, globalIdx);
+                return (
                 <div
                   key={idx}
                   style={{
@@ -474,10 +481,11 @@ export default function PrintView({
                   className="print:border-none"
                 >
                   {student?.firstName ? (
-                    <Avery94205LabelContent student={student} />
+                    <Avery94205LabelContent student={student} sequence={sequence} />
                   ) : null}
                 </div>
-              ))}
+                );
+              })}
             </div>
           );
         })}

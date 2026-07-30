@@ -12,7 +12,7 @@ import {
   LABEL_QR_SIZE_IN,
   labelNameFontSizePt,
 } from '@/lib/avery5163LabelStyle';
-import { formatFullName } from '@/lib/personName';
+import { formatLabelName, formatLabelSequence } from '@/lib/personName';
 
 export interface Avery5163LabelStudent {
   firstName: string;
@@ -26,12 +26,20 @@ function getLabelId(student: Avery5163LabelStudent) {
   return student.labelId || student.studentId || '';
 }
 
-/** Inner content for one Avery 5163 label: name/DOB/barcode left, QR right. */
-export default function Avery5163LabelContent({ student }: { student: Avery5163LabelStudent }) {
-  const fullName = formatFullName(student);
+/** Inner content for one Avery 5163 label: name/DOB/seq/barcode left, QR right. */
+export default function Avery5163LabelContent({
+  student,
+  sequence,
+}: {
+  student: Avery5163LabelStudent;
+  /** 1-based print-batch sequence (shown as 00001, 00002, …) */
+  sequence?: number;
+}) {
+  const fullName = formatLabelName(student);
   const labelId = getLabelId(student);
   const qrPayload = buildStudentQrPayload({ studentId: labelId });
   const nameSizePt = labelNameFontSizePt(fullName);
+  const seqText = sequence != null ? formatLabelSequence(sequence) : '';
 
   return (
     <div
@@ -63,7 +71,7 @@ export default function Avery5163LabelContent({ student }: { student: Avery5163L
             fontSize: `${nameSizePt}pt`,
             lineHeight: 1.25,
             wordBreak: 'break-word',
-            overflowWrap: 'break-word',
+            overflowWrap: 'anywhere',
             marginBottom: LABEL_NAME_TO_DOB_GAP,
           }}
         >
@@ -75,11 +83,26 @@ export default function Avery5163LabelContent({ student }: { student: Avery5163L
             fontSize: `${LABEL_DOB_FONT_SIZE_PT}pt`,
             lineHeight: 1.3,
             fontWeight: 400,
-            marginBottom: LABEL_DOB_TO_BARCODE_GAP,
+            marginBottom: seqText ? '0.04in' : LABEL_DOB_TO_BARCODE_GAP,
           }}
         >
           DOB: {student.dob}
         </div>
+
+        {seqText ? (
+          <div
+            style={{
+              fontSize: '11pt',
+              fontWeight: 700,
+              letterSpacing: '0.06em',
+              lineHeight: 1.2,
+              marginBottom: LABEL_DOB_TO_BARCODE_GAP,
+              fontVariantNumeric: 'tabular-nums',
+            }}
+          >
+            {seqText}
+          </div>
+        ) : null}
 
         {labelId && (
           <div style={{ display: 'flex', justifyContent: 'flex-start' }}>
