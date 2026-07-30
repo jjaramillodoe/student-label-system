@@ -68,7 +68,7 @@ export default function StudentAddressEditDialog({
     setParseMessage('');
     const parsed = parsePastedAddress(pasteValue);
     if (!parsed) {
-      setParseMessage('Could not parse. Try: 1281 Sterling Pl, Brooklyn, NY 11213');
+      setParseMessage('Could not parse. Use this format: 1281 Sterling Place Apt#2, Brooklyn, NY 11213');
       return;
     }
     setAddress(parsed.address || '');
@@ -125,16 +125,25 @@ export default function StudentAddressEditDialog({
         </DialogHeader>
 
         <div className="space-y-3">
-          <div className="space-y-1.5 rounded-md border border-dashed p-3 bg-muted/30">
-            <Label htmlFor="paste-address" className="text-xs text-muted-foreground">
-              Paste full address (optional)
-            </Label>
+          <div className="space-y-2 rounded-md border border-dashed p-3 bg-muted/30">
+            <div className="space-y-1">
+              <Label htmlFor="paste-address" className="text-sm font-medium text-foreground">
+                Paste full address (optional)
+              </Label>
+              <p className="text-xs text-muted-foreground leading-relaxed">
+                Enter street, apartment, city, state, and ZIP in one line, then click{' '}
+                <span className="font-medium text-foreground">Parse</span>. Example:
+              </p>
+              <p className="rounded-md border bg-background px-2.5 py-1.5 font-mono text-xs text-foreground">
+                1281 Sterling Place Apt#2, Brooklyn, NY 11213
+              </p>
+            </div>
             <div className="flex gap-2">
               <Input
                 id="paste-address"
                 value={pasteValue}
                 onChange={e => setPasteValue(e.target.value)}
-                placeholder="1281 Sterling Pl, Apt 4B, Brooklyn, NY 11213"
+                placeholder="1281 Sterling Place Apt#2, Brooklyn, NY 11213"
                 className="text-sm"
               />
               <Button

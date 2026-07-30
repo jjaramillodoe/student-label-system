@@ -8,7 +8,7 @@ import GoogleTranslate from '@/components/GoogleTranslate';
 import Avery5163LabelContent from '@/components/Avery5163LabelContent';
 import Avery94205LabelContent from '@/components/Avery94205LabelContent';
 import AveryPrintGuidance from '@/components/AveryPrintGuidance';
-import { isStudentSearchQueryValid } from '@/lib/studentSearch';
+import { isStudentSearchQueryValid, parseStudentSearchQuery } from '@/lib/studentSearch';
 import { sanitizeUsaNameInput, usaNameError, USA_NAME_HINT } from '@/lib/usaName';
 import { DEFAULT_INTAKE_ACTIVITIES, DEFAULT_INTAKE_SESSION_CONFIGS } from '@/lib/intakeDefaults';
 import {
@@ -206,7 +206,7 @@ function IntakeMemberGuide() {
               </p>
               <ol className="list-decimal list-inside space-y-1.5 text-muted-foreground text-xs leading-relaxed">
                 <li>Select <strong className="text-foreground">NEW First-time student</strong> under Student Status.</li>
-                <li>Complete the required <strong className="text-foreground">Check ASISTS</strong> step with first name, last name, and DOB — this searches the school ASISTS / legacy roster and this system (including archived).</li>
+                <li>Complete the required <strong className="text-foreground">Check ASISTS</strong> step — search by name, DOB, or both in one box (ASISTS / legacy roster and this system, including archived).</li>
                 <li>If a match appears, confirm whether it is <strong className="text-foreground">the student sitting with you</strong>. Live/archived matches use <strong className="text-foreground">Same person — log returning</strong>. ASISTS-only matches can continue as NEW to create a file in this system.</li>
                 <li>If no match, check <strong className="text-foreground">“I checked ASISTS — student was not found”</strong> before personal info unlocks.</li>
                 <li>Enter remaining personal info. Names use <strong className="text-foreground">A–Z letters, spaces, and hyphens only</strong>. Watch any later duplicate alert (including address).</li>
@@ -426,6 +426,8 @@ export default function IntakePage() {
   const [assistsNotFoundAck, setAssistsNotFoundAck] = useState(false);
   const [assistsDifferentPersonAck, setAssistsDifferentPersonAck] = useState(false);
   const [assistsLegacySameAck, setAssistsLegacySameAck] = useState(false);
+  const [assistsQuery, setAssistsQuery] = useState('');
+  const assistsSearchTimeout = useRef<NodeJS.Timeout | null>(null);
 
   // Data Lead contact for this school
   const [dataLead, setDataLead] = useState<{ name: string; email: string; role: string } | null>(null);
@@ -701,41 +703,91 @@ export default function IntakePage() {
     setForm(updated);
     if (['firstName', 'lastName', 'dob'].includes(key)) {
       setSiblingAcknowledged(false);
-      if (form.intakeStudentStatus === 'NEW') {
-        resetAssistsGate();
-      }
+      // After unlock, editing identity in Personal Info should re-check later via scheduleCheck —
+      // do not wipe the ASISTS gate (search box is separate).
     }
     if (key === 'intakeStudentStatus') {
-      // Reset duplicate check and selected student when type changes
       setCheckResult(emptyCheckResult());
       setSiblingAcknowledged(false);
       setSelectedExistingStudent(null);
       setStudentSearch('');
       setStudentSearchResults([]);
+      setAssistsQuery('');
       resetAssistsGate(false);
     }
   }
 
-  async function runAssistsGateCheck() {
-    const firstErr = usaNameError(form.firstName, 'First name');
-    const lastErr = usaNameError(form.lastName, 'Last name');
-    if (firstErr || lastErr) {
-      setSubmitError(firstErr || lastErr || USA_NAME_HINT);
-      return;
-    }
-    if (!form.dob) {
-      setSubmitError('Enter date of birth to check ASISTS.');
+  /** Prefill name/DOB from free-text search when useful (not-found path or after search). */
+  function applyParsedAssistsQueryToForm(query: string) {
+    const parsed = parseStudentSearchQuery(query);
+    setForm(f => ({
+      ...f,
+      firstName: parsed.firstName
+        ? sanitizeUsaNameInput(parsed.firstName)
+        : f.firstName,
+      lastName: parsed.lastName
+        ? sanitizeUsaNameInput(parsed.lastName)
+        : f.lastName,
+      dob: parsed.dobIso || f.dob,
+    }));
+  }
+
+  async function runAssistsGateCheck(query = assistsQuery) {
+    const q = query.trim();
+    if (!isStudentSearchQueryValid(q)) {
+      setSubmitError('Enter a name, date of birth (MM/DD/YYYY), or both to check ASISTS.');
       return;
     }
     setSubmitError('');
-    await runDuplicateCheck(form, intakeAddress, addressVerification, { fromAssistsGate: true });
+    setCheckResult(r => ({ ...r, status: 'checking' }));
+    try {
+      const [liveRes, legacyRes] = await Promise.all([
+        fetch(`/api/students?search=${encodeURIComponent(q)}`),
+        fetch(`/api/admin/schools/legacy-roster/search?q=${encodeURIComponent(q)}`),
+      ]);
+      const liveData = await liveRes.json();
+      const legacyData = legacyRes.ok ? await legacyRes.json() : { results: [] };
+      const live = Array.isArray(liveData) ? liveData.slice(0, 12) : [];
+      const legacy = Array.isArray(legacyData.results) ? legacyData.results.slice(0, 12) : [];
+
+      setCheckResult({
+        status: live.length + legacy.length > 0 ? 'found' : 'clear',
+        exact: live,
+        fuzzy: [],
+        legacyExact: legacy,
+        legacyFuzzy: [],
+      });
+      setAssistsGateChecked(true);
+      setAssistsNotFoundAck(false);
+      setAssistsDifferentPersonAck(false);
+      setAssistsLegacySameAck(false);
+      setSiblingAcknowledged(false);
+
+      // Soft-prefill from the query so Personal Info is closer when they continue
+      applyParsedAssistsQueryToForm(q);
+    } catch {
+      setCheckResult(emptyCheckResult());
+      setAssistsGateChecked(false);
+      setSubmitError('ASISTS search failed. Try again.');
+    }
+  }
+
+  function onAssistsQueryChange(value: string) {
+    setAssistsQuery(value);
+    if (assistsGateChecked) resetAssistsGate();
+    if (assistsSearchTimeout.current) clearTimeout(assistsSearchTimeout.current);
+    const q = value.trim();
+    if (!isStudentSearchQueryValid(q)) return;
+    assistsSearchTimeout.current = setTimeout(() => {
+      runAssistsGateCheck(q);
+    }, 450);
   }
 
   function confirmLegacySamePerson(s: IntakeMatchStudent | any) {
     setForm(f => ({
       ...f,
-      firstName: s.firstName ?? f.firstName,
-      lastName: s.lastName ?? f.lastName,
+      firstName: sanitizeUsaNameInput(s.firstName ?? f.firstName),
+      lastName: sanitizeUsaNameInput(s.lastName ?? f.lastName),
       dob: s.dob ?? f.dob,
     }));
     setAssistsLegacySameAck(true);
@@ -846,6 +898,7 @@ export default function IntakePage() {
     setSchoolLookup('');
     setCheckResult(emptyCheckResult());
     setSiblingAcknowledged(false);
+    setAssistsQuery('');
     resetAssistsGate(false);
     applyStudentAddressFromRecord(s);
   }
@@ -1037,7 +1090,7 @@ export default function IntakePage() {
       setSubmitError(
         assistsGateChecked
           ? 'Confirm whether the student matches an ASISTS / school record, or acknowledge that they were not found, before continuing.'
-          : 'Check ASISTS with name and date of birth before registering a NEW student.',
+                      : 'Search ASISTS with a name, date of birth, or both before registering a NEW student.',
       );
       return;
     }
@@ -1085,6 +1138,7 @@ export default function IntakePage() {
     setCheckResult(emptyCheckResult());
     setSiblingAcknowledged(false);
     resetAssistsGate(false);
+    setAssistsQuery('');
     setSavedStudent(null);
     setSavedAsVisit(false);
     setSubmitError('');
@@ -1375,52 +1429,43 @@ export default function IntakePage() {
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                  <div className="space-y-2">
-                    <Label htmlFor="assistsFirstName">First Name <span className="text-destructive">*</span></Label>
+                <div className="space-y-2">
+                  <Label htmlFor="assistsSearch">
+                    Search ASISTS / school records <span className="text-destructive">*</span>
+                  </Label>
+                  <div className="flex flex-col sm:flex-row gap-2">
                     <Input
-                      id="assistsFirstName"
-                      value={form.firstName}
-                      onChange={e => setField('firstName', e.target.value)}
-                      placeholder="First name"
-                      autoComplete="given-name"
+                      id="assistsSearch"
+                      value={assistsQuery}
+                      onChange={e => onAssistsQueryChange(e.target.value)}
+                      onKeyDown={e => {
+                        if (e.key === 'Enter') {
+                          e.preventDefault();
+                          runAssistsGateCheck();
+                        }
+                      }}
+                      placeholder="Name, DOB (MM/DD/YYYY), or both — e.g. Mary Smith 01/15/1990"
+                      className="flex-1 bg-background"
+                      autoComplete="off"
                       spellCheck={false}
                     />
+                    <Button
+                      type="button"
+                      className="gap-2 shrink-0"
+                      disabled={checkResult.status === 'checking' || !isStudentSearchQueryValid(assistsQuery)}
+                      onClick={() => runAssistsGateCheck()}
+                    >
+                      {checkResult.status === 'checking' ? (
+                        <><Loader2 className="h-4 w-4 animate-spin" /> Searching…</>
+                      ) : (
+                        <><Database className="h-4 w-4" /> Check ASISTS</>
+                      )}
+                    </Button>
                   </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="assistsLastName">Last Name <span className="text-destructive">*</span></Label>
-                    <Input
-                      id="assistsLastName"
-                      value={form.lastName}
-                      onChange={e => setField('lastName', e.target.value)}
-                      placeholder="Last name"
-                      autoComplete="family-name"
-                      spellCheck={false}
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="assistsDob">Date of Birth <span className="text-destructive">*</span></Label>
-                    <Input
-                      id="assistsDob"
-                      type="date"
-                      value={form.dob}
-                      onChange={e => setField('dob', e.target.value)}
-                    />
-                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    Type a name, a date of birth, or both. Results update as you type (or press Enter / Check ASISTS).
+                  </p>
                 </div>
-                <p className="text-xs text-muted-foreground -mt-1">{USA_NAME_HINT}</p>
-                <Button
-                  type="button"
-                  className="gap-2"
-                  disabled={checkResult.status === 'checking' || !form.firstName.trim() || !form.lastName.trim() || !form.dob}
-                  onClick={runAssistsGateCheck}
-                >
-                  {checkResult.status === 'checking' ? (
-                    <><Loader2 className="h-4 w-4 animate-spin" /> Checking ASISTS…</>
-                  ) : (
-                    <><Database className="h-4 w-4" /> Check ASISTS</>
-                  )}
-                </Button>
 
                 {assistsGateChecked && !assistsHasMatches && (
                   <div className="rounded-md border border-green-300 bg-green-50 dark:bg-green-950/30 dark:border-green-800 px-3 py-3 space-y-3">
@@ -1428,7 +1473,7 @@ export default function IntakePage() {
                       <CheckCircle2 className="h-4 w-4 text-green-600" />
                       <AlertTitle className="text-green-800 dark:text-green-200 text-sm">No ASISTS / school match</AlertTitle>
                       <AlertDescription className="text-xs text-green-700 dark:text-green-300">
-                        No active, archived, or ASISTS/legacy record matched this name and DOB.
+                        No active, archived, or ASISTS/legacy record matched “{assistsQuery.trim()}”.
                       </AlertDescription>
                     </Alert>
                     <div className="flex items-start gap-3 rounded-md border border-green-300/80 bg-background/70 px-3 py-2.5">
