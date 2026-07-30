@@ -204,10 +204,21 @@ const StudentTable: React.FC<StudentTableProps> = ({
   return (
     <div className="rounded-lg border border-border overflow-hidden bg-card shadow-sm">
       <div className="overflow-x-auto">
-        <Table className="table-auto w-full">
+        <Table className="table-fixed w-full">
+          <colgroup>
+            <col style={{ width: '2.5rem' }} />
+            <col style={{ width: '10.5rem' }} />
+            <col />
+            <col style={{ width: '6.25rem' }} />
+            <col style={{ width: '5.5rem' }} />
+            <col style={{ width: '6.25rem' }} />
+            <col style={{ width: '8.25rem' }} />
+            <col style={{ width: '5.5rem' }} />
+            <col style={{ width: '2.5rem' }} />
+          </colgroup>
           <TableHeader>
             <TableRow className="bg-muted/50 hover:bg-muted/50">
-              <TableHead className="w-10 sticky left-0 bg-muted/50 z-10 px-2">
+              <TableHead className="sticky left-0 bg-muted/50 z-10 px-2">
                 <Checkbox
                   checked={allSelected ? true : someSelected ? 'indeterminate' : false}
                   onCheckedChange={onSelectAll}
@@ -216,7 +227,7 @@ const StudentTable: React.FC<StudentTableProps> = ({
                 />
               </TableHead>
               <TableHead 
-                className="w-[1%] whitespace-nowrap font-semibold cursor-pointer hover:bg-muted/70 transition-colors select-none px-2"
+                className="font-semibold cursor-pointer hover:bg-muted/70 transition-colors select-none px-2"
                 onClick={() => handleSort('studentId')}
               >
                 <div className="flex items-center gap-1.5">
@@ -238,7 +249,7 @@ const StudentTable: React.FC<StudentTableProps> = ({
                 </div>
               </TableHead>
               <TableHead 
-                className="w-[1%] whitespace-nowrap font-semibold cursor-pointer hover:bg-muted/70 transition-colors select-none px-2"
+                className="font-semibold cursor-pointer hover:bg-muted/70 transition-colors select-none px-2"
                 onClick={() => handleSort('dob')}
               >
                 <div className="flex items-center gap-1.5">
@@ -248,7 +259,7 @@ const StudentTable: React.FC<StudentTableProps> = ({
                 </div>
               </TableHead>
               <TableHead 
-                className="w-[1%] whitespace-nowrap font-semibold cursor-pointer hover:bg-muted/70 transition-colors select-none px-2"
+                className="font-semibold cursor-pointer hover:bg-muted/70 transition-colors select-none px-2"
                 onClick={() => handleSort('fiscalYear')}
               >
                 <div className="flex items-center gap-1.5">
@@ -257,7 +268,7 @@ const StudentTable: React.FC<StudentTableProps> = ({
                 </div>
               </TableHead>
               <TableHead 
-                className="w-[1%] whitespace-nowrap font-semibold cursor-pointer hover:bg-muted/70 transition-colors select-none px-2"
+                className="font-semibold cursor-pointer hover:bg-muted/70 transition-colors select-none px-2"
                 onClick={() => handleSort('status')}
               >
                 <div className="flex items-center gap-1.5">
@@ -266,7 +277,7 @@ const StudentTable: React.FC<StudentTableProps> = ({
                 </div>
               </TableHead>
               <TableHead 
-                className="w-[1%] whitespace-nowrap font-semibold cursor-pointer hover:bg-muted/70 transition-colors select-none px-2"
+                className="font-semibold cursor-pointer hover:bg-muted/70 transition-colors select-none px-2"
                 onClick={() => handleSort('location')}
               >
                 <div className="flex items-center gap-1.5">
@@ -276,7 +287,7 @@ const StudentTable: React.FC<StudentTableProps> = ({
                 </div>
               </TableHead>
               <TableHead 
-                className="w-[1%] whitespace-nowrap font-semibold cursor-pointer hover:bg-muted/70 transition-colors select-none px-2"
+                className="font-semibold cursor-pointer hover:bg-muted/70 transition-colors select-none px-2"
                 onClick={() => handleSort('startDate')}
               >
                 <div className="flex items-center gap-1.5">
@@ -284,7 +295,7 @@ const StudentTable: React.FC<StudentTableProps> = ({
                   <SortIcon column="startDate" />
                 </div>
               </TableHead>
-              <TableHead className="w-10 font-semibold text-center px-1"> </TableHead>
+              <TableHead className="font-semibold text-center px-1"> </TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -323,16 +334,16 @@ const StudentTable: React.FC<StudentTableProps> = ({
                         aria-label={`Select ${formatFullName(student)}`}
                       />
                     </TableCell>
-                    <TableCell className="w-[1%] whitespace-nowrap px-2 align-top">
+                    <TableCell className="px-2 align-top">
                       <TooltipProvider>
                         <Tooltip>
                           <TooltipTrigger asChild>
-                            <div className="flex flex-col gap-0.5 cursor-help">
-                              <span className="font-mono text-sm font-medium">
+                            <div className="flex flex-col gap-0.5 cursor-help min-w-0">
+                              <span className="font-mono text-sm font-medium truncate">
                                 {student.labelId || student.studentId || '—'}
                               </span>
                               {student.studentId && student.labelId && (
-                                <span className="font-mono text-[11px] text-muted-foreground" title={student.studentId}>
+                                <span className="font-mono text-[11px] text-muted-foreground truncate" title={student.studentId}>
                                   {student.studentId}
                                 </span>
                               )}
@@ -364,13 +375,13 @@ const StudentTable: React.FC<StudentTableProps> = ({
                         </Tooltip>
                       </TooltipProvider>
                     </TableCell>
-                    <TableCell className="px-2 align-top max-w-[120px]">
+                    <TableCell className="px-2 align-top min-w-0">
                       <button
                         onClick={() => onDetails(student)}
-                        className="font-medium text-primary hover:underline cursor-pointer text-left"
+                        className="font-medium text-primary hover:underline cursor-pointer text-left w-full min-w-0"
                       >
-                        <div className="flex flex-col">
-                          <span className="leading-snug">{formatFullName(student)}</span>
+                        <div className="flex flex-col min-w-0">
+                          <span className="leading-snug truncate">{formatFullName(student)}</span>
                           {student.email && (
                             <span className="text-xs text-muted-foreground font-normal truncate" title={student.email}>
                               {student.email}
@@ -379,16 +390,16 @@ const StudentTable: React.FC<StudentTableProps> = ({
                         </div>
                       </button>
                     </TableCell>
-                    <TableCell className="w-[1%] whitespace-nowrap text-sm px-2 align-top">
+                    <TableCell className="whitespace-nowrap text-sm px-2 align-top">
                       {formatDate(student.dob)}
                     </TableCell>
-                    <TableCell className="w-[1%] whitespace-nowrap px-2 align-top">
+                    <TableCell className="whitespace-nowrap px-2 align-top">
                       <Badge variant="outline" className="font-normal">
                         {student.fiscalYear}
                       </Badge>
                     </TableCell>
-                    <TableCell className="w-[1%] whitespace-nowrap px-2 align-top">
-                      <div className="flex flex-col gap-1">
+                    <TableCell className="px-2 align-top">
+                      <div className="flex flex-col gap-1 min-w-0">
                         <Badge variant={getStatusVariant(student.status) as any} className="font-normal w-fit">
                           {student.status}
                         </Badge>
@@ -408,14 +419,13 @@ const StudentTable: React.FC<StudentTableProps> = ({
                         )}
                       </div>
                     </TableCell>
-                    <TableCell className="w-[1%] whitespace-nowrap px-2 align-top">
-                      <div className="flex flex-col gap-0.5 text-xs leading-snug">
-                        <div className="flex items-baseline gap-1">
-                          <span className="text-muted-foreground shrink-0 text-xs">{storage.primaryLabel}:</span>
+                    <TableCell className="px-2 align-top">
+                      <div className="flex flex-col gap-0.5 text-xs leading-snug min-w-0">
+                        <div className="flex items-baseline gap-1 min-w-0">
+                          <span className="text-muted-foreground shrink-0">{storage.primaryLabel}:</span>
                           <span
                             className={cn(
-                              'font-medium text-xs',
-                              storage.isArchived && storage.primary === 'No box assigned' && 'text-amber-700 dark:text-amber-400',
+                              'font-medium truncate',
                               storage.isArchived && storage.primary === 'No box assigned' && 'text-amber-700 dark:text-amber-400',
                             )}
                             title={storage.primary}
@@ -423,13 +433,12 @@ const StudentTable: React.FC<StudentTableProps> = ({
                             {storage.primary}
                           </span>
                         </div>
-                        <div className="flex items-baseline gap-1">
-                          <span className="text-muted-foreground shrink-0 text-xs">{storage.secondaryLabel}:</span>
+                        <div className="flex items-baseline gap-1 min-w-0">
+                          <span className="text-muted-foreground shrink-0">{storage.secondaryLabel}:</span>
                           <span
                             className={cn(
-                              'font-medium text-xs',
-                              storage.isArchived && storage.secondary.includes('Move to boxes') && 'text-amber-600 dark:text-amber-500 text-xs',
-                              storage.isArchived && storage.secondary.includes('Move to boxes') && 'text-amber-600 dark:text-amber-500 text-xs',
+                              'font-medium truncate',
+                              storage.isArchived && storage.secondary.includes('Move to boxes') && 'text-amber-600 dark:text-amber-500',
                             )}
                             title={storage.secondary}
                           >
@@ -437,19 +446,19 @@ const StudentTable: React.FC<StudentTableProps> = ({
                           </span>
                         </div>
                         {storage.section ? (
-                          <div className="flex items-baseline gap-1">
-                            <span className="text-muted-foreground shrink-0 text-xs">Sec:</span>
-                            <span className="font-medium text-xs" title={storage.section}>
+                          <div className="flex items-baseline gap-1 min-w-0">
+                            <span className="text-muted-foreground shrink-0">Sec:</span>
+                            <span className="font-medium truncate" title={storage.section}>
                               {storage.section}
                             </span>
                           </div>
                         ) : null}
                       </div>
                     </TableCell>
-                    <TableCell className="w-[1%] whitespace-nowrap text-xs text-muted-foreground px-2 align-top">
+                    <TableCell className="whitespace-nowrap text-sm text-muted-foreground px-2 align-top">
                       {formatDate(student.startDate)}
                     </TableCell>
-                    <TableCell className="w-10 px-1 align-top">
+                    <TableCell className="px-1 align-top">
                       <TooltipProvider>
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>
