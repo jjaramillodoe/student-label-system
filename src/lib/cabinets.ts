@@ -25,7 +25,9 @@ export function findNextAvailableSlot(cabinets: Cabinet[]): NextCabinetSlot | nu
 
   for (const cabinet of activeCabinets) {
     const drawers = [...cabinet.drawers].sort((a, b) => a.name.localeCompare(b.name));
-    const drawer = drawers.find(d => d.currentCount < d.capacity);
+    const drawer = drawers.find(
+      (d) => !d.locked && d.currentCount < d.capacity,
+    );
     if (drawer) {
       return { cabinet, drawer, spacesLeft: drawer.capacity - drawer.currentCount };
     }

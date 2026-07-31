@@ -19,10 +19,15 @@ export interface Cabinet {
     name: string;
     capacity: number;
     currentCount: number;
+    /** When true, Smart Fill / next-slot / new assigns skip this drawer. */
+    locked?: boolean;
   }[];
   status?: 'Active' | 'Archived';
   archivedAt?: string;
   archiveRecordId?: string;
+  /** Optional room map position (0-based). */
+  mapRow?: number | null;
+  mapCol?: number | null;
   fillForecast?: CabinetFillForecast | null;
 }
 

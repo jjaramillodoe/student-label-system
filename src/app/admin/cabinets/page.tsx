@@ -6,9 +6,15 @@ import { Cabinet, ArchiveBox, CabinetArchiveRecord, PhysicalArchiveBox } from '@
 import ArchiveBoxLabelSheet from '@/components/ArchiveBoxLabelSheet';
 import ArchiveBoxPdfButton from '@/components/ArchiveBoxPdfButton';
 import CabinetStorageLabelSheet from '@/components/CabinetStorageLabelSheet';
-import DrawerRosterDialog from '@/components/DrawerRosterDialog';
+import DrawerRosterDialog, { type RosterStudent } from '@/components/DrawerRosterDialog';
+import FixStudentAssignmentDialog from '@/components/FixStudentAssignmentDialog';
+import BarcodeScanner from '@/components/BarcodeScanner';
+import ArchivePackingPreview, {
+  PARTIAL_ARCHIVE_STATUSES,
+} from '@/components/ArchivePackingPreview';
 import { getBoxPublicUrl, type BoxLabelStudent } from '@/lib/boxLabel';
 import { buildCabinetStorageLabels, type StorageLabelItem } from '@/lib/cabinetLabel';
+import { Checkbox } from '@/components/ui/checkbox';
 import {
   DRAWER_CAPACITY_PRESETS,
   getDrawerSectionBreakdown,
@@ -42,6 +48,9 @@ import {
   History,
   Tag,
   Users,
+  Scan,
+  Lock,
+  LayoutGrid,
 } from 'lucide-react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
@@ -109,12 +118,16 @@ export default function CabinetsPage() {
     name: string;
     identifier: string;
     school: string;
-    drawers: Array<{ _id?: string; name: string; capacity: number }>;
+    mapRow: string;
+    mapCol: string;
+    drawers: Array<{ _id?: string; name: string; capacity: number; locked?: boolean }>;
   }>({
     name: '',
     identifier: '',
     school: '',
-    drawers: [{ name: '', capacity: 400 }],
+    mapRow: '',
+    mapCol: '',
+    drawers: [{ name: '', capacity: 400, locked: false }],
   });
   const [rosterOpen, setRosterOpen] = useState(false);
   const [rosterTarget, setRosterTarget] = useState<{
@@ -124,6 +137,19 @@ export default function CabinetsPage() {
     drawerName?: string;
     section?: string;
   } | null>(null);
+  const [fixStudent, setFixStudent] = useState<{
+    studentIds: string[];
+    label?: string;
+  } | null>(null);
+  const [locateHighlight, setLocateHighlight] = useState<{
+    cabinetId: string;
+    drawerId?: string;
+    section?: string;
+    studentName?: string;
+    labelId?: string;
+  } | null>(null);
+  const [locateError, setLocateError] = useState('');
+  const [floorMapOpen, setFloorMapOpen] = useState(false);
   const [auditModalOpen, setAuditModalOpen] = useState(false);
   const [auditResults, setAuditResults] = useState<any[]>([]);
   const [syncMessage, setSyncMessage] = useState('');
@@ -150,13 +176,23 @@ export default function CabinetsPage() {
     location: string;
     archiveDate: string;
     notes: string;
+    statuses: string[];
+    drawerIds: string[];
+    manualAssignments: Record<string, string>;
+    archiveCabinet: boolean;
   }>({
     schoolYear: FISCAL_YEAR_OPTIONS[0],
     boxes: [{ quantity: 1, filesPerBox: 100 }],
     location: '',
     archiveDate: new Date().toISOString().split('T')[0],
     notes: '',
+    statuses: [],
+    drawerIds: [],
+    manualAssignments: {},
+    archiveCabinet: true,
   });
+  const [archiveStep, setArchiveStep] = useState<'setup' | 'preview'>('setup');
+  const [partialArchiveMode, setPartialArchiveMode] = useState(false);
   const [archiveRecords, setArchiveRecords] = useState<Record<string, CabinetArchiveRecord>>({});
   const [archivePending, setArchivePending] = useState<Record<string, number>>({});
   const [assigningCabinetId, setAssigningCabinetId] = useState<string | null>(null);
@@ -208,12 +244,18 @@ export default function CabinetsPage() {
     const isPartial = studentCount < (cabinet.totalCapacity || 0);
     setArchivingCabinet(cabinet);
     setEndOfYearCloseout(!isPartial);
+    setPartialArchiveMode(false);
+    setArchiveStep('setup');
     setArchiveForm({
       schoolYear: FISCAL_YEAR_OPTIONS[0],
       boxes: suggestArchiveBoxes(studentCount),
       location: '',
       archiveDate: new Date().toISOString().split('T')[0],
       notes: '',
+      statuses: [],
+      drawerIds: [],
+      manualAssignments: {},
+      archiveCabinet: true,
     });
     setArchiveModalOpen(true);
   }
@@ -261,31 +303,58 @@ export default function CabinetsPage() {
     (sum, b) => sum + b.quantity * b.filesPerBox,
     0,
   );
+  const isPartialArchive =
+    partialArchiveMode ||
+    archiveForm.statuses.length > 0 ||
+    archiveForm.drawerIds.length > 0 ||
+    !archiveForm.archiveCabinet;
 
   async function handleArchiveSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!archivingCabinet) return;
 
-    const isPartial =
-      (archivingCabinet.currentCount || 0) < (archivingCabinet.totalCapacity || 0);
-    if (isPartial && !endOfYearCloseout) {
-      setError('Turn on end-of-year closeout to archive a cabinet that is not full.');
-      return;
-    }
-
-    if (archiveTotalFiles < (archivingCabinet.currentCount || 0)) {
-      setError(
-        `Add enough archive boxes for all ${archivingCabinet.currentCount} student file(s). Current box layout holds ${archiveTotalFiles}.`,
-      );
+    if (archiveStep === 'setup') {
+      if (!archiveForm.location.trim()) {
+        setError('Enter a physical storage location for the archive boxes.');
+        return;
+      }
+      const cabinetNotFull =
+        (archivingCabinet.currentCount || 0) < (archivingCabinet.totalCapacity || 0);
+      if (!isPartialArchive && cabinetNotFull && !endOfYearCloseout) {
+        setError('Turn on end-of-year closeout to archive a cabinet that is not full.');
+        return;
+      }
+      if (!isPartialArchive && archiveTotalFiles < (archivingCabinet.currentCount || 0)) {
+        setError(
+          `Add enough archive boxes for all ${archivingCabinet.currentCount} student file(s). Current box layout holds ${archiveTotalFiles}.`,
+        );
+        return;
+      }
+      setError('');
+      setArchiveStep('preview');
       return;
     }
 
     setArchivingLoading(true);
     try {
+      const payload = {
+        schoolYear: archiveForm.schoolYear,
+        boxes: archiveForm.boxes,
+        location: archiveForm.location,
+        archiveDate: archiveForm.archiveDate,
+        notes: archiveForm.notes,
+        statuses: archiveForm.statuses.length ? archiveForm.statuses : undefined,
+        drawerIds: archiveForm.drawerIds.length ? archiveForm.drawerIds : undefined,
+        manualAssignments:
+          Object.keys(archiveForm.manualAssignments).length > 0
+            ? archiveForm.manualAssignments
+            : undefined,
+        archiveCabinet: isPartialArchive ? false : archiveForm.archiveCabinet,
+      };
       const res = await fetch(`/api/cabinets/${archivingCabinet._id}/archive`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(archiveForm),
+        body: JSON.stringify(payload),
       });
       const data = await res.json();
       if (!res.ok) {
@@ -295,10 +364,13 @@ export default function CabinetsPage() {
       setArchiveModalOpen(false);
       setArchivingCabinet(null);
       setEndOfYearCloseout(false);
+      setPartialArchiveMode(false);
+      setArchiveStep('setup');
       await fetchCabinets();
+      const modeLabel = data.partial ? 'Partial archive' : 'Cabinet archived';
       setSyncMessage(
-        `Cabinet "${archivingCabinet.name}" archived for ${archiveForm.schoolYear}. ` +
-        `${data.boxCount ?? archiveForm.boxes.length} box(es), ${data.studentsAssigned ?? 0} student file(s) moved → ${archiveForm.location}.`
+        `${modeLabel} for "${archivingCabinet.name}" (${archiveForm.schoolYear}). ` +
+        `${data.boxCount ?? archiveForm.boxes.length} box(es), ${data.studentsAssigned ?? 0} student file(s) → ${archiveForm.location}.`
       );
       if (syncTimeout.current) clearTimeout(syncTimeout.current);
       syncTimeout.current = setTimeout(() => setSyncMessage(''), 8000);
@@ -306,6 +378,43 @@ export default function CabinetsPage() {
       setError('Failed to archive cabinet');
     } finally {
       setArchivingLoading(false);
+    }
+  }
+
+  async function handleLocateScan(scannedId: string) {
+    setLocateError('');
+    try {
+      const res = await fetch(
+        `/api/students/lookup?studentId=${encodeURIComponent(scannedId)}`,
+      );
+      const data = await res.json();
+      if (!res.ok) {
+        setLocateError(data.error || 'Student not found');
+        setLocateHighlight(null);
+        return;
+      }
+      const cabinetId = data.cabinet ? String(data.cabinet) : '';
+      if (!cabinetId) {
+        setLocateError(
+          data.archiveBoxLabel
+            ? `${data.firstName || ''} ${data.lastName || ''} is in archive box ${data.archiveBoxLabel}.`
+            : 'Student has no active cabinet assignment.',
+        );
+        setLocateHighlight(null);
+        return;
+      }
+      setLocateHighlight({
+        cabinetId,
+        drawerId: data.drawer ? String(data.drawer) : undefined,
+        section: data.drawerSection || undefined,
+        studentName: [data.lastName, data.firstName].filter(Boolean).join(', '),
+        labelId: data.labelId || data.studentId || scannedId,
+      });
+      const el = document.getElementById(`cabinet-card-${cabinetId}`);
+      el?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    } catch {
+      setLocateError('Lookup failed');
+      setLocateHighlight(null);
     }
   }
 
@@ -424,6 +533,15 @@ export default function CabinetsPage() {
     }
   };
 
+  const emptyCabinetForm = (school = userSchool) => ({
+    name: '',
+    identifier: '',
+    school,
+    mapRow: '',
+    mapCol: '',
+    drawers: [{ name: '', capacity: 400, locked: false }],
+  });
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
@@ -431,10 +549,20 @@ export default function CabinetsPage() {
 
     try {
       const totalCapacity = form.drawers.reduce((sum, drawer) => sum + drawer.capacity, 0);
+      const parseMap = (v: string) => {
+        if (v.trim() === '') return null;
+        const n = parseInt(v, 10);
+        return Number.isFinite(n) ? n : null;
+      };
       const payload = {
-        ...form,
+        name: form.name,
+        identifier: form.identifier,
+        school: form.school,
+        drawers: form.drawers,
         totalCapacity,
-        currentCount: 0
+        currentCount: 0,
+        mapRow: parseMap(form.mapRow),
+        mapCol: parseMap(form.mapCol),
       };
 
       const url = editingCabinet ? `/api/cabinets/${editingCabinet._id}` : '/api/cabinets';
@@ -450,7 +578,7 @@ export default function CabinetsPage() {
       
       await fetchCabinets();
       setIsModalOpen(false);
-      setForm({ name: '', identifier: '', school: userSchool, drawers: [{ name: '', capacity: 400 }] });
+      setForm(emptyCabinetForm());
       setEditingCabinet(null);
     } catch (err) {
       setError('Failed to save cabinet');
@@ -474,7 +602,7 @@ export default function CabinetsPage() {
   const addDrawer = () => {
     setForm(prev => ({
       ...prev,
-      drawers: [...prev.drawers, { name: '', capacity: 400 }]
+      drawers: [...prev.drawers, { name: '', capacity: 400, locked: false }],
     }));
   };
 
@@ -485,10 +613,14 @@ export default function CabinetsPage() {
     }));
   };
 
-  const updateDrawer = (index: number, field: 'name' | 'capacity', value: string | number) => {
+  const updateDrawer = (
+    index: number,
+    field: 'name' | 'capacity' | 'locked',
+    value: string | number | boolean,
+  ) => {
     setForm(prev => ({
       ...prev,
-      drawers: prev.drawers.map((drawer, i) => 
+      drawers: prev.drawers.map((drawer, i) =>
         i === index ? { ...drawer, [field]: value } : drawer
       )
     }));
@@ -576,14 +708,17 @@ export default function CabinetsPage() {
     // Generate drawers with suggested names and capacity
     const suggestedDrawers = Array.from({ length: defaultDrawerCount }, (_, i) => ({
       name: drawerNames[i] || `Drawer ${String.fromCharCode(65 + i)}`,
-      capacity: defaultCapacity
+      capacity: defaultCapacity,
+      locked: false,
     }));
     
     setForm({
       name: suggestedName,
       identifier: suggestedIdentifier,
       school: suggestedSchool,
-      drawers: suggestedDrawers
+      mapRow: '',
+      mapCol: '',
+      drawers: suggestedDrawers,
     });
   };
 
@@ -851,7 +986,7 @@ export default function CabinetsPage() {
           <Button
             onClick={() => {
               setEditingCabinet(null);
-              setForm(prev => ({ name: '', identifier: '', school: userSchool || prev.school, drawers: [{ name: '', capacity: 400 }] }));
+              setForm(emptyCabinetForm(userSchool));
               setIsModalOpen(true);
             }}
             className="gap-2"
@@ -974,7 +1109,16 @@ export default function CabinetsPage() {
               </Select>
             </div>
           </div>
-          <div className="flex gap-2 flex-wrap">
+          <div className="flex gap-2 flex-wrap items-center">
+          <BarcodeScanner onScan={handleLocateScan} onManualEntry={handleLocateScan} />
+          <Button
+            onClick={() => setFloorMapOpen(true)}
+            variant="outline"
+            className="gap-2"
+          >
+            <LayoutGrid className="h-4 w-4" />
+            Floor Map
+          </Button>
           <Button
             onClick={openMoveHistory}
             variant="outline"
@@ -1011,6 +1155,37 @@ export default function CabinetsPage() {
           </Button>
           </div>
         </div>
+        {(locateHighlight || locateError) && (
+          <Alert className={locateError ? 'border-destructive/50' : 'border-primary/40 bg-primary/5'}>
+            <Scan className="h-4 w-4" />
+            <AlertTitle>
+              {locateError ? 'Locate failed' : 'Located student'}
+            </AlertTitle>
+            <AlertDescription className="flex flex-wrap items-center gap-2">
+              {locateError || (
+                <>
+                  <span>
+                    {locateHighlight?.studentName || 'Student'}
+                    {locateHighlight?.labelId ? ` (${locateHighlight.labelId})` : ''}
+                    {locateHighlight?.section
+                      ? ` · ${locateHighlight.section}`
+                      : ''}
+                  </span>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => {
+                      setLocateHighlight(null);
+                      setLocateError('');
+                    }}
+                  >
+                    Clear
+                  </Button>
+                </>
+              )}
+            </AlertDescription>
+          </Alert>
+        )}
         {(schoolFilter !== 'all' || capacityFilter !== 'all') && (
           <div className="flex items-center gap-2 flex-wrap">
             {schoolFilter !== 'all' && (
@@ -1103,7 +1278,7 @@ export default function CabinetsPage() {
               <Button
                 onClick={() => {
                   setEditingCabinet(null);
-                  setForm(prev => ({ name: '', identifier: '', school: userSchool || prev.school, drawers: [{ name: '', capacity: 400 }] }));
+                  setForm(emptyCabinetForm(userSchool));
                   setIsModalOpen(true);
                 }}
                 className="gap-2"
@@ -1124,14 +1299,26 @@ export default function CabinetsPage() {
             const isNearFull = usagePercent >= 80;
             const capacityStatus = getCapacityStatus(usagePercent);
 
+            const isLocateHit = locateHighlight?.cabinetId === cabinet._id;
             return (
-              <Card key={cabinet._id} className="hover:shadow-lg transition-shadow">
+              <Card
+                id={`cabinet-card-${cabinet._id}`}
+                key={cabinet._id}
+                className={`hover:shadow-lg transition-shadow ${
+                  isLocateHit ? 'ring-2 ring-primary shadow-lg' : ''
+                }`}
+              >
                 <CardHeader>
                   <div className="flex justify-between items-start">
                     <div className="flex-1">
                       <CardTitle className="flex items-center gap-2">
                         <Building2 className="h-5 w-5 text-muted-foreground" />
                         {cabinet.name}
+                        {isLocateHit && (
+                          <Badge className="gap-1">
+                            <Scan className="h-3 w-3" /> Found
+                          </Badge>
+                        )}
                       </CardTitle>
                       {cabinet.identifier && (
                         <Badge variant="secondary" className="mt-1">
@@ -1182,10 +1369,15 @@ export default function CabinetsPage() {
                             name: cabinet.name,
                             identifier: cabinet.identifier || '',
                             school: cabinet.school || '',
+                            mapRow:
+                              cabinet.mapRow != null ? String(cabinet.mapRow) : '',
+                            mapCol:
+                              cabinet.mapCol != null ? String(cabinet.mapCol) : '',
                             drawers: cabinet.drawers.map((d) => ({
                               _id: d._id,
                               name: d.name,
                               capacity: d.capacity,
+                              locked: Boolean(d.locked),
                             })),
                           });
                           setIsModalOpen(true);
@@ -1423,8 +1615,21 @@ export default function CabinetsPage() {
                           drawer.capacity || 0,
                         );
                         const sectionSize = getDrawerSectionSize(drawer.capacity || 0);
+                        const drawerLocate =
+                          isLocateHit &&
+                          locateHighlight?.drawerId &&
+                          locateHighlight.drawerId === drawer._id;
                         return (
-                          <div key={drawer._id || index} className="text-sm p-2 bg-muted/50 rounded space-y-2">
+                          <div
+                            key={drawer._id || index}
+                            className={`text-sm p-2 rounded space-y-2 ${
+                              drawerLocate
+                                ? 'bg-primary/10 ring-1 ring-primary'
+                                : drawer.locked
+                                  ? 'bg-muted/80 opacity-80'
+                                  : 'bg-muted/50'
+                            }`}
+                          >
                             <div className="flex items-center justify-between gap-2">
                               <button
                                 type="button"
@@ -1432,7 +1637,17 @@ export default function CabinetsPage() {
                                 title="View drawer roster"
                                 onClick={() => openRoster({ cabinet, drawer })}
                               >
-                                <div className="font-medium">{drawer.name}</div>
+                                <div className="font-medium flex items-center gap-1.5">
+                                  {drawer.name}
+                                  {drawer.locked && (
+                                    <Badge variant="outline" className="gap-1 text-[10px] h-5">
+                                      <Lock className="h-3 w-3" /> Do not fill
+                                    </Badge>
+                                  )}
+                                  {drawerLocate && (
+                                    <Badge className="text-[10px] h-5">Here</Badge>
+                                  )}
+                                </div>
                                 <div className="text-xs text-muted-foreground">
                                   {drawer.currentCount}/{drawer.capacity} files
                                   {' · '}
@@ -1444,7 +1659,11 @@ export default function CabinetsPage() {
                               </Badge>
                             </div>
                             <div className="grid grid-cols-4 gap-1">
-                              {sections.map((section) => (
+                              {sections.map((section) => {
+                                const sectionHit =
+                                  drawerLocate &&
+                                  locateHighlight?.section === section.label;
+                                return (
                                 <button
                                   key={section.label}
                                   type="button"
@@ -1456,7 +1675,9 @@ export default function CabinetsPage() {
                                     })
                                   }
                                   className={
-                                    section.status === 'full'
+                                    sectionHit
+                                      ? 'rounded border border-primary bg-primary/15 px-1 py-0.5 text-[10px] text-foreground text-left ring-1 ring-primary'
+                                      : section.status === 'full'
                                       ? 'rounded border border-emerald-300 bg-emerald-50 px-1 py-0.5 text-[10px] text-emerald-900 text-left hover:ring-1 hover:ring-emerald-400'
                                       : section.status === 'partial'
                                         ? 'rounded border border-amber-300 bg-amber-50 px-1 py-0.5 text-[10px] text-amber-900 text-left hover:ring-1 hover:ring-amber-400'
@@ -1467,7 +1688,8 @@ export default function CabinetsPage() {
                                   <div className="font-medium leading-tight">{section.label.replace('Section ', 'S')}</div>
                                   <div className="tabular-nums leading-tight">{section.filled}/{section.capacity}</div>
                                 </button>
-                              ))}
+                                );
+                              })}
                             </div>
                           </div>
                         );
@@ -1562,6 +1784,31 @@ export default function CabinetsPage() {
                 )}
               </div>
 
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-2">
+                  <Label htmlFor="mapRow">Floor map row (optional)</Label>
+                  <Input
+                    id="mapRow"
+                    type="number"
+                    min={0}
+                    value={form.mapRow}
+                    onChange={(e) => setForm((prev) => ({ ...prev, mapRow: e.target.value }))}
+                    placeholder="0"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="mapCol">Floor map column (optional)</Label>
+                  <Input
+                    id="mapCol"
+                    type="number"
+                    min={0}
+                    value={form.mapCol}
+                    onChange={(e) => setForm((prev) => ({ ...prev, mapCol: e.target.value }))}
+                    placeholder="0"
+                  />
+                </div>
+              </div>
+
               <Separator />
 
               <div className="space-y-3">
@@ -1641,6 +1888,23 @@ export default function CabinetsPage() {
                             </Button>
                           )}
                         </div>
+                        <div className="mt-3 flex items-center gap-2 rounded-md border px-3 py-2">
+                          <Switch
+                            id={`drawer-locked-${index}`}
+                            checked={Boolean(drawer.locked)}
+                            onCheckedChange={(checked) =>
+                              updateDrawer(index, 'locked', checked === true)
+                            }
+                          />
+                          <div>
+                            <Label htmlFor={`drawer-locked-${index}`} className="cursor-pointer flex items-center gap-1.5">
+                              <Lock className="h-3.5 w-3.5" /> Do not fill (locked)
+                            </Label>
+                            <p className="text-[11px] text-muted-foreground">
+                              Skipped by Smart Fill / next open slot. Existing files stay.
+                            </p>
+                          </div>
+                        </div>
                       </CardContent>
                     </Card>
                   ))}
@@ -1653,7 +1917,7 @@ export default function CabinetsPage() {
                   variant="outline"
                   onClick={() => {
                     setIsModalOpen(false);
-                    setForm({ name: '', identifier: '', school: userSchool, drawers: [{ name: '', capacity: 400 }] });
+                    setForm(emptyCabinetForm());
                     setEditingCabinet(null);
                   }}
                 >
@@ -1859,6 +2123,8 @@ export default function CabinetsPage() {
           setArchiveModalOpen(open);
           if (!open) {
             setEndOfYearCloseout(false);
+            setPartialArchiveMode(false);
+            setArchiveStep('setup');
             setArchivingCabinet(null);
           }
         }}>
@@ -1866,13 +2132,21 @@ export default function CabinetsPage() {
             <DialogHeader>
               <DialogTitle className="flex items-center gap-2">
                 <PackageOpen className="h-5 w-5 text-amber-600" />
-                Archive Cabinet — End of School Year
+                {archiveStep === 'preview' ? 'Preview box packing' : 'Archive Cabinet'}
+                {partialArchiveMode ? ' — Partial' : ' — End of School Year'}
               </DialogTitle>
               <DialogDescription>
-                Record where the physical archive boxes are being stored for{' '}
-                <strong>{archivingCabinet?.name}{archivingCabinet?.identifier ? ` (${archivingCabinet.identifier})` : ''}</strong>.
-                Student files will be moved from drawers into archive boxes, status set to Archived,
-                and each box gets a scannable QR label.
+                {archiveStep === 'preview' ? (
+                  <>Review who goes in which box. Override any student before commit.</>
+                ) : (
+                  <>
+                    Record where physical archive boxes will be stored for{' '}
+                    <strong>{archivingCabinet?.name}{archivingCabinet?.identifier ? ` (${archivingCabinet.identifier})` : ''}</strong>.
+                    {partialArchiveMode
+                      ? ' Only selected statuses/drawers move to boxes; the cabinet stays Active.'
+                      : ' Student files move into archive boxes, status set to Archived, and each box gets a scannable QR label.'}
+                  </>
+                )}
               </DialogDescription>
             </DialogHeader>
 
@@ -1896,223 +2170,308 @@ export default function CabinetsPage() {
               </div>
             )}
 
-            {archivingCabinet &&
-              (archivingCabinet.currentCount || 0) < (archivingCabinet.totalCapacity || 0) && (
-              <Alert className="border-amber-200 bg-amber-50/60 dark:bg-amber-950/20 dark:border-amber-800">
-                <AlertCircle className="h-4 w-4 text-amber-700" />
-                <AlertTitle className="text-amber-900 dark:text-amber-200">
-                  This cabinet is not full
-                </AlertTitle>
-                <AlertDescription className="text-amber-900/90 dark:text-amber-100/90 space-y-3">
-                  <p>
-                    {(archivingCabinet.totalCapacity || 0) - (archivingCabinet.currentCount || 0)} drawer
-                    slot{(archivingCabinet.totalCapacity || 0) - (archivingCabinet.currentCount || 0) !== 1 ? 's' : ''}{' '}
-                    are still empty. At end of school year you can still archive — files move to boxes and the cabinet closes for new assignments.
-                  </p>
-                  <div className="flex items-start gap-3 rounded-md border border-amber-200/80 bg-background/80 p-3 dark:border-amber-800">
+            <form onSubmit={handleArchiveSubmit} className="space-y-5">
+              {archiveStep === 'setup' && (
+                <>
+                  <div className="flex items-start gap-3 rounded-md border p-3">
                     <Switch
-                      id="endOfYearCloseout"
-                      checked={endOfYearCloseout}
-                      onCheckedChange={(checked) => setEndOfYearCloseout(checked === true)}
+                      id="partialArchiveMode"
+                      checked={partialArchiveMode}
+                      onCheckedChange={(checked) => {
+                        const on = checked === true;
+                        setPartialArchiveMode(on);
+                        setArchiveForm((f) => ({
+                          ...f,
+                          archiveCabinet: !on,
+                          statuses: on ? [...PARTIAL_ARCHIVE_STATUSES] : [],
+                          drawerIds: on ? f.drawerIds : [],
+                          manualAssignments: {},
+                        }));
+                      }}
                     />
                     <div className="space-y-1">
-                      <Label htmlFor="endOfYearCloseout" className="font-medium cursor-pointer">
-                        End-of-year closeout
+                      <Label htmlFor="partialArchiveMode" className="font-medium cursor-pointer">
+                        Partial archive (leave actives in drawers)
                       </Label>
                       <p className="text-xs text-muted-foreground">
-                        I confirm this cabinet should be archived even though drawers are not full.
-                        Empty slots will not stay available for new intake.
+                        Archive only Graduated / Transferred / etc. Cabinet stays open for intake.
                       </p>
                     </div>
                   </div>
-                </AlertDescription>
-              </Alert>
-            )}
 
-            <form onSubmit={handleArchiveSubmit} className="space-y-5">
-              {/* School Year + Archive Date */}
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="schoolYear" className="flex items-center gap-1.5">
-                    <CalendarDays className="h-4 w-4 text-muted-foreground" /> School Year
-                  </Label>
-                  <Select
-                    value={archiveForm.schoolYear}
-                    onValueChange={v => setArchiveForm(f => ({ ...f, schoolYear: v }))}
-                  >
-                    <SelectTrigger id="schoolYear">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {FISCAL_YEAR_OPTIONS.map(y => (
-                        <SelectItem key={y} value={y}>{y}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="archiveDate" className="flex items-center gap-1.5">
-                    <CalendarDays className="h-4 w-4 text-muted-foreground" /> Archive Date
-                  </Label>
-                  <Input
-                    id="archiveDate"
-                    type="date"
-                    value={archiveForm.archiveDate}
-                    onChange={e => setArchiveForm(f => ({ ...f, archiveDate: e.target.value }))}
-                    required
-                  />
-                </div>
-              </div>
-
-              <Separator />
-
-              {/* Archive Boxes */}
-              <div className="space-y-3">
-                <div className="flex items-center justify-between">
-                  <Label className="flex items-center gap-1.5">
-                    <Boxes className="h-4 w-4 text-muted-foreground" /> Archive Boxes
-                  </Label>
-                  <Button type="button" variant="outline" size="sm" onClick={addArchiveBox} className="gap-1.5">
-                    <Plus className="h-3.5 w-3.5" /> Add Box Type
-                  </Button>
-                </div>
-                <div className="rounded-md border bg-muted/20 p-1 text-xs text-muted-foreground flex items-start gap-1.5 px-3 py-2">
-                  <Info className="h-3.5 w-3.5 shrink-0 mt-0.5" />
-                  {archiveStudentCount > 0 ? (
-                    <>
-                      Pick a box size (50 / 100 / 200) to auto-calculate how many boxes you need for{' '}
-                      <strong className="text-foreground">{archiveStudentCount.toLocaleString()} student file(s)</strong>.
-                      You can still adjust the box count manually.
-                    </>
-                  ) : (
-                    <>Add one row per box size. Use presets (50 / 100 / 200 files per box) or enter a custom size.</>
+                  {partialArchiveMode && archivingCabinet && (
+                    <div className="space-y-3 rounded-md border p-3">
+                      <Label>Statuses to archive</Label>
+                      <div className="grid grid-cols-2 gap-2">
+                        {PARTIAL_ARCHIVE_STATUSES.map((status) => (
+                          <label key={status} className="flex items-center gap-2 text-sm">
+                            <Checkbox
+                              checked={archiveForm.statuses.includes(status)}
+                              onCheckedChange={(checked) => {
+                                setArchiveForm((f) => ({
+                                  ...f,
+                                  statuses: checked
+                                    ? [...f.statuses, status]
+                                    : f.statuses.filter((s) => s !== status),
+                                  manualAssignments: {},
+                                }));
+                              }}
+                            />
+                            {status}
+                          </label>
+                        ))}
+                      </div>
+                      <Label className="pt-2">Drawers (optional — empty = all)</Label>
+                      <div className="grid grid-cols-2 gap-2">
+                        {archivingCabinet.drawers.map((d) => (
+                          <label key={d._id} className="flex items-center gap-2 text-sm">
+                            <Checkbox
+                              checked={archiveForm.drawerIds.includes(d._id)}
+                              onCheckedChange={(checked) => {
+                                setArchiveForm((f) => ({
+                                  ...f,
+                                  drawerIds: checked
+                                    ? [...f.drawerIds, d._id]
+                                    : f.drawerIds.filter((id) => id !== d._id),
+                                  manualAssignments: {},
+                                }));
+                              }}
+                            />
+                            {d.name}
+                          </label>
+                        ))}
+                      </div>
+                    </div>
                   )}
-                </div>
-                <div className="space-y-3">
-                  {archiveForm.boxes.map((box, i) => (
-                    <div key={i} className="flex items-end gap-3 rounded-lg border p-3 bg-card">
-                      <div className="space-y-1.5 flex-1">
-                        <Label className="text-xs text-muted-foreground">Files per Box</Label>
-                        <div className="flex gap-1.5 flex-wrap">
-                          {BOX_PRESETS.map(p => (
-                            <Button
-                              key={p}
-                              type="button"
-                              size="sm"
-                              variant={box.filesPerBox === p ? 'default' : 'outline'}
-                              className="h-8 px-3"
-                              onClick={() => setArchiveBoxPreset(i, p)}
-                            >
-                              {p}
-                            </Button>
+
+                  {!partialArchiveMode &&
+                    archivingCabinet &&
+                    (archivingCabinet.currentCount || 0) < (archivingCabinet.totalCapacity || 0) && (
+                    <Alert className="border-amber-200 bg-amber-50/60 dark:bg-amber-950/20 dark:border-amber-800">
+                      <AlertCircle className="h-4 w-4 text-amber-700" />
+                      <AlertTitle className="text-amber-900 dark:text-amber-200">
+                        This cabinet is not full
+                      </AlertTitle>
+                      <AlertDescription className="text-amber-900/90 dark:text-amber-100/90 space-y-3">
+                        <p>
+                          {(archivingCabinet.totalCapacity || 0) - (archivingCabinet.currentCount || 0)} drawer
+                          slot{(archivingCabinet.totalCapacity || 0) - (archivingCabinet.currentCount || 0) !== 1 ? 's' : ''}{' '}
+                          are still empty.
+                        </p>
+                        <div className="flex items-start gap-3 rounded-md border border-amber-200/80 bg-background/80 p-3 dark:border-amber-800">
+                          <Switch
+                            id="endOfYearCloseout"
+                            checked={endOfYearCloseout}
+                            onCheckedChange={(checked) => setEndOfYearCloseout(checked === true)}
+                          />
+                          <div className="space-y-1">
+                            <Label htmlFor="endOfYearCloseout" className="font-medium cursor-pointer">
+                              End-of-year closeout
+                            </Label>
+                            <p className="text-xs text-muted-foreground">
+                              Archive the whole cabinet even though drawers are not full.
+                            </p>
+                          </div>
+                        </div>
+                      </AlertDescription>
+                    </Alert>
+                  )}
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="schoolYear" className="flex items-center gap-1.5">
+                        <CalendarDays className="h-4 w-4 text-muted-foreground" /> School Year
+                      </Label>
+                      <Select
+                        value={archiveForm.schoolYear}
+                        onValueChange={v => setArchiveForm(f => ({ ...f, schoolYear: v, manualAssignments: {} }))}
+                      >
+                        <SelectTrigger id="schoolYear">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {FISCAL_YEAR_OPTIONS.map(y => (
+                            <SelectItem key={y} value={y}>{y}</SelectItem>
                           ))}
-                          <Input
-                            type="number"
-                            min={1}
-                            value={BOX_PRESETS.includes(box.filesPerBox) ? '' : box.filesPerBox}
-                            placeholder="Custom"
-                            className="h-8 w-24"
-                            onChange={e => setArchiveBoxCustomSize(i, parseInt(e.target.value, 10) || 1)}
-                          />
-                        </div>
-                      </div>
-                      <div className="space-y-1.5 w-32">
-                        <Label className="text-xs text-muted-foreground">Number of Boxes</Label>
-                        <div className="flex items-center gap-1">
-                          <Button type="button" variant="outline" size="icon" className="h-8 w-8"
-                            onClick={() => updateArchiveBox(i, 'quantity', Math.max(1, box.quantity - 1))}>
-                            <Minus className="h-3 w-3" />
-                          </Button>
-                          <Input
-                            type="number"
-                            min={1}
-                            value={box.quantity}
-                            className="h-8 text-center"
-                            onChange={e => updateArchiveBox(i, 'quantity', parseInt(e.target.value) || 1)}
-                          />
-                          <Button type="button" variant="outline" size="icon" className="h-8 w-8"
-                            onClick={() => updateArchiveBox(i, 'quantity', box.quantity + 1)}>
-                            <Plus className="h-3 w-3" />
-                          </Button>
-                        </div>
-                      </div>
-                      <div className="text-sm text-muted-foreground w-36 pb-1">
-                        = <strong>{(box.quantity * box.filesPerBox).toLocaleString()}</strong> file slots
-                        {archiveStudentCount > 0 && box.quantity * box.filesPerBox >= archiveStudentCount && (
-                          <span className="block text-xs text-green-700 dark:text-green-400">Covers all files</span>
-                        )}
-                      </div>
-                      {archiveForm.boxes.length > 1 && (
-                        <Button type="button" variant="ghost" size="icon" className="h-8 w-8 text-destructive"
-                          onClick={() => removeArchiveBox(i)}>
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="archiveDate" className="flex items-center gap-1.5">
+                        <CalendarDays className="h-4 w-4 text-muted-foreground" /> Archive Date
+                      </Label>
+                      <Input
+                        id="archiveDate"
+                        type="date"
+                        value={archiveForm.archiveDate}
+                        onChange={e => setArchiveForm(f => ({ ...f, archiveDate: e.target.value }))}
+                        required
+                      />
+                    </div>
+                  </div>
+
+                  <Separator />
+
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between">
+                      <Label className="flex items-center gap-1.5">
+                        <Boxes className="h-4 w-4 text-muted-foreground" /> Archive Boxes
+                      </Label>
+                      <Button type="button" variant="outline" size="sm" onClick={addArchiveBox} className="gap-1.5">
+                        <Plus className="h-3.5 w-3.5" /> Add Box Type
+                      </Button>
+                    </div>
+                    <div className="rounded-md border bg-muted/20 p-1 text-xs text-muted-foreground flex items-start gap-1.5 px-3 py-2">
+                      <Info className="h-3.5 w-3.5 shrink-0 mt-0.5" />
+                      {archiveStudentCount > 0 ? (
+                        <>
+                          Pick a box size for about{' '}
+                          <strong className="text-foreground">{archiveStudentCount.toLocaleString()} file(s)</strong>
+                          {partialArchiveMode ? ' in this cabinet (filter applied on preview).' : '.'}
+                        </>
+                      ) : (
+                        <>Add one row per box size.</>
                       )}
                     </div>
-                  ))}
-                </div>
-                <div className="flex justify-end text-sm font-medium text-foreground">
-                  Total capacity across all boxes:{' '}
-                  <span className={`ml-1 ${archiveTotalFiles < (archivingCabinet?.currentCount || 0) ? 'text-destructive' : 'text-primary'}`}>
-                    {archiveTotalFiles.toLocaleString()} file slots
-                  </span>
-                  {archivingCabinet && archiveTotalFiles < (archivingCabinet.currentCount || 0) && (
-                    <span className="ml-2 text-destructive text-xs font-normal">
-                      (need at least {archivingCabinet.currentCount})
-                    </span>
-                  )}
-                </div>
-              </div>
+                    <div className="space-y-3">
+                      {archiveForm.boxes.map((box, i) => (
+                        <div key={i} className="flex items-end gap-3 rounded-lg border p-3 bg-card">
+                          <div className="space-y-1.5 flex-1">
+                            <Label className="text-xs text-muted-foreground">Files per Box</Label>
+                            <div className="flex gap-1.5 flex-wrap">
+                              {BOX_PRESETS.map(p => (
+                                <Button
+                                  key={p}
+                                  type="button"
+                                  size="sm"
+                                  variant={box.filesPerBox === p ? 'default' : 'outline'}
+                                  className="h-8 px-3"
+                                  onClick={() => setArchiveBoxPreset(i, p)}
+                                >
+                                  {p}
+                                </Button>
+                              ))}
+                              <Input
+                                type="number"
+                                min={1}
+                                value={BOX_PRESETS.includes(box.filesPerBox) ? '' : box.filesPerBox}
+                                placeholder="Custom"
+                                className="h-8 w-24"
+                                onChange={e => setArchiveBoxCustomSize(i, parseInt(e.target.value, 10) || 1)}
+                              />
+                            </div>
+                          </div>
+                          <div className="space-y-1.5 w-32">
+                            <Label className="text-xs text-muted-foreground">Number of Boxes</Label>
+                            <div className="flex items-center gap-1">
+                              <Button type="button" variant="outline" size="icon" className="h-8 w-8"
+                                onClick={() => updateArchiveBox(i, 'quantity', Math.max(1, box.quantity - 1))}>
+                                <Minus className="h-3 w-3" />
+                              </Button>
+                              <Input
+                                type="number"
+                                min={1}
+                                value={box.quantity}
+                                className="h-8 text-center"
+                                onChange={e => updateArchiveBox(i, 'quantity', parseInt(e.target.value) || 1)}
+                              />
+                              <Button type="button" variant="outline" size="icon" className="h-8 w-8"
+                                onClick={() => updateArchiveBox(i, 'quantity', box.quantity + 1)}>
+                                <Plus className="h-3 w-3" />
+                              </Button>
+                            </div>
+                          </div>
+                          <div className="text-sm text-muted-foreground w-36 pb-1">
+                            = <strong>{(box.quantity * box.filesPerBox).toLocaleString()}</strong> file slots
+                          </div>
+                          {archiveForm.boxes.length > 1 && (
+                            <Button type="button" variant="ghost" size="icon" className="h-8 w-8 text-destructive"
+                              onClick={() => removeArchiveBox(i)}>
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                    <div className="flex justify-end text-sm font-medium text-foreground">
+                      Total capacity:{' '}
+                      <span className="ml-1 text-primary">{archiveTotalFiles.toLocaleString()} file slots</span>
+                    </div>
+                  </div>
 
-              <Separator />
+                  <Separator />
 
-              {/* Physical Location */}
-              <div className="space-y-2">
-                <Label htmlFor="archiveLocation" className="flex items-center gap-1.5">
-                  <MapPin className="h-4 w-4 text-muted-foreground" /> Physical Storage Location
-                </Label>
-                <Input
-                  id="archiveLocation"
-                  value={archiveForm.location}
-                  onChange={e => setArchiveForm(f => ({ ...f, location: e.target.value }))}
-                  placeholder="e.g., Storage Room 201 — Shelf B, Row 3"
-                  required
+                  <div className="space-y-2">
+                    <Label htmlFor="archiveLocation" className="flex items-center gap-1.5">
+                      <MapPin className="h-4 w-4 text-muted-foreground" /> Physical Storage Location
+                    </Label>
+                    <Input
+                      id="archiveLocation"
+                      value={archiveForm.location}
+                      onChange={e => setArchiveForm(f => ({ ...f, location: e.target.value }))}
+                      placeholder="e.g., Storage Room 201 — Shelf B, Row 3"
+                      required
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="archiveNotes">Notes (optional)</Label>
+                    <Textarea
+                      id="archiveNotes"
+                      rows={3}
+                      value={archiveForm.notes}
+                      onChange={e => setArchiveForm(f => ({ ...f, notes: e.target.value }))}
+                      placeholder="Any additional context"
+                    />
+                  </div>
+                </>
+              )}
+
+              {archiveStep === 'preview' && archivingCabinet && (
+                <ArchivePackingPreview
+                  cabinetId={archivingCabinet._id!}
+                  schoolYear={archiveForm.schoolYear}
+                  boxes={archiveForm.boxes}
+                  statuses={archiveForm.statuses}
+                  drawerIds={archiveForm.drawerIds}
+                  manualAssignments={archiveForm.manualAssignments}
+                  onManualChange={(next) =>
+                    setArchiveForm((f) => ({ ...f, manualAssignments: next }))
+                  }
                 />
-                <p className="text-xs text-muted-foreground">
-                  Describe exactly where the boxes will be stored so anyone can find them later.
-                </p>
-              </div>
+              )}
 
-              {/* Notes */}
-              <div className="space-y-2">
-                <Label htmlFor="archiveNotes">Notes (optional)</Label>
-                <Textarea
-                  id="archiveNotes"
-                  rows={3}
-                  value={archiveForm.notes}
-                  onChange={e => setArchiveForm(f => ({ ...f, notes: e.target.value }))}
-                  placeholder="Any additional context — e.g., 'Boxes sealed and labelled. Contact John for access.'"
-                />
-              </div>
-
-              <DialogFooter>
-                <Button type="button" variant="outline" onClick={() => setArchiveModalOpen(false)}>
-                  Cancel
-                </Button>
+              <DialogFooter className="gap-2 sm:gap-0">
+                {archiveStep === 'preview' ? (
+                  <Button type="button" variant="outline" onClick={() => setArchiveStep('setup')}>
+                    Back
+                  </Button>
+                ) : (
+                  <Button type="button" variant="outline" onClick={() => setArchiveModalOpen(false)}>
+                    Cancel
+                  </Button>
+                )}
                 <Button
                   type="submit"
                   disabled={
                     archivingLoading ||
                     !archiveForm.location ||
-                    archiveTotalFiles < (archivingCabinet?.currentCount || 0) ||
-                    ((archivingCabinet?.currentCount || 0) < (archivingCabinet?.totalCapacity || 0) && !endOfYearCloseout)
+                    (archiveStep === 'setup' &&
+                      !isPartialArchive &&
+                      (archivingCabinet?.currentCount || 0) < (archivingCabinet?.totalCapacity || 0) &&
+                      !endOfYearCloseout) ||
+                    (archiveStep === 'setup' &&
+                      partialArchiveMode &&
+                      archiveForm.statuses.length === 0)
                   }
                   className="gap-2 bg-amber-600 hover:bg-amber-700 text-white border-amber-600"
                 >
                   {archivingLoading ? (
                     <><Loader2 className="h-4 w-4 animate-spin" /> Archiving...</>
+                  ) : archiveStep === 'setup' ? (
+                    <><Archive className="h-4 w-4" /> Preview packing</>
                   ) : (
-                    <><Archive className="h-4 w-4" /> Archive Cabinet</>
+                    <><Archive className="h-4 w-4" /> {partialArchiveMode ? 'Commit partial archive' : 'Archive Cabinet'}</>
                   )}
                 </Button>
               </DialogFooter>
@@ -2243,8 +2602,148 @@ export default function CabinetsPage() {
             drawerId={rosterTarget.drawerId}
             drawerName={rosterTarget.drawerName}
             section={rosterTarget.section}
+            onReassign={(student: RosterStudent) => {
+              setFixStudent({
+                studentIds: [student._id],
+                label: student.name,
+              });
+            }}
           />
         )}
+
+        {fixStudent && (
+          <FixStudentAssignmentDialog
+            open={Boolean(fixStudent)}
+            onOpenChange={(open) => {
+              if (!open) setFixStudent(null);
+            }}
+            studentIds={fixStudent.studentIds}
+            studentLabel={fixStudent.label}
+            source="cabinets-roster"
+            onDone={(message) => {
+              setFixStudent(null);
+              setSyncMessage(message);
+              if (syncTimeout.current) clearTimeout(syncTimeout.current);
+              syncTimeout.current = setTimeout(() => setSyncMessage(''), 8000);
+              fetchCabinets();
+              if (rosterOpen) {
+                setRosterOpen(false);
+                setTimeout(() => setRosterOpen(true), 0);
+              }
+            }}
+          />
+        )}
+
+        <Dialog open={floorMapOpen} onOpenChange={setFloorMapOpen}>
+          <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <LayoutGrid className="h-5 w-5" /> Floor / room map
+              </DialogTitle>
+              <DialogDescription>
+                Cabinets placed by map row/column (set in Edit Cabinet). Unplaced cabinets appear below.
+              </DialogDescription>
+            </DialogHeader>
+            {(() => {
+              const active = cabinets.filter((c) => (c.status ?? 'Active') !== 'Archived');
+              const placed = active.filter(
+                (c) => c.mapRow != null && c.mapCol != null,
+              );
+              const unplaced = active.filter(
+                (c) => c.mapRow == null || c.mapCol == null,
+              );
+              const maxRow = placed.reduce((m, c) => Math.max(m, c.mapRow ?? 0), 0);
+              const maxCol = placed.reduce((m, c) => Math.max(m, c.mapCol ?? 0), 0);
+              const cells: Array<Cabinet | null>[] = [];
+              for (let r = 0; r <= maxRow; r++) {
+                const row: Array<Cabinet | null> = [];
+                for (let c = 0; c <= maxCol; c++) {
+                  row.push(
+                    placed.find((cab) => cab.mapRow === r && cab.mapCol === c) || null,
+                  );
+                }
+                cells.push(row);
+              }
+              return (
+                <div className="space-y-4">
+                  {placed.length === 0 ? (
+                    <p className="text-sm text-muted-foreground">
+                      No cabinets have map coordinates yet. Edit a cabinet and set Floor map row/column.
+                    </p>
+                  ) : (
+                    <div className="overflow-x-auto">
+                      <div
+                        className="inline-grid gap-2"
+                        style={{
+                          gridTemplateColumns: `repeat(${maxCol + 1}, minmax(7rem, 1fr))`,
+                        }}
+                      >
+                        {cells.flatMap((row, r) =>
+                          row.map((cab, c) => (
+                            <button
+                              key={`${r}-${c}`}
+                              type="button"
+                              disabled={!cab}
+                              onClick={() => {
+                                if (!cab) return;
+                                setFloorMapOpen(false);
+                                document
+                                  .getElementById(`cabinet-card-${cab._id}`)
+                                  ?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                                setLocateHighlight({
+                                  cabinetId: cab._id!,
+                                  studentName: cab.name,
+                                });
+                              }}
+                              className={
+                                cab
+                                  ? `rounded-md border p-2 text-left text-xs hover:ring-1 hover:ring-primary ${
+                                      locateHighlight?.cabinetId === cab._id
+                                        ? 'border-primary bg-primary/10'
+                                        : 'bg-muted/40'
+                                    }`
+                                  : 'rounded-md border border-dashed p-2 min-h-[3.5rem] bg-transparent'
+                              }
+                            >
+                              {cab ? (
+                                <>
+                                  <div className="font-medium truncate">
+                                    {cab.identifier || cab.name}
+                                  </div>
+                                  <div className="text-muted-foreground truncate">
+                                    {cab.currentCount}/{cab.totalCapacity}
+                                  </div>
+                                </>
+                              ) : null}
+                            </button>
+                          )),
+                        )}
+                      </div>
+                    </div>
+                  )}
+                  {unplaced.length > 0 && (
+                    <div className="space-y-2">
+                      <Label>Unplaced cabinets</Label>
+                      <div className="flex flex-wrap gap-2">
+                        {unplaced.map((cab) => (
+                          <Badge key={cab._id} variant="outline">
+                            {cab.name}
+                            {cab.identifier ? ` (${cab.identifier})` : ''}
+                          </Badge>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              );
+            })()}
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setFloorMapOpen(false)}>
+                Close
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
 
         {/* Move / transfer history */}
         <Dialog open={moveHistoryOpen} onOpenChange={setMoveHistoryOpen}>

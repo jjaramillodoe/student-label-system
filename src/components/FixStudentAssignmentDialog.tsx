@@ -167,10 +167,15 @@ export default function FixStudentAssignmentDialog({
                 <SelectContent>
                   {drawers.map((d) => {
                     const left = (d.capacity || 0) - (d.currentCount || 0);
+                    const locked = Boolean(d.locked);
                     return (
-                      <SelectItem key={d._id} value={d._id} disabled={left <= 0}>
+                      <SelectItem
+                        key={d._id}
+                        value={d._id}
+                        disabled={left <= 0 || locked}
+                      >
                         {d.name} ({d.currentCount}/{d.capacity}
-                        {left <= 0 ? ' · full' : ` · ${left} left`})
+                        {locked ? ' · locked' : left <= 0 ? ' · full' : ` · ${left} left`})
                       </SelectItem>
                     );
                   })}

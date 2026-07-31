@@ -21,7 +21,7 @@ import {
 } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 
-type RosterStudent = {
+export type RosterStudent = {
   index: number;
   _id: string;
   name: string;
@@ -41,6 +41,7 @@ type Props = {
   drawerId?: string;
   drawerName?: string;
   section?: string;
+  onReassign?: (student: RosterStudent) => void;
 };
 
 export default function DrawerRosterDialog({
@@ -51,6 +52,7 @@ export default function DrawerRosterDialog({
   drawerId,
   drawerName,
   section,
+  onReassign,
 }: Props) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -128,6 +130,7 @@ export default function DrawerRosterDialog({
                       <TableHead>Label ID</TableHead>
                       <TableHead>Section</TableHead>
                       <TableHead>Status</TableHead>
+                      {onReassign ? <TableHead className="text-right print:hidden">Move</TableHead> : null}
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -142,6 +145,17 @@ export default function DrawerRosterDialog({
                         <TableCell>
                           <Badge variant="outline">{s.status || '—'}</Badge>
                         </TableCell>
+                        {onReassign ? (
+                          <TableCell className="text-right print:hidden">
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => onReassign(s)}
+                            >
+                              Reassign
+                            </Button>
+                          </TableCell>
+                        ) : null}
                       </TableRow>
                     ))}
                   </TableBody>

@@ -3,8 +3,9 @@
  * Server-only (Mongo + audit).
  */
 
-import type { Db, ObjectId } from 'mongodb';
-import { ObjectId as OID } from 'mongodb';
+import type { ClientSession, Db, ObjectId } from 'mongodb';
+import { ObjectId as OID, MongoServerError } from 'mongodb';
+import clientPromise from '@/lib/mongodb';
 import { assignDrawerSection } from '@/lib/drawerSections';
 import { findNextAvailableSlot, isActiveCabinet } from '@/lib/cabinets';
 import type { Cabinet } from '@/types/cabinet';
@@ -174,10 +175,20 @@ export async function moveStudentsToDrawer(
   }
 
   const targetDrawer = (targetCabinet.drawers || []).find(
-    (drawer: { _id?: string }) => drawer._id === targetDrawerId,
+    (drawer: { _id?: string; locked?: boolean }) => drawer._id === targetDrawerId,
   );
   if (!targetDrawer) {
     return { ok: false, moved: 0, errors: [], message: '', error: 'Target drawer not found in cabinet', status: 404 };
+  }
+  if (targetDrawer.locked) {
+    return {
+      ok: false,
+      moved: 0,
+      errors: [],
+      message: '',
+      error: 'Target drawer is locked (do not fill). Unlock it or pick another drawer.',
+      status: 400,
+    };
   }
 
   const available = (targetDrawer.capacity || 0) - (targetDrawer.currentCount || 0);
@@ -208,93 +219,135 @@ export async function moveStudentsToDrawer(
     };
   }
 
-  let moved = 0;
-  const errors: string[] = [];
-  let nextIndexInDrawer = targetDrawer.currentCount || 0;
-  const moveSnapshots: Array<{
+  const toBase = await resolveLocation(db, targetCabinetId, targetDrawerId, null);
+  const cabinetLabel = targetCabinet.identifier
+    ? `${targetCabinet.name} (${targetCabinet.identifier})`
+    : targetCabinet.name;
+
+  type MoveSnapshot = {
     _id: string;
     studentId?: string;
     firstName?: string;
     lastName?: string;
     from: MoveLocation;
     to: MoveLocation;
-  }> = [];
-
-  const toBase = await resolveLocation(db, targetCabinetId, targetDrawerId, null);
-
-  for (const student of students) {
-    try {
-      const from = await resolveLocation(
-        db,
-        student.cabinet,
-        student.drawer,
-        student.drawerSection,
-      );
-
-      if (student.cabinet && student.drawer && isValidObjectId(String(student.cabinet))) {
-        await db.collection('cabinets').updateOne(
-          { _id: new OID(String(student.cabinet)), 'drawers._id': student.drawer },
-          { $inc: { 'drawers.$.currentCount': -1, currentCount: -1 } },
-        );
-      }
-
-      const drawerSection = assignDrawerSection(nextIndexInDrawer, targetDrawer.capacity || 400);
-      nextIndexInDrawer += 1;
-
-      await db.collection('students').updateOne(
-        { _id: student._id },
-        {
-          $set: {
-            cabinet: targetCabinetId,
-            drawer: targetDrawerId,
-            drawerSection,
-            updatedAt: new Date().toISOString(),
-          },
-        },
-      );
-
-      await db.collection('cabinets').updateOne(
-        { _id: new OID(targetCabinetId), 'drawers._id': targetDrawerId },
-        { $inc: { 'drawers.$.currentCount': 1, currentCount: 1 } },
-      );
-
-      moveSnapshots.push({
-        _id: String(student._id),
-        studentId: student.studentId || student.labelId,
-        firstName: student.firstName,
-        lastName: student.lastName,
-        from,
-        to: { ...toBase, drawerSection },
-      });
-      moved++;
-    } catch (error) {
-      errors.push(
-        `Failed to move ${student.studentId || student._id}: ${
-          error instanceof Error ? error.message : 'Unknown error'
-        }`,
-      );
-    }
-  }
-
-  if (moveSnapshots.length > 0) {
-    await logCabinetMoveEvent(db, {
-      students: moveSnapshots,
-      source: params.source || 'bulk-move',
-      note: params.note,
-      user: params.user,
-    });
-  }
-
-  const cabinetLabel = targetCabinet.identifier
-    ? `${targetCabinet.name} (${targetCabinet.identifier})`
-    : targetCabinet.name;
-
-  return {
-    ok: true,
-    moved,
-    errors,
-    message: `Moved ${moved} student${moved === 1 ? '' : 's'} to ${cabinetLabel} / ${targetDrawer.name}`,
   };
+
+  const runMoves = async (session?: ClientSession) => {
+    let moved = 0;
+    const errors: string[] = [];
+    let nextIndexInDrawer = targetDrawer.currentCount || 0;
+    const moveSnapshots: MoveSnapshot[] = [];
+    const opts = session ? { session } : undefined;
+
+    for (const student of students) {
+      try {
+        const from = await resolveLocation(
+          db,
+          student.cabinet,
+          student.drawer,
+          student.drawerSection,
+        );
+
+        if (student.cabinet && student.drawer && isValidObjectId(String(student.cabinet))) {
+          await db.collection('cabinets').updateOne(
+            { _id: new OID(String(student.cabinet)), 'drawers._id': student.drawer },
+            { $inc: { 'drawers.$.currentCount': -1, currentCount: -1 } },
+            opts,
+          );
+        }
+
+        const drawerSection = assignDrawerSection(nextIndexInDrawer, targetDrawer.capacity || 400);
+        nextIndexInDrawer += 1;
+
+        await db.collection('students').updateOne(
+          { _id: student._id },
+          {
+            $set: {
+              cabinet: targetCabinetId,
+              drawer: targetDrawerId,
+              drawerSection,
+              updatedAt: new Date().toISOString(),
+            },
+          },
+          opts,
+        );
+
+        await db.collection('cabinets').updateOne(
+          { _id: new OID(targetCabinetId), 'drawers._id': targetDrawerId },
+          { $inc: { 'drawers.$.currentCount': 1, currentCount: 1 } },
+          opts,
+        );
+
+        moveSnapshots.push({
+          _id: String(student._id),
+          studentId: student.studentId || student.labelId,
+          firstName: student.firstName,
+          lastName: student.lastName,
+          from,
+          to: { ...toBase, drawerSection },
+        });
+        moved++;
+      } catch (error) {
+        errors.push(
+          `Failed to move ${student.studentId || student._id}: ${
+            error instanceof Error ? error.message : 'Unknown error'
+          }`,
+        );
+        if (session) throw error;
+      }
+    }
+
+    return { moved, errors, moveSnapshots };
+  };
+
+  const finish = async (result: {
+    moved: number;
+    errors: string[];
+    moveSnapshots: MoveSnapshot[];
+  }) => {
+    if (result.moveSnapshots.length > 0) {
+      await logCabinetMoveEvent(db, {
+        students: result.moveSnapshots,
+        source: params.source || 'bulk-move',
+        note: params.note,
+        user: params.user,
+      });
+    }
+    return {
+      ok: true as const,
+      moved: result.moved,
+      errors: result.errors,
+      message: `Moved ${result.moved} student${result.moved === 1 ? '' : 's'} to ${cabinetLabel} / ${targetDrawer.name}`,
+    };
+  };
+
+  const txnUnsupported = (err: unknown) => {
+    const msg = err instanceof Error ? err.message : String(err ?? '');
+    if (/replica set|Transaction numbers|IllegalOperation|transactions are not supported/i.test(msg)) {
+      return true;
+    }
+    return err instanceof MongoServerError && (err.code === 20 || err.codeName === 'IllegalOperation');
+  };
+
+  try {
+    const client = await clientPromise;
+    const session = client.startSession();
+    try {
+      let result = { moved: 0, errors: [] as string[], moveSnapshots: [] as MoveSnapshot[] };
+      await session.withTransaction(async () => {
+        result = await runMoves(session);
+      });
+      return finish(result);
+    } finally {
+      await session.endSession();
+    }
+  } catch (err) {
+    if (!txnUnsupported(err)) {
+      console.warn('[cabinetMoves] transaction failed, falling back', err);
+    }
+    return finish(await runMoves());
+  }
 }
 
 export async function assignStudentsToNextSlot(

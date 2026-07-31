@@ -118,6 +118,40 @@ export function assignStudentsToBoxes<T extends AssignableStudent>(
   students: T[],
   boxes: PhysicalArchiveBox[],
   drawerIdToName?: Map<string, string>,
+  /** Optional studentId → physical box _id overrides (applied first). */
+  manualByStudentId?: Record<string, string>,
+): Map<string, PhysicalArchiveBox> {
+  const assignments = new Map<string, PhysicalArchiveBox>();
+  const remaining: T[] = [];
+  const boxById = new Map(boxes.map((b) => [b._id, b]));
+
+  if (manualByStudentId && Object.keys(manualByStudentId).length > 0) {
+    for (const student of students) {
+      const sid = student._id.toString();
+      const boxId = manualByStudentId[sid];
+      const box = boxId ? boxById.get(boxId) : undefined;
+      if (box && box.currentCount < box.maxCapacity) {
+        box.currentCount += 1;
+        assignments.set(sid, box);
+      } else {
+        remaining.push(student);
+      }
+    }
+  } else {
+    remaining.push(...students);
+  }
+
+  if (remaining.length === 0) return assignments;
+
+  const auto = assignStudentsToBoxesAuto(remaining, boxes, drawerIdToName);
+  auto.forEach((box, id) => assignments.set(id, box));
+  return assignments;
+}
+
+function assignStudentsToBoxesAuto<T extends AssignableStudent>(
+  students: T[],
+  boxes: PhysicalArchiveBox[],
+  drawerIdToName?: Map<string, string>,
 ): Map<string, PhysicalArchiveBox> {
   if (!drawerIdToName?.size || !boxes.some(b => b.drawerName)) {
     return assignStudentsSequentially(students, boxes);
@@ -212,6 +246,32 @@ async function loadArchiveBoxContext(
   };
 }
 
+export const ARCHIVE_ELIGIBLE_STATUSES = [
+  'Graduated',
+  'Transferred',
+  'Withdrawn',
+  'Inactive',
+] as const;
+
+export type ArchiveStudentFilter = {
+  /** Limit to these statuses (e.g. Graduated/Transferred for partial archive). */
+  statuses?: string[];
+  /** Limit to these drawer IDs. */
+  drawerIds?: string[];
+};
+
+/** Build Mongo query for students still in a cabinet, optionally filtered. */
+export function cabinetStudentsQuery(cabinetId: string, filter?: ArchiveStudentFilter) {
+  const query: Record<string, unknown> = { cabinet: cabinetId };
+  if (filter?.statuses?.length) {
+    query.status = { $in: filter.statuses };
+  }
+  if (filter?.drawerIds?.length) {
+    query.drawer = { $in: filter.drawerIds };
+  }
+  return query;
+}
+
 /** Move students into archive boxes and free drawer capacity. */
 export async function moveCabinetStudentsToArchiveBoxes(
   db: Db,
@@ -223,13 +283,74 @@ export async function moveCabinetStudentsToArchiveBoxes(
     schoolYear: string;
     archivedAt: string;
   },
+  options?: {
+    filter?: ArchiveStudentFilter;
+    manualAssignments?: Record<string, string>;
+    /** Full closeout zeros all drawer counts; partial leaves remaining students. */
+    zeroCabinetCounts?: boolean;
+  },
 ) {
   const students = await db
     .collection('students')
-    .find({ cabinet: cabinetId })
+    .find(cabinetStudentsQuery(cabinetId, options?.filter))
+    .sort({ lastName: 1, firstName: 1 })
     .toArray();
 
-  return applyArchiveBoxAssignments(db, cabinetId, archiveRecordId, physicalBoxes, meta, students);
+  const hasFilter =
+    Boolean(options?.filter?.statuses?.length) || Boolean(options?.filter?.drawerIds?.length);
+
+  return applyArchiveBoxAssignments(
+    db,
+    cabinetId,
+    archiveRecordId,
+    physicalBoxes,
+    meta,
+    students,
+    {
+      manualAssignments: options?.manualAssignments,
+      // Partial archive: leave remaining actives in drawers with correct counts
+      zeroCabinetCounts:
+        options?.zeroCabinetCounts !== undefined
+          ? options.zeroCabinetCounts
+          : !hasFilter,
+    },
+  );
+}
+
+/** Preview packing without writing — for manual override UI. */
+export function previewArchivePacking<T extends AssignableStudent & {
+  firstName?: string;
+  lastName?: string;
+  studentId?: string;
+  labelId?: string;
+  status?: string;
+  drawer?: string;
+}>(
+  students: T[],
+  physicalBoxes: PhysicalArchiveBox[],
+  drawerIdToName?: Map<string, string>,
+  manualByStudentId?: Record<string, string>,
+) {
+  const boxes = physicalBoxes.map((b) => ({ ...b, currentCount: 0 }));
+  const assignments = assignStudentsToBoxes(students, boxes, drawerIdToName, manualByStudentId);
+  return {
+    boxes,
+    rows: students.map((s) => {
+      const box = assignments.get(s._id.toString());
+      return {
+        studentId: s._id.toString(),
+        name: [s.lastName, s.firstName].filter(Boolean).join(', ') || s.studentId || s._id.toString(),
+        labelId: s.labelId || s.studentId || '',
+        status: s.status || '',
+        drawerName: s.drawer
+          ? drawerIdToName?.get(s.drawer) || s.drawer
+          : '',
+        boxId: box?._id || null,
+        boxLabel: box?.label || null,
+        boxNumber: box?.boxNumber || null,
+      };
+    }),
+  };
 }
 
 /** Count students still needing box assignment for an archived cabinet. */
@@ -297,6 +418,11 @@ async function applyArchiveBoxAssignments(
     archivedAt: string;
   },
   students: AssignableStudent[],
+  options?: {
+    manualAssignments?: Record<string, string>;
+    /** When true (default), zero all drawer counts. Partial archive sets false. */
+    zeroCabinetCounts?: boolean;
+  },
 ) {
   const { cabinet, labelOpts, drawerIdToName } = await loadArchiveBoxContext(
     db,
@@ -319,8 +445,14 @@ async function applyArchiveBoxAssignments(
   }
 
   const boxes = labeledBoxes.map(b => ({ ...b, currentCount: 0 }));
-  const assignments = assignStudentsToBoxes(students, boxes, drawerIdToName);
+  const assignments = assignStudentsToBoxes(
+    students,
+    boxes,
+    drawerIdToName,
+    options?.manualAssignments,
+  );
   const now = meta.archivedAt;
+  const zeroCabinet = options?.zeroCabinetCounts !== false;
 
   const bulkOps = students.map(student => {
     const box = assignments.get(student._id.toString())!;
@@ -350,24 +482,65 @@ async function applyArchiveBoxAssignments(
   }
 
   if (cabinet?.drawers) {
-    await db.collection('cabinets').updateOne(
-      { _id: new ObjectId(cabinetId) },
-      {
-        $set: {
-          currentCount: 0,
-          drawers: cabinet.drawers.map((d: { _id: string; name: string; capacity: number }) => ({
-            ...d,
+    if (zeroCabinet) {
+      await db.collection('cabinets').updateOne(
+        { _id: new ObjectId(cabinetId) },
+        {
+          $set: {
             currentCount: 0,
-          })),
-          updatedAt: now,
+            drawers: cabinet.drawers.map((d: { _id: string; name: string; capacity: number }) => ({
+              ...d,
+              currentCount: 0,
+            })),
+            updatedAt: now,
+          },
         },
-      },
-    );
+      );
+    } else {
+      // Decrement only drawers that lost students
+      const byDrawer = new Map<string, number>();
+      for (const s of students) {
+        if (s.drawer) byDrawer.set(s.drawer, (byDrawer.get(s.drawer) || 0) + 1);
+      }
+      for (const [drawerId, count] of byDrawer) {
+        await db.collection('cabinets').updateOne(
+          { _id: new ObjectId(cabinetId), 'drawers._id': drawerId },
+          {
+            $inc: { 'drawers.$.currentCount': -count, currentCount: -count },
+            $set: { updatedAt: now },
+          },
+        );
+      }
+      // Clamp any negative counts from race conditions
+      const refreshed = await db.collection('cabinets').findOne({ _id: new ObjectId(cabinetId) });
+      if (refreshed?.drawers) {
+        const clamped = refreshed.drawers.map(
+          (d: { currentCount?: number }) => ({
+            ...d,
+            currentCount: Math.max(0, Number(d.currentCount) || 0),
+          }),
+        );
+        const total = clamped.reduce(
+          (sum: number, d: { currentCount: number }) => sum + d.currentCount,
+          0,
+        );
+        await db.collection('cabinets').updateOne(
+          { _id: new ObjectId(cabinetId) },
+          { $set: { drawers: clamped, currentCount: total, updatedAt: now } },
+        );
+      }
+    }
   }
 
   await db.collection('cabinet_archives').updateOne(
     { _id: new ObjectId(archiveRecordId) },
-    { $set: { physicalBoxes: boxes, studentCountAtArchive: students.length } },
+    {
+      $set: {
+        physicalBoxes: boxes,
+        studentCountAtArchive: students.length,
+        manualAssignments: options?.manualAssignments || null,
+      },
+    },
   );
 
   return { assigned: students.length, physicalBoxes: boxes };

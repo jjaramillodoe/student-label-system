@@ -59,7 +59,7 @@ export async function POST(request: Request) {
     }
 
     const body = await request.json();
-    const { name, identifier, drawers, totalCapacity, school } = body;
+    const { name, identifier, drawers, totalCapacity, school, mapRow, mapCol } = body;
 
     if (!name || !drawers || !Array.isArray(drawers) || drawers.length === 0 || !school) {
       return NextResponse.json({ error: 'Invalid cabinet data' }, { status: 400 });
@@ -89,10 +89,13 @@ export async function POST(request: Request) {
         _id: new ObjectId().toString(),
         name: drawer.name,
         capacity: drawer.capacity,
-        currentCount: 0
+        currentCount: 0,
+        locked: Boolean(drawer.locked),
       })),
       totalCapacity,
       currentCount: 0,
+      mapRow: typeof mapRow === 'number' ? mapRow : null,
+      mapCol: typeof mapCol === 'number' ? mapCol : null,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString()
     };

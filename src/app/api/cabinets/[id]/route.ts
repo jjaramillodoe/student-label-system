@@ -42,6 +42,7 @@ type IncomingDrawer = {
   name: string;
   capacity: number;
   currentCount?: number;
+  locked?: boolean;
 };
 
 /**
@@ -85,6 +86,10 @@ function mergeDrawersPreserveIds(
       name: drawer.name,
       capacity: Number(drawer.capacity) || 0,
       currentCount: Number(existing?.currentCount) || 0,
+      locked: Boolean(
+        (drawer as IncomingDrawer & { locked?: boolean }).locked ??
+          (existing as { locked?: boolean } | undefined)?.locked,
+      ),
     };
   });
 }
@@ -101,7 +106,7 @@ export async function PUT(
 
     const { id } = await params;
     const body = await request.json();
-    const { name, identifier, drawers, totalCapacity, school } = body;
+    const { name, identifier, drawers, totalCapacity, school, mapRow, mapCol } = body;
 
     if (!name || !drawers || !Array.isArray(drawers) || drawers.length === 0 || !school) {
       return NextResponse.json({ error: 'Invalid cabinet data' }, { status: 400 });
@@ -152,6 +157,8 @@ export async function PUT(
       drawers: mergedDrawers,
       totalCapacity: computedTotal,
       currentCount: mergedDrawers.reduce((sum, d) => sum + (d.currentCount || 0), 0),
+      mapRow: typeof mapRow === 'number' ? mapRow : mapRow === null ? null : existingCabinet.mapRow ?? null,
+      mapCol: typeof mapCol === 'number' ? mapCol : mapCol === null ? null : existingCabinet.mapCol ?? null,
       updatedAt: new Date().toISOString(),
     };
 
