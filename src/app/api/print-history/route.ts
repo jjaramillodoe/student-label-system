@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import clientPromise from '@/lib/mongodb';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/authOptions';
+import { recordPrintHistoryAndConsume } from '@/lib/labelStock';
 
 export async function GET(req: NextRequest) {
   try {
@@ -18,35 +19,32 @@ export async function GET(req: NextRequest) {
     const limit = parseInt(searchParams.get('limit') || '100');
 
     const client = await clientPromise;
-    const db = client.db("student-label");
+    const db = client.db('student-label');
 
-    let query: any = {};
+    const query: Record<string, unknown> = {};
 
-    // Filter by date range
     if (startDate || endDate) {
       query.time = {};
-      if (startDate) query.time.$gte = new Date(startDate);
-      if (endDate) query.time.$lte = new Date(endDate);
+      if (startDate) (query.time as Record<string, unknown>).$gte = new Date(startDate);
+      if (endDate) (query.time as Record<string, unknown>).$lte = new Date(endDate);
     }
 
-    // Filter by user
     if (userId) {
       query['user.email'] = userId;
     }
 
-    // Filter by student
     if (studentId) {
       query['students.studentId'] = studentId;
     }
 
-    // Role-based filtering
-    const userRole = (session.user as any)?.role;
-    const userSchool = (session.user as any)?.school;
+    const userRole = (session.user as { role?: string })?.role;
+    const userSchool = (session.user as { school?: string })?.school;
     if (userRole !== 'Admin' && userSchool) {
       query['user.school'] = userSchool;
     }
 
-    const logs = await db.collection('print_history')
+    const logs = await db
+      .collection('print_history')
       .find(query)
       .sort({ time: -1 })
       .limit(limit)
@@ -67,27 +65,62 @@ export async function POST(req: NextRequest) {
     }
 
     const body = await req.json();
-    
-    const printLog = {
-      ...body,
-      time: new Date().toISOString(),
-      user: session.user ? {
-        name: session.user.name,
-        email: session.user.email,
-        role: (session.user as any)?.role,
-        school: (session.user as any)?.school
-      } : null
-    };
+    const consumeStock = body.consumeStock === true;
+    const students = Array.isArray(body.students) ? body.students : [];
+    const labelCount = Number(body.labelCount) || students.length || 0;
+    const layout = String(body.layout || '').trim();
 
     const client = await clientPromise;
-    const db = client.db("student-label");
+    const db = client.db('student-label');
+
+    const user = session.user
+      ? {
+          name: session.user.name,
+          email: session.user.email,
+          role: (session.user as { role?: string })?.role,
+          school: (session.user as { school?: string })?.school,
+        }
+      : null;
+
+    if (consumeStock && layout && labelCount > 0) {
+      const { printHistoryId, stock } = await recordPrintHistoryAndConsume(db, {
+        user,
+        students,
+        labelCount,
+        layout,
+        status: body.status || 'completed',
+        reprintOf: body.reprintOf,
+        school: body.school,
+        note: body.note,
+        extra: {
+          error: body.error,
+          jobStatus: body.jobStatus,
+        },
+      });
+
+      return NextResponse.json(
+        {
+          _id: printHistoryId,
+          stockConsumed: stock.ok,
+          stockUnitsConsumed: stock.units,
+          stockSkipReason: stock.reason,
+        },
+        { status: 201 },
+      );
+    }
+
+    // Preview / non-consuming log (legacy callers)
+    const printLog = {
+      ...body,
+      stockConsumed: false,
+      time: new Date().toISOString(),
+      user,
+    };
+
     const result = await db.collection('print_history').insertOne(printLog);
-    const insertedLog = { _id: result.insertedId, ...printLog };
-    
-    return NextResponse.json(insertedLog, { status: 201 });
+    return NextResponse.json({ _id: result.insertedId, ...printLog }, { status: 201 });
   } catch (error) {
     console.error('Error creating print history:', error);
     return NextResponse.json({ error: 'Failed to create print history' }, { status: 500 });
   }
 }
-

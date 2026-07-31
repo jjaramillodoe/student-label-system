@@ -125,11 +125,37 @@ export default function PrintView({
 }: PrintViewProps) {
   const [downloadingDocx, setDownloadingDocx] = useState(false);
 
+  async function recordBrowserPrintJob() {
+    try {
+      await fetch('/api/print-history', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          students: students.map((s) => ({
+            studentId: s.studentId,
+            labelId: s.labelId,
+            firstName: s.firstName,
+            lastName: s.lastName,
+            dob: s.dob,
+            school: s.school,
+          })),
+          labelCount: students.length,
+          layout: printLayout,
+          status: 'completed',
+          consumeStock: true,
+        }),
+      });
+    } catch (err) {
+      console.error('Failed to record print / stock usage', err);
+    }
+  }
+
   async function handleDownloadDocx() {
     if (!isAveryDocxLayout(printLayout)) return;
 
     setDownloadingDocx(true);
     try {
+      // DOCX routes record print history + decrement stock on success
       await downloadAveryDocx(printLayout, students);
     } catch {
       alert('Error generating Word document. Please try again.');
@@ -212,6 +238,8 @@ export default function PrintView({
       );
       if (!confirmed) return;
     }
+    // Browser print (Avery 5160 / Brother): record job + decrement stock
+    void recordBrowserPrintJob();
     window.print();
   };
 

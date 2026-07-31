@@ -79,9 +79,15 @@ interface PrintJob {
 interface LabelStock {
   _id: string;
   template: string;
+  templateName?: string;
+  school?: string;
   currentStock: number;
   lowStockThreshold?: number;
   supplier?: string;
+  unitLabel?: string;
+  daysLeft?: number | null;
+  avgPerDay?: number;
+  isLowStock?: boolean;
 }
 
 function getTemplateName(layout?: string) {
@@ -227,17 +233,17 @@ export default function PrintQueuePage() {
     return stock.map(item => {
       const matchingJobs = jobs.filter(job => job.layout === item.template);
       const labelsPrinted = matchingJobs.reduce((sum, job) => sum + getStudentCount(job), 0);
-      const estimatedSheetsUsed = matchingJobs.reduce((sum, job) => {
+      const unitsFromHistory = matchingJobs.reduce((sum, job) => {
         return sum + Math.ceil(getStudentCount(job) / getLabelsPerSheet(job.layout));
       }, 0);
-      const remainingAfterUsage = Math.max(0, item.currentStock - estimatedSheetsUsed);
 
       return {
         ...item,
         labelsPrinted,
-        estimatedSheetsUsed,
-        remainingAfterUsage,
-        lowAfterUsage: remainingAfterUsage <= (item.lowStockThreshold || 0),
+        unitsFromHistory,
+        daysLeft: item.daysLeft,
+        avgPerDay: item.avgPerDay || 0,
+        lowStock: item.isLowStock ?? item.currentStock <= (item.lowStockThreshold || 0),
       };
     });
   }, [jobs, stock]);
@@ -246,18 +252,7 @@ export default function PrintQueuePage() {
     const layout = job.layout || 'avery5163';
     setReprintLayout(layout);
     setReprintJob(job);
-    await fetch('/api/print-history', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        students: job.students || [],
-        labelCount: getStudentCount(job),
-        layout,
-        status: 'completed',
-        reprintOf: job._id,
-      }),
-    }).catch(() => undefined);
-    // Opens PrintView preview — Avery uses Download Word Doc; no auto print dialog
+    // Stock + history are recorded when the user downloads Word or browser-prints
   }
 
   function exportHistory() {
@@ -536,7 +531,7 @@ export default function PrintQueuePage() {
               Label Stock Usage
             </CardTitle>
             <CardDescription>
-              Estimated usage compares loaded print history against the current stock entries.
+              Live inventory after print decrements. Days left uses the last 30 days of stock burn.
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -549,24 +544,36 @@ export default function PrintQueuePage() {
                 <TableHeader>
                   <TableRow>
                     <TableHead>Template</TableHead>
-                    <TableHead className="text-right">Current Stock</TableHead>
-                    <TableHead className="text-right">Labels Printed</TableHead>
-                    <TableHead className="text-right">Estimated Sheets Used</TableHead>
-                    <TableHead className="text-right">Projected Remaining</TableHead>
+                    <TableHead>School</TableHead>
+                    <TableHead className="text-right">On Hand</TableHead>
+                    <TableHead className="text-right">Labels in History</TableHead>
+                    <TableHead className="text-right">History Units</TableHead>
+                    <TableHead className="text-right">~Days Left</TableHead>
                     <TableHead>Status</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {stockUsage.map(item => (
                     <TableRow key={item._id}>
-                      <TableCell className="font-medium">{getTemplateName(item.template)}</TableCell>
-                      <TableCell className="text-right">{item.currentStock}</TableCell>
+                      <TableCell className="font-medium">
+                        {item.templateName || getTemplateName(item.template)}
+                      </TableCell>
+                      <TableCell>{item.school || '—'}</TableCell>
+                      <TableCell className="text-right">
+                        {item.currentStock} {item.unitLabel || 'units'}
+                      </TableCell>
                       <TableCell className="text-right">{item.labelsPrinted}</TableCell>
-                      <TableCell className="text-right">{item.estimatedSheetsUsed}</TableCell>
-                      <TableCell className="text-right">{item.remainingAfterUsage}</TableCell>
+                      <TableCell className="text-right">{item.unitsFromHistory}</TableCell>
+                      <TableCell className="text-right">
+                        {item.daysLeft == null
+                          ? item.currentStock > 0
+                            ? 'n/a'
+                            : '0'
+                          : item.daysLeft}
+                      </TableCell>
                       <TableCell>
-                        <Badge variant={item.lowAfterUsage ? 'destructive' : 'outline'}>
-                          {item.lowAfterUsage ? 'Reorder Soon' : 'OK'}
+                        <Badge variant={item.lowStock ? 'destructive' : 'outline'}>
+                          {item.lowStock ? 'Reorder Soon' : 'OK'}
                         </Badge>
                       </TableCell>
                     </TableRow>

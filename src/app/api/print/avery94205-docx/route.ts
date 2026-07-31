@@ -17,6 +17,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession }           from 'next-auth';
 import { authOptions }                from '@/lib/authOptions';
+import clientPromise                  from '@/lib/mongodb';
+import { recordPrintHistoryAndConsume } from '@/lib/labelStock';
 import { AVERY94205 }                 from '@/lib/avery94205Geometry';
 import {
   Document, Packer,
@@ -300,8 +302,11 @@ export async function POST(req: NextRequest) {
   if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
   let students: StudentData[] = [];
+  let skipStock = false;
   try {
-    students = (await req.json()).students ?? [];
+    const body = await req.json();
+    students = body.students ?? [];
+    skipStock = body.skipStock === true;
   } catch {
     return NextResponse.json({ error: 'Invalid body' }, { status: 400 });
   }
@@ -313,6 +318,29 @@ export async function POST(req: NextRequest) {
   try {
     const buf  = await buildDocument(students);
     const date = new Date().toISOString().slice(0, 10);
+
+    if (!skipStock) {
+      try {
+        const client = await clientPromise;
+        const db = client.db('student-label');
+        await recordPrintHistoryAndConsume(db, {
+          user: {
+            name: session.user?.name,
+            email: session.user?.email,
+            role: (session.user as { role?: string })?.role,
+            school: (session.user as { school?: string })?.school,
+          },
+          students,
+          labelCount: students.length,
+          layout: 'avery94205',
+          status: 'completed',
+          note: 'Avery 94205 Word download',
+        });
+      } catch (stockErr) {
+        console.error('[avery94205-docx] stock consume failed', stockErr);
+      }
+    }
+
     return new NextResponse(new Uint8Array(buf), {
       headers: {
         'Content-Type':        'application/vnd.openxmlformats-officedocument.wordprocessingml.document',

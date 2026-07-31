@@ -489,33 +489,8 @@ function Dashboard() {
   const somePageSelected = paginatedStudents.some(s => selectedIds.includes(s._id!)) && !allPageSelected;
   const selectedStudents = filteredStudents.filter(s => selectedIds.includes(s._id!));
 
-  // Log print history
-  async function logPrintHistory(students: Student[], layout: string) {
-    try {
-      await fetch('/api/print-history', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          students: students.map(s => ({
-            studentId: s.studentId,
-            firstName: s.firstName,
-            lastName: s.lastName
-          })),
-          labelCount: students.length,
-          layout: layout
-        }),
-      });
-    } catch (error) {
-      console.error('Failed to log print history:', error);
-    }
-  }
-
-  // Log when print preview opens — do not auto-open the browser print dialog
-  React.useEffect(() => {
-    if (printMode && selectedStudents.length > 0) {
-      logPrintHistory(selectedStudents, printLayout);
-    }
-  }, [printMode]);
+  // Print history + stock decrement happen when the user downloads Word or prints
+  // (see PrintView / Avery DOCX routes) — not when the preview merely opens.
 
   // Reset to page 1 when filters/search change
   useEffect(() => { setPage(1); }, [search, filterYear, filterStatus, pageSize]);
