@@ -16,17 +16,16 @@ export async function GET(
 
     const { id } = await params;
     const client = await clientPromise;
-    const db = client.db("student-label");
-    
-    const cabinet = await db.collection("cabinets").findOne({ _id: new ObjectId(id) });
+    const db = client.db('student-label');
+
+    const cabinet = await db.collection('cabinets').findOne({ _id: new ObjectId(id) });
     if (!cabinet) {
       return NextResponse.json({ error: 'Cabinet not found' }, { status: 404 });
     }
 
-    // Check school access for non-admin users
     const userRole = session.user.role;
     const userSchool = session.user.school;
-    
+
     if (userRole !== 'Admin' && userSchool && cabinet.school !== userSchool) {
       return NextResponse.json({ error: 'Access denied - Cabinet not in your school' }, { status: 403 });
     }
@@ -36,6 +35,58 @@ export async function GET(
     console.error('Error fetching cabinet:', error);
     return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
   }
+}
+
+type IncomingDrawer = {
+  _id?: string;
+  name: string;
+  capacity: number;
+  currentCount?: number;
+};
+
+/**
+ * Merge drawers by stable `_id` so renaming a drawer does not orphan student refs.
+ * Match order: explicit _id → previous index → name (legacy) → new id.
+ */
+function mergeDrawersPreserveIds(
+  existingDrawers: Array<{ _id?: string; name: string; capacity?: number; currentCount?: number }>,
+  incoming: IncomingDrawer[],
+) {
+  const byId = new Map(
+    existingDrawers
+      .filter((d) => d._id)
+      .map((d) => [String(d._id), d]),
+  );
+  const byName = new Map(existingDrawers.map((d) => [d.name, d]));
+  const usedIds = new Set<string>();
+
+  return incoming.map((drawer, index) => {
+    let existing:
+      | { _id?: string; name: string; capacity?: number; currentCount?: number }
+      | undefined =
+      (drawer._id ? byId.get(String(drawer._id)) : undefined) ||
+      existingDrawers[index] ||
+      byName.get(drawer.name);
+
+    // Avoid reusing the same existing drawer twice when names collide
+    if (existing?._id && usedIds.has(String(existing._id))) {
+      const byNameMatch = byName.get(drawer.name);
+      existing =
+        byNameMatch && (!byNameMatch._id || !usedIds.has(String(byNameMatch._id)))
+          ? byNameMatch
+          : undefined;
+    }
+
+    const id = existing?._id ? String(existing._id) : new ObjectId().toString();
+    usedIds.add(id);
+
+    return {
+      _id: id,
+      name: drawer.name,
+      capacity: Number(drawer.capacity) || 0,
+      currentCount: Number(existing?.currentCount) || 0,
+    };
+  });
 }
 
 export async function PUT(
@@ -57,58 +108,56 @@ export async function PUT(
     }
 
     const client = await clientPromise;
-    const db = client.db("student-label");
+    const db = client.db('student-label');
 
-    const existingCabinet = await db.collection("cabinets").findOne({ _id: new ObjectId(id) });
+    const existingCabinet = await db.collection('cabinets').findOne({ _id: new ObjectId(id) });
     if (!existingCabinet) {
       return NextResponse.json({ error: 'Cabinet not found' }, { status: 404 });
     }
 
-    // Check school access for non-admin users
     const userRole = session.user.role;
     const userSchool = session.user.school;
-    
+
     if (userRole !== 'Admin' && userSchool && existingCabinet.school !== userSchool) {
       return NextResponse.json({ error: 'Access denied - Cabinet not in your school' }, { status: 403 });
     }
 
-    // Check if cabinet with same name and identifier already exists (excluding current cabinet)
     if (identifier) {
-      const duplicateCabinet = await db.collection("cabinets").findOne({ 
-        name: name, 
-        identifier: identifier,
-        _id: { $ne: new ObjectId(id) }
+      const duplicateCabinet = await db.collection('cabinets').findOne({
+        name,
+        identifier,
+        _id: { $ne: new ObjectId(id) },
       });
       if (duplicateCabinet) {
-        return NextResponse.json({ 
-          error: 'A cabinet with this name and identifier already exists' 
-        }, { status: 400 });
+        return NextResponse.json(
+          { error: 'A cabinet with this name and identifier already exists' },
+          { status: 400 },
+        );
       }
     }
 
-    // Create a map of existing drawer names to their IDs
-    const existingDrawerMap = new Map(
-      existingCabinet.drawers.map((drawer: any) => [drawer.name, drawer._id])
+    const mergedDrawers = mergeDrawersPreserveIds(
+      existingCabinet.drawers || [],
+      drawers,
     );
+    const computedTotal =
+      typeof totalCapacity === 'number' && totalCapacity > 0
+        ? totalCapacity
+        : mergedDrawers.reduce((sum, d) => sum + (d.capacity || 0), 0);
 
     const updatedCabinet = {
       name,
       identifier: identifier || null,
       school,
-      drawers: drawers.map((drawer: any) => ({
-        _id: existingDrawerMap.get(drawer.name) || new ObjectId().toString(), // Preserve existing ID or generate new one
-        name: drawer.name,
-        capacity: drawer.capacity,
-        currentCount: drawer.currentCount || 0
-      })),
-      totalCapacity,
-      currentCount: existingCabinet.currentCount,
-      updatedAt: new Date().toISOString()
+      drawers: mergedDrawers,
+      totalCapacity: computedTotal,
+      currentCount: mergedDrawers.reduce((sum, d) => sum + (d.currentCount || 0), 0),
+      updatedAt: new Date().toISOString(),
     };
 
-    await db.collection("cabinets").updateOne(
+    await db.collection('cabinets').updateOne(
       { _id: new ObjectId(id) },
-      { $set: updatedCabinet }
+      { $set: updatedCabinet },
     );
 
     return NextResponse.json({ ...updatedCabinet, _id: id });
@@ -130,17 +179,16 @@ export async function DELETE(
 
     const { id } = await params;
     const client = await clientPromise;
-    const db = client.db("student-label");
+    const db = client.db('student-label');
 
-    const cabinet = await db.collection("cabinets").findOne({ _id: new ObjectId(id) });
+    const cabinet = await db.collection('cabinets').findOne({ _id: new ObjectId(id) });
     if (!cabinet) {
       return NextResponse.json({ error: 'Cabinet not found' }, { status: 404 });
     }
 
-    // Check school access for non-admin users
     const userRole = session.user.role;
     const userSchool = session.user.school;
-    
+
     if (userRole !== 'Admin' && userSchool && cabinet.school !== userSchool) {
       return NextResponse.json({ error: 'Access denied - Cabinet not in your school' }, { status: 403 });
     }
@@ -148,15 +196,15 @@ export async function DELETE(
     if (cabinet.currentCount > 0) {
       return NextResponse.json(
         { error: 'Cannot delete cabinet with files' },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
-    await db.collection("cabinets").deleteOne({ _id: new ObjectId(id) });
+    await db.collection('cabinets').deleteOne({ _id: new ObjectId(id) });
 
     return NextResponse.json({ success: true });
   } catch (error) {
     console.error('Error deleting cabinet:', error);
     return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
   }
-} 
+}

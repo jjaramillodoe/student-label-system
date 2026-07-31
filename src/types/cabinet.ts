@@ -1,3 +1,12 @@
+export interface CabinetFillForecast {
+  cabinetId: string;
+  windowDays: number;
+  assignedInWindow: number;
+  available: number;
+  avgPerDay: number;
+  weeksLeft: number | null;
+}
+
 export interface Cabinet {
   _id: string;
   name: string;
@@ -14,6 +23,7 @@ export interface Cabinet {
   status?: 'Active' | 'Archived';
   archivedAt?: string;
   archiveRecordId?: string;
+  fillForecast?: CabinetFillForecast | null;
 }
 
 export interface ArchiveBox {

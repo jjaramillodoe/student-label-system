@@ -2,8 +2,9 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { AlertCircle, Archive, ArrowLeft, Building2, CheckCircle2, Loader2, RefreshCw, ShieldAlert } from 'lucide-react';
+import { AlertCircle, Archive, ArrowLeft, Building2, CheckCircle2, Loader2, RefreshCw, ShieldAlert, Wrench } from 'lucide-react';
 import AdminHeader from '@/components/AdminHeader';
+import FixStudentAssignmentDialog from '@/components/FixStudentAssignmentDialog';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -113,6 +114,8 @@ export default function CabinetHealthPage() {
   const [health, setHealth] = useState<CabinetHealth | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [success, setSuccess] = useState('');
+  const [fixAssignment, setFixAssignment] = useState<CabinetHealth['badAssignments'][number] | null>(null);
 
   useEffect(() => {
     fetchHealth();
@@ -292,7 +295,7 @@ export default function CabinetHealthPage() {
             <Card>
               <CardHeader>
                 <CardTitle>Bad Assignments</CardTitle>
-                <CardDescription>Students missing a valid cabinet or drawer assignment.</CardDescription>
+                <CardDescription>Students missing a valid cabinet or drawer assignment. Use Fix to reassign.</CardDescription>
               </CardHeader>
               <CardContent>
                 {health.badAssignments.length === 0 ? (
@@ -305,21 +308,43 @@ export default function CabinetHealthPage() {
                           <TableHead>Student</TableHead>
                           <TableHead>School</TableHead>
                           <TableHead>Issue</TableHead>
+                          <TableHead className="text-right">Fix</TableHead>
                         </TableRow>
                       </TableHeader>
                       <TableBody>
-                        {health.badAssignments.map((assignment) => (
-                          <TableRow key={assignment.studentId}>
-                            <TableCell>
-                              <div className="font-medium">{assignment.studentName}</div>
-                              <div className="text-xs text-muted-foreground">{assignment.studentNumber || assignment.studentId}</div>
-                            </TableCell>
-                            <TableCell className="text-muted-foreground">{assignment.school || '-'}</TableCell>
-                            <TableCell>
-                              <Badge variant="destructive">{assignment.reason}</Badge>
-                            </TableCell>
-                          </TableRow>
-                        ))}
+                        {health.badAssignments.map((assignment) => {
+                          const needsArchive =
+                            assignment.reason.toLowerCase().includes('archive');
+                          return (
+                            <TableRow key={assignment.studentId}>
+                              <TableCell>
+                                <div className="font-medium">{assignment.studentName}</div>
+                                <div className="text-xs text-muted-foreground">{assignment.studentNumber || assignment.studentId}</div>
+                              </TableCell>
+                              <TableCell className="text-muted-foreground">{assignment.school || '-'}</TableCell>
+                              <TableCell>
+                                <Badge variant="destructive">{assignment.reason}</Badge>
+                              </TableCell>
+                              <TableCell className="text-right">
+                                {needsArchive ? (
+                                  <Button size="sm" variant="ghost" asChild>
+                                    <Link href="/admin/cabinets">Boxes</Link>
+                                  </Button>
+                                ) : (
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    className="gap-1"
+                                    onClick={() => setFixAssignment(assignment)}
+                                  >
+                                    <Wrench className="h-3.5 w-3.5" />
+                                    Fix
+                                  </Button>
+                                )}
+                              </TableCell>
+                            </TableRow>
+                          );
+                        })}
                       </TableBody>
                     </Table>
                   </div>
@@ -361,6 +386,27 @@ export default function CabinetHealthPage() {
           </Card>
         </>
       )}
+
+      {success && (
+        <Alert className="border-green-200 bg-green-50 dark:bg-green-950 dark:border-green-800">
+          <CheckCircle2 className="h-4 w-4 text-green-600" />
+          <AlertTitle className="text-green-800 dark:text-green-200">Updated</AlertTitle>
+          <AlertDescription className="text-green-700 dark:text-green-300">{success}</AlertDescription>
+        </Alert>
+      )}
+
+      <FixStudentAssignmentDialog
+        open={!!fixAssignment}
+        onOpenChange={(open) => !open && setFixAssignment(null)}
+        studentIds={fixAssignment ? [fixAssignment.studentId] : []}
+        studentLabel={fixAssignment?.studentName}
+        source="cabinet-health"
+        onDone={(message) => {
+          setSuccess(message);
+          setError('');
+          fetchHealth();
+        }}
+      />
     </div>
   );
 }

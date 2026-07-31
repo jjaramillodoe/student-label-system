@@ -2,8 +2,9 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
-import { AlertCircle, ArrowLeft, Inbox, Loader2, RefreshCw, ShieldAlert } from 'lucide-react';
+import { AlertCircle, ArrowLeft, Inbox, Loader2, RefreshCw, ShieldAlert, Wrench } from 'lucide-react';
 import AdminHeader from '@/components/AdminHeader';
+import FixStudentAssignmentDialog from '@/components/FixStudentAssignmentDialog';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -51,11 +52,20 @@ type QueueResponse = {
   students: QueueStudent[];
 };
 
+function canAutoFix(issue: string) {
+  if (issue.toLowerCase().includes('archive box')) return false;
+  return true;
+}
+
 export default function UnassignedStudentsPage() {
   const [data, setData] = useState<QueueResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [success, setSuccess] = useState('');
   const [issueFilter, setIssueFilter] = useState('all');
+  const [fixStudent, setFixStudent] = useState<QueueStudent | null>(null);
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [bulkFixOpen, setBulkFixOpen] = useState(false);
 
   useEffect(() => {
     fetchQueue();
@@ -74,6 +84,7 @@ export default function UnassignedStudentsPage() {
       }
 
       setData(response);
+      setSelectedIds([]);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load unassigned student queue');
     } finally {
@@ -87,6 +98,11 @@ export default function UnassignedStudentsPage() {
     if (issueFilter === 'all') return data.students;
     return data.students.filter((student) => student.issue === issueFilter);
   }, [data, issueFilter]);
+
+  const fixableSelected = selectedIds.filter((id) => {
+    const row = filteredStudents.find((s) => s._id === id);
+    return row && canAutoFix(row.issue);
+  });
 
   return (
     <div className="w-full p-6 space-y-6">
@@ -115,6 +131,14 @@ export default function UnassignedStudentsPage() {
           </Button>
         </div>
       </div>
+
+      {success && (
+        <Alert className="border-green-200 bg-green-50 dark:bg-green-950 dark:border-green-800">
+          <Inbox className="h-4 w-4 text-green-600" />
+          <AlertTitle className="text-green-800 dark:text-green-200">Updated</AlertTitle>
+          <AlertDescription className="text-green-700 dark:text-green-300">{success}</AlertDescription>
+        </Alert>
+      )}
 
       {error && (
         <Alert variant="destructive">
@@ -181,9 +205,9 @@ export default function UnassignedStudentsPage() {
                   Showing {filteredStudents.length} of {data.students.length} queued student(s).
                 </CardDescription>
               </div>
-              <div className="w-full sm:w-72">
+              <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
                 <Select value={issueFilter} onValueChange={setIssueFilter}>
-                  <SelectTrigger>
+                  <SelectTrigger className="w-full sm:w-72">
                     <SelectValue placeholder="Filter by issue" />
                   </SelectTrigger>
                   <SelectContent>
@@ -195,6 +219,15 @@ export default function UnassignedStudentsPage() {
                     ))}
                   </SelectContent>
                 </Select>
+                <Button
+                  variant="default"
+                  className="gap-2"
+                  disabled={fixableSelected.length === 0}
+                  onClick={() => setBulkFixOpen(true)}
+                >
+                  <Wrench className="h-4 w-4" />
+                  Fix selected ({fixableSelected.length})
+                </Button>
               </div>
             </CardHeader>
             <CardContent>
@@ -205,44 +238,82 @@ export default function UnassignedStudentsPage() {
                   <Table>
                     <TableHeader>
                       <TableRow>
+                        <TableHead className="w-10" />
                         <TableHead>Student</TableHead>
                         <TableHead>Issue</TableHead>
                         <TableHead>Current Location</TableHead>
                         <TableHead>Status</TableHead>
                         <TableHead>School</TableHead>
+                        <TableHead className="text-right">Fix</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {filteredStudents.map((student) => (
-                        <TableRow key={`${student._id}-${student.issue}`}>
-                          <TableCell>
-                            <div className="font-medium">{student.name}</div>
-                            <div className="text-xs font-mono text-muted-foreground">{student.studentId || student._id}</div>
-                            {student.email && (
-                              <div className="text-xs text-muted-foreground">{student.email}</div>
-                            )}
-                          </TableCell>
-                          <TableCell>
-                            <Badge variant={student.severity === 'error' ? 'destructive' : 'secondary'}>
-                              {student.issue}
-                            </Badge>
-                          </TableCell>
-                          <TableCell>
-                            {student.cabinetName || student.drawerName ? (
-                              <div>
-                                <div>{student.cabinetName || 'Unknown cabinet'}</div>
-                                <div className="text-xs text-muted-foreground">{student.drawerName || 'Unknown drawer'}</div>
-                              </div>
-                            ) : (
-                              <span className="text-muted-foreground">Not assigned</span>
-                            )}
-                          </TableCell>
-                          <TableCell>
-                            <Badge variant="outline">{student.status || '-'}</Badge>
-                          </TableCell>
-                          <TableCell className="text-muted-foreground">{student.school || '-'}</TableCell>
-                        </TableRow>
-                      ))}
+                      {filteredStudents.map((student) => {
+                        const fixable = canAutoFix(student.issue);
+                        return (
+                          <TableRow key={`${student._id}-${student.issue}`}>
+                            <TableCell>
+                              {fixable ? (
+                                <input
+                                  type="checkbox"
+                                  checked={selectedIds.includes(student._id)}
+                                  onChange={(e) => {
+                                    setSelectedIds((prev) =>
+                                      e.target.checked
+                                        ? [...new Set([...prev, student._id])]
+                                        : prev.filter((id) => id !== student._id),
+                                    );
+                                  }}
+                                  aria-label={`Select ${student.name}`}
+                                />
+                              ) : null}
+                            </TableCell>
+                            <TableCell>
+                              <div className="font-medium">{student.name}</div>
+                              <div className="text-xs font-mono text-muted-foreground">{student.studentId || student._id}</div>
+                              {student.email && (
+                                <div className="text-xs text-muted-foreground">{student.email}</div>
+                              )}
+                            </TableCell>
+                            <TableCell>
+                              <Badge variant={student.severity === 'error' ? 'destructive' : 'secondary'}>
+                                {student.issue}
+                              </Badge>
+                            </TableCell>
+                            <TableCell>
+                              {student.cabinetName || student.drawerName ? (
+                                <div>
+                                  <div>{student.cabinetName || 'Unknown cabinet'}</div>
+                                  <div className="text-xs text-muted-foreground">{student.drawerName || 'Unknown drawer'}</div>
+                                </div>
+                              ) : (
+                                <span className="text-muted-foreground">Not assigned</span>
+                              )}
+                            </TableCell>
+                            <TableCell>
+                              <Badge variant="outline">{student.status || '-'}</Badge>
+                            </TableCell>
+                            <TableCell className="text-muted-foreground">{student.school || '-'}</TableCell>
+                            <TableCell className="text-right">
+                              {fixable ? (
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  className="gap-1"
+                                  onClick={() => setFixStudent(student)}
+                                >
+                                  <Wrench className="h-3.5 w-3.5" />
+                                  Fix
+                                </Button>
+                              ) : (
+                                <Button size="sm" variant="ghost" asChild>
+                                  <Link href="/admin/cabinets">Archive boxes</Link>
+                                </Button>
+                              )}
+                            </TableCell>
+                          </TableRow>
+                        );
+                      })}
                     </TableBody>
                   </Table>
                 </div>
@@ -251,6 +322,31 @@ export default function UnassignedStudentsPage() {
           </Card>
         </>
       )}
+
+      <FixStudentAssignmentDialog
+        open={!!fixStudent}
+        onOpenChange={(open) => !open && setFixStudent(null)}
+        studentIds={fixStudent ? [fixStudent._id] : []}
+        studentLabel={fixStudent?.name}
+        source="unassigned-queue"
+        onDone={(message) => {
+          setSuccess(message);
+          setError('');
+          fetchQueue();
+        }}
+      />
+      <FixStudentAssignmentDialog
+        open={bulkFixOpen}
+        onOpenChange={setBulkFixOpen}
+        studentIds={fixableSelected}
+        source="unassigned-queue-bulk"
+        onDone={(message) => {
+          setSuccess(message);
+          setError('');
+          setSelectedIds([]);
+          fetchQueue();
+        }}
+      />
     </div>
   );
 }

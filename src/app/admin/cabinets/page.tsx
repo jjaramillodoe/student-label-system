@@ -5,7 +5,10 @@ import { useSession } from 'next-auth/react';
 import { Cabinet, ArchiveBox, CabinetArchiveRecord, PhysicalArchiveBox } from '@/types/cabinet';
 import ArchiveBoxLabelSheet from '@/components/ArchiveBoxLabelSheet';
 import ArchiveBoxPdfButton from '@/components/ArchiveBoxPdfButton';
+import CabinetStorageLabelSheet from '@/components/CabinetStorageLabelSheet';
+import DrawerRosterDialog from '@/components/DrawerRosterDialog';
 import { getBoxPublicUrl, type BoxLabelStudent } from '@/lib/boxLabel';
+import { buildCabinetStorageLabels, type StorageLabelItem } from '@/lib/cabinetLabel';
 import {
   DRAWER_CAPACITY_PRESETS,
   getDrawerSectionBreakdown,
@@ -36,6 +39,9 @@ import {
   Info,
   QrCode,
   Printer,
+  History,
+  Tag,
+  Users,
 } from 'lucide-react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
@@ -99,12 +105,25 @@ export default function CabinetsPage() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [helpModalOpen, setHelpModalOpen] = useState(false);
   const [editingCabinet, setEditingCabinet] = useState<Cabinet | null>(null);
-  const [form, setForm] = useState({
+  const [form, setForm] = useState<{
+    name: string;
+    identifier: string;
+    school: string;
+    drawers: Array<{ _id?: string; name: string; capacity: number }>;
+  }>({
     name: '',
     identifier: '',
     school: '',
-    drawers: [{ name: '', capacity: 400 }]
+    drawers: [{ name: '', capacity: 400 }],
   });
+  const [rosterOpen, setRosterOpen] = useState(false);
+  const [rosterTarget, setRosterTarget] = useState<{
+    cabinetId: string;
+    cabinetName: string;
+    drawerId?: string;
+    drawerName?: string;
+    section?: string;
+  } | null>(null);
   const [auditModalOpen, setAuditModalOpen] = useState(false);
   const [auditResults, setAuditResults] = useState<any[]>([]);
   const [syncMessage, setSyncMessage] = useState('');
@@ -148,6 +167,41 @@ export default function CabinetsPage() {
   const [selectedBox, setSelectedBox] = useState<PhysicalArchiveBox | null>(null);
   const [selectedBoxArchive, setSelectedBoxArchive] = useState<CabinetArchiveRecord | null>(null);
   const [endOfYearCloseout, setEndOfYearCloseout] = useState(false);
+  const [storageLabelsOpen, setStorageLabelsOpen] = useState(false);
+  const [storageLabels, setStorageLabels] = useState<StorageLabelItem[]>([]);
+  const [storageLabelsTitle, setStorageLabelsTitle] = useState('');
+  const [labelFilter, setLabelFilter] = useState<'all' | 'cabinet' | 'drawer' | 'section'>('all');
+  const [moveHistoryOpen, setMoveHistoryOpen] = useState(false);
+  const [moveHistory, setMoveHistory] = useState<any[]>([]);
+  const [moveHistoryLoading, setMoveHistoryLoading] = useState(false);
+
+  function openStorageLabels(cabinet: Cabinet) {
+    setStorageLabels(buildCabinetStorageLabels(cabinet));
+    setStorageLabelsTitle(
+      cabinet.identifier ? `${cabinet.name} (${cabinet.identifier})` : cabinet.name,
+    );
+    setLabelFilter('all');
+    setStorageLabelsOpen(true);
+  }
+
+  async function openMoveHistory() {
+    setMoveHistoryOpen(true);
+    setMoveHistoryLoading(true);
+    try {
+      const res = await fetch('/api/cabinets/move-history?limit=50');
+      const data = await res.json();
+      setMoveHistory(Array.isArray(data) ? data : []);
+    } catch {
+      setMoveHistory([]);
+    } finally {
+      setMoveHistoryLoading(false);
+    }
+  }
+
+  const visibleStorageLabels =
+    labelFilter === 'all'
+      ? storageLabels
+      : storageLabels.filter((l) => l.kind === labelFilter);
 
   function openArchiveModal(cabinet: Cabinet) {
     const studentCount = cabinet.currentCount || 0;
@@ -439,6 +493,34 @@ export default function CabinetsPage() {
       )
     }));
   };
+
+  function openRoster(opts: {
+    cabinet: Cabinet;
+    drawer?: Cabinet['drawers'][number];
+    section?: string;
+  }) {
+    const cabinetName = opts.cabinet.identifier
+      ? `${opts.cabinet.name} (${opts.cabinet.identifier})`
+      : opts.cabinet.name;
+    setRosterTarget({
+      cabinetId: opts.cabinet._id!,
+      cabinetName,
+      drawerId: opts.drawer?._id,
+      drawerName: opts.drawer?.name,
+      section: opts.section,
+    });
+    setRosterOpen(true);
+  }
+
+  function formatWeeksLeft(forecast: Cabinet['fillForecast']) {
+    if (!forecast) return null;
+    if (forecast.weeksLeft == null) {
+      return forecast.available > 0 ? 'n/a (no recent fill)' : 'Full';
+    }
+    if (forecast.weeksLeft > 52) return '52+ weeks left';
+    if (forecast.weeksLeft === 0) return '<1 week left';
+    return `~${forecast.weeksLeft} week${forecast.weeksLeft === 1 ? '' : 's'} left`;
+  }
 
   const handleSmartSuggest = () => {
     if (editingCabinet) return; // Don't suggest when editing
@@ -894,6 +976,14 @@ export default function CabinetsPage() {
           </div>
           <div className="flex gap-2 flex-wrap">
           <Button
+            onClick={openMoveHistory}
+            variant="outline"
+            className="gap-2"
+          >
+            <History className="h-4 w-4" />
+            Move History
+          </Button>
+          <Button
             onClick={handleAudit}
             variant="outline"
             className="gap-2"
@@ -1073,6 +1163,16 @@ export default function CabinetsPage() {
                           Archive
                         </Button>
                       )}
+                      {cabinet.status !== 'Archived' && (
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          title="Print cabinet / drawer / section labels"
+                          onClick={() => openStorageLabels(cabinet)}
+                        >
+                          <Tag className="h-4 w-4" />
+                        </Button>
+                      )}
                       <Button
                         variant="ghost"
                         size="icon"
@@ -1082,7 +1182,11 @@ export default function CabinetsPage() {
                             name: cabinet.name,
                             identifier: cabinet.identifier || '',
                             school: cabinet.school || '',
-                            drawers: cabinet.drawers.map(d => ({ name: d.name, capacity: d.capacity }))
+                            drawers: cabinet.drawers.map((d) => ({
+                              _id: d._id,
+                              name: d.name,
+                              capacity: d.capacity,
+                            })),
                           });
                           setIsModalOpen(true);
                         }}
@@ -1181,6 +1285,15 @@ export default function CabinetsPage() {
                         }
                       </span>
                     </div>
+                    {cabinet.status !== 'Archived' && cabinet.fillForecast && (
+                      <p className="text-[11px] text-muted-foreground">
+                        Fill rate: {cabinet.fillForecast.assignedInWindow} file(s) / {cabinet.fillForecast.windowDays}d
+                        {' · '}
+                        <span className="font-medium text-foreground">
+                          {formatWeeksLeft(cabinet.fillForecast)}
+                        </span>
+                      </p>
+                    )}
                   </div>
 
                   <Separator />
@@ -1286,7 +1399,19 @@ export default function CabinetsPage() {
                   <div>
                     <div className="flex items-center justify-between mb-2">
                       <h4 className="text-sm font-semibold">Drawers</h4>
-                      <Badge variant="outline">{cabinet.drawers.length}</Badge>
+                      <div className="flex items-center gap-1">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-7 gap-1 text-xs"
+                          title="View all students in this cabinet"
+                          onClick={() => openRoster({ cabinet })}
+                        >
+                          <Users className="h-3.5 w-3.5" />
+                          Roster
+                        </Button>
+                        <Badge variant="outline">{cabinet.drawers.length}</Badge>
+                      </div>
                     </div>
                     <div className="space-y-2">
                       {cabinet.drawers.map((drawer, index) => {
@@ -1299,36 +1424,49 @@ export default function CabinetsPage() {
                         );
                         const sectionSize = getDrawerSectionSize(drawer.capacity || 0);
                         return (
-                          <div key={index} className="text-sm p-2 bg-muted/50 rounded space-y-2">
+                          <div key={drawer._id || index} className="text-sm p-2 bg-muted/50 rounded space-y-2">
                             <div className="flex items-center justify-between gap-2">
-                              <div className="flex-1 min-w-0">
+                              <button
+                                type="button"
+                                className="flex-1 min-w-0 text-left hover:underline"
+                                title="View drawer roster"
+                                onClick={() => openRoster({ cabinet, drawer })}
+                              >
                                 <div className="font-medium">{drawer.name}</div>
                                 <div className="text-xs text-muted-foreground">
                                   {drawer.currentCount}/{drawer.capacity} files
                                   {' · '}
                                   {SECTIONS_PER_DRAWER} sections × ~{sectionSize}
                                 </div>
-                              </div>
+                              </button>
                               <Badge variant={drawerUsage >= 100 ? 'destructive' : drawerUsage >= 80 ? 'secondary' : 'outline'}>
                                 {drawerUsage}%
                               </Badge>
                             </div>
                             <div className="grid grid-cols-4 gap-1">
                               {sections.map((section) => (
-                                <div
+                                <button
                                   key={section.label}
+                                  type="button"
+                                  onClick={() =>
+                                    openRoster({
+                                      cabinet,
+                                      drawer,
+                                      section: section.label,
+                                    })
+                                  }
                                   className={
                                     section.status === 'full'
-                                      ? 'rounded border border-emerald-300 bg-emerald-50 px-1 py-0.5 text-[10px] text-emerald-900'
+                                      ? 'rounded border border-emerald-300 bg-emerald-50 px-1 py-0.5 text-[10px] text-emerald-900 text-left hover:ring-1 hover:ring-emerald-400'
                                       : section.status === 'partial'
-                                        ? 'rounded border border-amber-300 bg-amber-50 px-1 py-0.5 text-[10px] text-amber-900'
-                                        : 'rounded border border-border/60 bg-background/80 px-1 py-0.5 text-[10px] text-muted-foreground'
+                                        ? 'rounded border border-amber-300 bg-amber-50 px-1 py-0.5 text-[10px] text-amber-900 text-left hover:ring-1 hover:ring-amber-400'
+                                        : 'rounded border border-border/60 bg-background/80 px-1 py-0.5 text-[10px] text-muted-foreground text-left hover:ring-1 hover:ring-border'
                                   }
-                                  title={`${section.label}: ${section.filled}/${section.capacity}`}
+                                  title={`${section.label}: ${section.filled}/${section.capacity} — click to view students`}
                                 >
                                   <div className="font-medium leading-tight">{section.label.replace('Section ', 'S')}</div>
                                   <div className="tabular-nums leading-tight">{section.filled}/{section.capacity}</div>
-                                </div>
+                                </button>
                               ))}
                             </div>
                           </div>
@@ -2053,6 +2191,141 @@ export default function CabinetsPage() {
             )}
             <DialogFooter>
               <Button onClick={() => setAuditModalOpen(false)}>Close</Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        {/* Printable cabinet / drawer / section labels */}
+        <Dialog open={storageLabelsOpen} onOpenChange={setStorageLabelsOpen}>
+          <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <Tag className="h-5 w-5" /> Storage Labels — {storageLabelsTitle}
+              </DialogTitle>
+              <DialogDescription>
+                Print and attach to the physical cabinet, drawer fronts, and section dividers.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="flex flex-wrap gap-2 mb-3">
+              {(['all', 'cabinet', 'drawer', 'section'] as const).map((f) => (
+                <Button
+                  key={f}
+                  size="sm"
+                  variant={labelFilter === f ? 'default' : 'outline'}
+                  onClick={() => setLabelFilter(f)}
+                >
+                  {f === 'all' ? `All (${storageLabels.length})` : f}
+                </Button>
+              ))}
+            </div>
+            <CabinetStorageLabelSheet labels={visibleStorageLabels} />
+            <DialogFooter className="gap-2 sm:gap-0">
+              <Button variant="outline" onClick={() => setStorageLabelsOpen(false)}>
+                Close
+              </Button>
+              <Button
+                className="gap-2"
+                onClick={() => window.print()}
+                disabled={visibleStorageLabels.length === 0}
+              >
+                <Printer className="h-4 w-4" /> Print Labels
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        {rosterTarget && (
+          <DrawerRosterDialog
+            open={rosterOpen}
+            onOpenChange={setRosterOpen}
+            cabinetId={rosterTarget.cabinetId}
+            cabinetName={rosterTarget.cabinetName}
+            drawerId={rosterTarget.drawerId}
+            drawerName={rosterTarget.drawerName}
+            section={rosterTarget.section}
+          />
+        )}
+
+        {/* Move / transfer history */}
+        <Dialog open={moveHistoryOpen} onOpenChange={setMoveHistoryOpen}>
+          <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <History className="h-5 w-5" /> Move History
+              </DialogTitle>
+              <DialogDescription>
+                Who moved which student files, from → to. Also appears in Audit Logs.
+              </DialogDescription>
+            </DialogHeader>
+            {moveHistoryLoading ? (
+              <div className="flex items-center gap-2 py-8 text-muted-foreground">
+                <Loader2 className="h-4 w-4 animate-spin" /> Loading…
+              </div>
+            ) : moveHistory.length === 0 ? (
+              <p className="text-sm text-muted-foreground py-8 text-center">
+                No moves recorded yet. Bulk Move and Fix Assignment will appear here.
+              </p>
+            ) : (
+              <div className="rounded-md border overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>When</TableHead>
+                      <TableHead>Students</TableHead>
+                      <TableHead>Sample move</TableHead>
+                      <TableHead>By</TableHead>
+                      <TableHead>Source</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {moveHistory.map((ev) => {
+                      const first = ev.students?.[0];
+                      const fromLabel = first?.from
+                        ? [first.from.cabinetName, first.from.drawerName, first.from.drawerSection]
+                            .filter(Boolean)
+                            .join(' / ') || '—'
+                        : '—';
+                      const toLabel = first?.to
+                        ? [first.to.cabinetName, first.to.drawerName, first.to.drawerSection]
+                            .filter(Boolean)
+                            .join(' / ') || '—'
+                        : '—';
+                      return (
+                        <TableRow key={ev._id}>
+                          <TableCell className="text-sm whitespace-nowrap">
+                            {ev.createdAt ? new Date(ev.createdAt).toLocaleString() : '—'}
+                          </TableCell>
+                          <TableCell className="text-sm">
+                            {ev.studentCount || ev.students?.length || 0}
+                            {first?.name ? (
+                              <div className="text-xs text-muted-foreground truncate max-w-[10rem]">
+                                e.g. {first.name}
+                              </div>
+                            ) : null}
+                          </TableCell>
+                          <TableCell className="text-sm">
+                            <span className="text-muted-foreground">{fromLabel}</span>
+                            {' → '}
+                            <span className="font-medium">{toLabel}</span>
+                          </TableCell>
+                          <TableCell className="text-sm">
+                            {ev.user?.name || ev.user?.email || '—'}
+                          </TableCell>
+                          <TableCell className="text-xs text-muted-foreground">
+                            {ev.source || '—'}
+                            {ev.note ? (
+                              <div className="truncate max-w-[8rem]" title={ev.note}>{ev.note}</div>
+                            ) : null}
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })}
+                  </TableBody>
+                </Table>
+              </div>
+            )}
+            <DialogFooter>
+              <Button onClick={() => setMoveHistoryOpen(false)}>Close</Button>
             </DialogFooter>
           </DialogContent>
         </Dialog>

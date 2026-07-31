@@ -1,10 +1,11 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/authOptions';
 import clientPromise from '@/lib/mongodb';
 import { ObjectId } from 'mongodb';
+import { computeCabinetFillForecast } from '@/lib/cabinetCapacity';
 
-export async function GET() {
+export async function GET(req: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
     if (!session) {
@@ -12,21 +13,38 @@ export async function GET() {
     }
 
     const client = await clientPromise;
-    const db = client.db("student-label");
-    
-    // Filter cabinets based on user role and school
+    const db = client.db('student-label');
+    const withForecast = req.nextUrl.searchParams.get('forecast') !== '0';
+
     let query = {};
     const userRole = session.user.role;
     const userSchool = session.user.school;
-    
-    // Admins can see all cabinets, others are restricted to their school
+
     if (userRole !== 'Admin' && userSchool) {
       query = { school: userSchool };
     }
-    
-    const cabinets = await db.collection("cabinets").find(query).toArray();
 
-    return NextResponse.json(cabinets);
+    const cabinets = await db.collection('cabinets').find(query).toArray();
+
+    if (!withForecast) {
+      return NextResponse.json(cabinets);
+    }
+
+    const enriched = await Promise.all(
+      cabinets.map(async (cabinet) => {
+        if ((cabinet.status ?? 'Active') === 'Archived') {
+          return { ...cabinet, fillForecast: null };
+        }
+        const fillForecast = await computeCabinetFillForecast(db, {
+          _id: String(cabinet._id),
+          currentCount: cabinet.currentCount,
+          totalCapacity: cabinet.totalCapacity,
+        });
+        return { ...cabinet, fillForecast };
+      }),
+    );
+
+    return NextResponse.json(enriched);
   } catch (error) {
     console.error('Error fetching cabinets:', error);
     return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
