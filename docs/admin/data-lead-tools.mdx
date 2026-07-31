@@ -36,6 +36,7 @@ description: Cleanup, activity reports, schools, address verification, and secur
 | Email Validation | `/admin/validation` | EmailAwesome verification |
 | Schools / School Settings | `/admin/schools` | School names, Agency IDs, fiscal year, **intake session windows** |
 | School Year Rollover | `/admin/school-year` | End-of-year checklist |
+| Label Stock | `/admin/label-stock` | Avery inventory, burn rate, restock |
 | Users | `/admin/users` | Roles, schools, MFA recovery |
 
 <Frame caption="School Settings — fiscal year and intake sessions/activities">
@@ -48,9 +49,16 @@ description: Cleanup, activity reports, schools, address verification, and secur
 
 ## Security
 
-- Users change passwords from **Profile**
-- Authenticator MFA with QR setup
-- Admins can reset passwords and disable MFA for locked-out users
+<Warning>
+  **MFA is required for every account** until DOE Single Sign-On (SSO) is available. All staff (Admin, Data Lead, Data Member, Intake Member) must enable authenticator-app MFA. This protects student data while the app still uses email/password login.
+</Warning>
+
+- Sign in with your DOE email and password, then enter the **6-digit MFA code** from your authenticator app
+- Users set up MFA from **Profile** (QR code + verify)
+- Admins can reset passwords, force password changes, and **temporarily disable MFA** only to recover locked-out users — the user must re-enable MFA after recovery
+- SSO (Microsoft Entra ID / `@schools.nyc.gov`) is planned; until then MFA remains mandatory for security
+
+See also [User roles](/user-roles).
 
 ## Screenshots
 

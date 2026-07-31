@@ -99,8 +99,10 @@ async function main() {
     }
 
     const captures = [
-      { path: '/intake', name: 'intake-form-prod', fullPage: true },
+      { path: '/intake', name: 'intake-form', fullPage: true },
+      { path: '/intake', name: 'intake-translate-tip', fullPage: false },
       { path: '/admin/cabinets', name: 'cabinets-page', fullPage: false },
+      { path: '/admin/label-stock', name: 'label-stock', fullPage: false },
       { path: '/admin/school-year', name: 'school-year-rollover', fullPage: false },
       { path: '/admin/duplicates', name: 'duplicates-page', fullPage: false },
       { path: '/admin/enrollment', name: 'enrollment-dashboard', fullPage: false },
@@ -108,6 +110,7 @@ async function main() {
       { path: '/admin/students/bulk-upload', name: 'bulk-upload', fullPage: false },
       { path: '/admin/cabinet-health', name: 'cabinet-health', fullPage: false },
       { path: '/admin/print-queue', name: 'avery-label-sheet', fullPage: false },
+      { path: '/', name: 'dashboard', fullPage: false },
     ];
 
     for (const c of captures) {
@@ -116,6 +119,18 @@ async function main() {
         await page.waitForTimeout(1200);
         if (page.url().includes('/auth/signin')) {
           console.warn('still on sign-in for', c.path, '— skipping');
+          continue;
+        }
+        // Crop translate tip to upper portion of intake
+        if (c.name === 'intake-translate-tip') {
+          await page.evaluate(() => window.scrollTo(0, 0));
+          await page.waitForTimeout(400);
+          await page.screenshot({
+            path: path.join(OUT, 'intake-translate-tip.png'),
+            type: 'png',
+            clip: { x: 0, y: 0, width: 1280, height: 720 },
+          });
+          console.log('saved', path.join(OUT, 'intake-translate-tip.png'));
           continue;
         }
         await shot(page, c.name, { fullPage: c.fullPage });

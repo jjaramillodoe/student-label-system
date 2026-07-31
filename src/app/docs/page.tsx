@@ -226,9 +226,10 @@ const featureGroups = [
     description: 'Account access, MFA, and admin recovery features.',
     icon: Lock,
     items: [
+      'MFA is required for every account until DOE SSO is available.',
       'Users can change their own passwords from Profile.',
       'Authenticator-app MFA with QR setup and 6-digit codes.',
-      'Admins can reset passwords, force password changes, and disable MFA for locked-out users.',
+      'Admins can reset passwords, force password changes, and temporarily disable MFA only to recover locked-out users (re-enable after).',
       'Role permission preview explains each role before assignment.',
       'All role and school assignments stored in MongoDB.',
     ],

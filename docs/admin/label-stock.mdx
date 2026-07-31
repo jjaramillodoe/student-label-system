@@ -1,0 +1,35 @@
+---
+title: Label stock
+description: Track Avery sheet inventory, burn rate, restock, and usage history by school.
+---
+
+## Overview
+
+**Admin → Label Stock** (`/admin/label-stock`) helps Data Leads and Admins know when to reorder Avery sheets before a print run runs out.
+
+- Stock is tracked **per school** and **per template** (e.g. Avery 5163, Avery 94205)
+- Units can be **sheets** or **labels** (with pack / labels-per-sheet helpers)
+- Inventory **decrements automatically** when staff **Download Word Doc** or complete a **browser print** — not when they only open the preview
+- Restock / adjust events and usage history are recorded (similar to cabinet move history)
+- Burn-rate helpers estimate **days of stock left** and support reorder planning
+- Export stock to **CSV**
+
+<Frame caption="Label Stock — inventory, burn rate, and restock">
+  <img src="/images/screenshots/label-stock.png" alt="Label Stock Management admin page" />
+</Frame>
+
+## Daily use
+
+1. Before a large print job, check **days left** and available sheets for your school.
+2. Print labels as usual from the Dashboard or Print Queue (**Download Word Doc**).
+3. After printing, stock counts update from that consumption event.
+4. When a new box of labels arrives, **Restock** (or adjust) and note the pack size.
+
+<Warning>
+  Opening the label preview alone does **not** consume stock. Only Word download or confirmed browser print decrements inventory.
+</Warning>
+
+## Related pages
+
+- [Labels and scanning](/workflows/labels-and-scanning)
+- [Data Lead and Admin tools](/admin/data-lead-tools)

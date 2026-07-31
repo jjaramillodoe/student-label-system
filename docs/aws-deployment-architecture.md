@@ -547,6 +547,6 @@ student-label-system/
 
 ---
 
-*Companion Mintlify pages: [System architecture](/contributors/system-architecture) · [AWS deployment](/contributors/aws-deployment) · [AWS support email](/contributors/aws-support-request)*
+*Companion Mintlify pages: [System architecture](/contributors/system-architecture) · [AWS deployment](/contributors/aws-deployment)*
 
 *Document version: 2026-05-31 — prepared for AWS EC2 + Docker Compose deployment planning.*

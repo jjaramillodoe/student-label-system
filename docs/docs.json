@@ -65,7 +65,8 @@
         "group": "Admin tools",
         "pages": [
           "admin/enrollment-dashboard",
-          "admin/data-lead-tools"
+          "admin/data-lead-tools",
+          "admin/label-stock"
         ]
       },
       {
@@ -84,8 +85,7 @@
           "contributors/local-preview",
           "contributors/screenshot-checklist",
           "contributors/system-architecture",
-          "contributors/aws-deployment",
-          "contributors/aws-support-request"
+          "contributors/aws-deployment"
         ]
       }
     ],
