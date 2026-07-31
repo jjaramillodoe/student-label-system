@@ -11,7 +11,37 @@ export type CabinetFillForecast = {
   available: number;
   avgPerDay: number;
   weeksLeft: number | null;
+  /** Weeks until next typical adult-ed peak (Sep 15 or Jan 15). */
+  weeksUntilPeak: number;
+  peakLabel: string;
+  /** True when current fill rate would exhaust space before the next peak. */
+  warnBeforePeak: boolean;
 };
+
+/** Next Sep 15 or Jan 15 (whichever is sooner) — common adult-ed intake peaks. */
+export function nextIntakePeak(from = new Date()): {
+  peakDate: Date;
+  peakLabel: string;
+  weeksUntilPeak: number;
+} {
+  const year = from.getFullYear();
+  const candidates = [
+    { date: new Date(year, 8, 15), label: 'Fall peak (Sep 15)' },
+    { date: new Date(year, 0, 15), label: 'Winter peak (Jan 15)' },
+    { date: new Date(year + 1, 0, 15), label: 'Winter peak (Jan 15)' },
+    { date: new Date(year + 1, 8, 15), label: 'Fall peak (Sep 15)' },
+  ]
+    .filter((c) => c.date.getTime() > from.getTime())
+    .sort((a, b) => a.date.getTime() - b.date.getTime());
+
+  const next = candidates[0] || {
+    date: new Date(year + 1, 8, 15),
+    label: 'Fall peak (Sep 15)',
+  };
+  const ms = next.date.getTime() - from.getTime();
+  const weeksUntilPeak = Math.max(0, Math.ceil(ms / (7 * 24 * 60 * 60 * 1000)));
+  return { peakDate: next.date, peakLabel: next.label, weeksUntilPeak };
+}
 
 export async function computeCabinetFillForecast(
   db: Db,
@@ -55,6 +85,13 @@ export async function computeCabinetFillForecast(
   const weeksLeft =
     avgPerDay > 0 ? Math.floor(available / (avgPerDay * 7)) : available > 0 ? null : 0;
 
+  const { peakLabel, weeksUntilPeak } = nextIntakePeak();
+  const warnBeforePeak =
+    weeksLeft != null &&
+    avgPerDay > 0 &&
+    available > 0 &&
+    weeksLeft < weeksUntilPeak;
+
   return {
     cabinetId,
     windowDays,
@@ -62,5 +99,8 @@ export async function computeCabinetFillForecast(
     available,
     avgPerDay,
     weeksLeft,
+    weeksUntilPeak,
+    peakLabel,
+    warnBeforePeak,
   };
 }

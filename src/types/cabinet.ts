@@ -5,6 +5,9 @@ export interface CabinetFillForecast {
   available: number;
   avgPerDay: number;
   weeksLeft: number | null;
+  weeksUntilPeak?: number;
+  peakLabel?: string;
+  warnBeforePeak?: boolean;
 }
 
 export interface Cabinet {

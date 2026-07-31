@@ -350,6 +350,150 @@ export async function moveStudentsToDrawer(
   }
 }
 
+/**
+ * Move students between sections inside the same drawer (no capacity count change).
+ */
+export async function reassignStudentsToSection(
+  db: Db,
+  params: {
+    studentIds: string[];
+    cabinetId: string;
+    drawerId: string;
+    drawerSection: string;
+    user?: MoveActor | null;
+    source?: string;
+    note?: string;
+    schoolScope?: string | null;
+  },
+): Promise<{
+  ok: boolean;
+  moved: number;
+  errors: string[];
+  message: string;
+  error?: string;
+  status?: number;
+}> {
+  const { studentIds, cabinetId, drawerId, drawerSection } = params;
+  if (!Array.isArray(studentIds) || studentIds.length === 0) {
+    return { ok: false, moved: 0, errors: [], message: '', error: 'Select at least one student', status: 400 };
+  }
+  if (!cabinetId || !drawerId || !isValidObjectId(cabinetId)) {
+    return { ok: false, moved: 0, errors: [], message: '', error: 'Cabinet and drawer are required', status: 400 };
+  }
+  if (!drawerSection || !/^Section 0[1-8]$/.test(drawerSection)) {
+    return {
+      ok: false,
+      moved: 0,
+      errors: [],
+      message: '',
+      error: 'Target section must be Section 01–08',
+      status: 400,
+    };
+  }
+
+  const cabinet = await db.collection('cabinets').findOne({ _id: new OID(cabinetId) });
+  if (!cabinet) {
+    return { ok: false, moved: 0, errors: [], message: '', error: 'Cabinet not found', status: 404 };
+  }
+  if (!isActiveCabinet(cabinet as unknown as Cabinet)) {
+    return { ok: false, moved: 0, errors: [], message: '', error: 'Cabinet is archived', status: 400 };
+  }
+  if (params.schoolScope && cabinet.school !== params.schoolScope) {
+    return { ok: false, moved: 0, errors: [], message: '', error: 'Cabinet is outside your school', status: 403 };
+  }
+  const drawer = (cabinet.drawers || []).find((d: { _id?: string }) => d._id === drawerId);
+  if (!drawer) {
+    return { ok: false, moved: 0, errors: [], message: '', error: 'Drawer not found', status: 404 };
+  }
+
+  const studentObjectIds = studentIds.filter(isValidObjectId).map((id) => new OID(id));
+  const studentQuery: Record<string, unknown> = {
+    _id: { $in: studentObjectIds },
+    cabinet: cabinetId,
+    drawer: drawerId,
+  };
+  if (params.schoolScope) studentQuery.school = params.schoolScope;
+
+  const students = await db.collection('students').find(studentQuery).toArray();
+  if (students.length !== studentIds.length) {
+    return {
+      ok: false,
+      moved: 0,
+      errors: [],
+      message: '',
+      error: 'Students must already be in this cabinet/drawer',
+      status: 400,
+    };
+  }
+
+  const to = await resolveLocation(db, cabinetId, drawerId, drawerSection);
+  const moveSnapshots: Array<{
+    _id: string;
+    studentId?: string;
+    firstName?: string;
+    lastName?: string;
+    from: MoveLocation;
+    to: MoveLocation;
+  }> = [];
+  let moved = 0;
+  const errors: string[] = [];
+  const now = new Date().toISOString();
+
+  for (const student of students) {
+    if (student.drawerSection === drawerSection) continue;
+    try {
+      const from = await resolveLocation(
+        db,
+        student.cabinet,
+        student.drawer,
+        student.drawerSection,
+      );
+      await db.collection('students').updateOne(
+        { _id: student._id },
+        { $set: { drawerSection, updatedAt: now } },
+      );
+      moveSnapshots.push({
+        _id: String(student._id),
+        studentId: student.studentId || student.labelId,
+        firstName: student.firstName,
+        lastName: student.lastName,
+        from,
+        to,
+      });
+      moved++;
+    } catch (error) {
+      errors.push(
+        `Failed to reassign ${student.studentId || student._id}: ${
+          error instanceof Error ? error.message : 'Unknown error'
+        }`,
+      );
+    }
+  }
+
+  if (moveSnapshots.length > 0) {
+    await logCabinetMoveEvent(db, {
+      students: moveSnapshots,
+      source: params.source || 'section-reassign',
+      note: params.note || `Reassigned to ${drawerSection}`,
+      user: params.user,
+    });
+  }
+
+  const cabinetLabel = cabinet.identifier
+    ? `${cabinet.name} (${cabinet.identifier})`
+    : cabinet.name;
+
+  return {
+    ok: true,
+    moved,
+    errors,
+    message:
+      moved === 0
+        ? 'No section changes needed'
+        : `Moved ${moved} student${moved === 1 ? '' : 's'} to ${cabinetLabel} / ${drawer.name} / ${drawerSection}`,
+  };
+}
+
 export async function assignStudentsToNextSlot(
   db: Db,
   params: {

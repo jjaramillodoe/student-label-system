@@ -12,6 +12,7 @@ import BarcodeScanner from '@/components/BarcodeScanner';
 import ArchivePackingPreview, {
   PARTIAL_ARCHIVE_STATUSES,
 } from '@/components/ArchivePackingPreview';
+import CabinetFloorMap from '@/components/CabinetFloorMap';
 import { getBoxPublicUrl, type BoxLabelStudent } from '@/lib/boxLabel';
 import { buildCabinetStorageLabels, type StorageLabelItem } from '@/lib/cabinetLabel';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -49,6 +50,7 @@ import {
   Tag,
   Users,
   Scan,
+  Download,
   Lock,
   LayoutGrid,
 } from 'lucide-react';
@@ -644,6 +646,11 @@ export default function CabinetsPage() {
     setRosterOpen(true);
   }
 
+  const peakWarnings = cabinets.filter(
+    (c) =>
+      (c.status ?? 'Active') !== 'Archived' && c.fillForecast?.warnBeforePeak,
+  );
+
   function formatWeeksLeft(forecast: Cabinet['fillForecast']) {
     if (!forecast) return null;
     if (forecast.weeksLeft == null) {
@@ -1050,6 +1057,36 @@ export default function CabinetsPage() {
           </CardContent>
         </Card>
       </div>
+
+      {peakWarnings.length > 0 && (
+        <Alert className="border-amber-300 bg-amber-50/70 dark:bg-amber-950/20 dark:border-amber-800">
+          <AlertCircle className="h-4 w-4 text-amber-700" />
+          <AlertTitle className="text-amber-900 dark:text-amber-200">
+            Capacity may run out before peak intake
+          </AlertTitle>
+          <AlertDescription className="text-amber-900/90 dark:text-amber-100/90 space-y-1">
+            <p>
+              At the current fill rate, {peakWarnings.length} cabinet
+              {peakWarnings.length === 1 ? '' : 's'} would fill before the next
+              typical peak ({peakWarnings[0].fillForecast?.peakLabel || 'peak'}
+              {peakWarnings[0].fillForecast?.weeksUntilPeak != null
+                ? ` · ~${peakWarnings[0].fillForecast.weeksUntilPeak} weeks away`
+                : ''}
+              ).
+            </p>
+            <ul className="list-disc pl-5 text-sm">
+              {peakWarnings.slice(0, 6).map((c) => (
+                <li key={c._id}>
+                  {c.name}
+                  {c.identifier ? ` (${c.identifier})` : ''}
+                  {' — '}
+                  {formatWeeksLeft(c.fillForecast)} left at current rate
+                </li>
+              ))}
+            </ul>
+          </AlertDescription>
+        </Alert>
+      )}
 
       {/* Actions and Search */}
       <div className="flex flex-col gap-4">
@@ -1478,13 +1515,20 @@ export default function CabinetsPage() {
                       </span>
                     </div>
                     {cabinet.status !== 'Archived' && cabinet.fillForecast && (
-                      <p className="text-[11px] text-muted-foreground">
-                        Fill rate: {cabinet.fillForecast.assignedInWindow} file(s) / {cabinet.fillForecast.windowDays}d
-                        {' · '}
-                        <span className="font-medium text-foreground">
-                          {formatWeeksLeft(cabinet.fillForecast)}
-                        </span>
-                      </p>
+                      <div className="space-y-1">
+                        <p className="text-[11px] text-muted-foreground">
+                          Fill rate: {cabinet.fillForecast.assignedInWindow} file(s) / {cabinet.fillForecast.windowDays}d
+                          {' · '}
+                          <span className="font-medium text-foreground">
+                            {formatWeeksLeft(cabinet.fillForecast)}
+                          </span>
+                        </p>
+                        {cabinet.fillForecast.warnBeforePeak && (
+                          <p className="text-[11px] text-amber-800 dark:text-amber-300 font-medium">
+                            May fill before {cabinet.fillForecast.peakLabel || 'peak intake'}
+                          </p>
+                        )}
+                      </div>
                     )}
                   </div>
 
@@ -2608,6 +2652,11 @@ export default function CabinetsPage() {
                 label: student.name,
               });
             }}
+            onSectionChanged={(message) => {
+              setSyncMessage(message);
+              if (syncTimeout.current) clearTimeout(syncTimeout.current);
+              syncTimeout.current = setTimeout(() => setSyncMessage(''), 6000);
+            }}
           />
         )}
 
@@ -2641,102 +2690,24 @@ export default function CabinetsPage() {
                 <LayoutGrid className="h-5 w-5" /> Floor / room map
               </DialogTitle>
               <DialogDescription>
-                Cabinets placed by map row/column (set in Edit Cabinet). Unplaced cabinets appear below.
+                Drag cabinets onto the grid to match the room layout. Positions save immediately.
               </DialogDescription>
             </DialogHeader>
-            {(() => {
-              const active = cabinets.filter((c) => (c.status ?? 'Active') !== 'Archived');
-              const placed = active.filter(
-                (c) => c.mapRow != null && c.mapCol != null,
-              );
-              const unplaced = active.filter(
-                (c) => c.mapRow == null || c.mapCol == null,
-              );
-              const maxRow = placed.reduce((m, c) => Math.max(m, c.mapRow ?? 0), 0);
-              const maxCol = placed.reduce((m, c) => Math.max(m, c.mapCol ?? 0), 0);
-              const cells: Array<Cabinet | null>[] = [];
-              for (let r = 0; r <= maxRow; r++) {
-                const row: Array<Cabinet | null> = [];
-                for (let c = 0; c <= maxCol; c++) {
-                  row.push(
-                    placed.find((cab) => cab.mapRow === r && cab.mapCol === c) || null,
-                  );
-                }
-                cells.push(row);
-              }
-              return (
-                <div className="space-y-4">
-                  {placed.length === 0 ? (
-                    <p className="text-sm text-muted-foreground">
-                      No cabinets have map coordinates yet. Edit a cabinet and set Floor map row/column.
-                    </p>
-                  ) : (
-                    <div className="overflow-x-auto">
-                      <div
-                        className="inline-grid gap-2"
-                        style={{
-                          gridTemplateColumns: `repeat(${maxCol + 1}, minmax(7rem, 1fr))`,
-                        }}
-                      >
-                        {cells.flatMap((row, r) =>
-                          row.map((cab, c) => (
-                            <button
-                              key={`${r}-${c}`}
-                              type="button"
-                              disabled={!cab}
-                              onClick={() => {
-                                if (!cab) return;
-                                setFloorMapOpen(false);
-                                document
-                                  .getElementById(`cabinet-card-${cab._id}`)
-                                  ?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                                setLocateHighlight({
-                                  cabinetId: cab._id!,
-                                  studentName: cab.name,
-                                });
-                              }}
-                              className={
-                                cab
-                                  ? `rounded-md border p-2 text-left text-xs hover:ring-1 hover:ring-primary ${
-                                      locateHighlight?.cabinetId === cab._id
-                                        ? 'border-primary bg-primary/10'
-                                        : 'bg-muted/40'
-                                    }`
-                                  : 'rounded-md border border-dashed p-2 min-h-[3.5rem] bg-transparent'
-                              }
-                            >
-                              {cab ? (
-                                <>
-                                  <div className="font-medium truncate">
-                                    {cab.identifier || cab.name}
-                                  </div>
-                                  <div className="text-muted-foreground truncate">
-                                    {cab.currentCount}/{cab.totalCapacity}
-                                  </div>
-                                </>
-                              ) : null}
-                            </button>
-                          )),
-                        )}
-                      </div>
-                    </div>
-                  )}
-                  {unplaced.length > 0 && (
-                    <div className="space-y-2">
-                      <Label>Unplaced cabinets</Label>
-                      <div className="flex flex-wrap gap-2">
-                        {unplaced.map((cab) => (
-                          <Badge key={cab._id} variant="outline">
-                            {cab.name}
-                            {cab.identifier ? ` (${cab.identifier})` : ''}
-                          </Badge>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-                </div>
-              );
-            })()}
+            <CabinetFloorMap
+              cabinets={cabinets}
+              highlightCabinetId={locateHighlight?.cabinetId}
+              onUpdated={() => { void fetchCabinets(); }}
+              onSelectCabinet={(cab) => {
+                setFloorMapOpen(false);
+                document
+                  .getElementById(`cabinet-card-${cab._id}`)
+                  ?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                setLocateHighlight({
+                  cabinetId: cab._id!,
+                  studentName: cab.name,
+                });
+              }}
+            />
             <DialogFooter>
               <Button variant="outline" onClick={() => setFloorMapOpen(false)}>
                 Close
@@ -2745,16 +2716,30 @@ export default function CabinetsPage() {
           </DialogContent>
         </Dialog>
 
-        {/* Move / transfer history */}
         <Dialog open={moveHistoryOpen} onOpenChange={setMoveHistoryOpen}>
           <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
             <DialogHeader>
-              <DialogTitle className="flex items-center gap-2">
-                <History className="h-5 w-5" /> Move History
-              </DialogTitle>
-              <DialogDescription>
-                Who moved which student files, from → to. Also appears in Audit Logs.
-              </DialogDescription>
+              <div className="flex items-start justify-between gap-2">
+                <div>
+                  <DialogTitle className="flex items-center gap-2">
+                    <History className="h-5 w-5" /> Move History
+                  </DialogTitle>
+                  <DialogDescription>
+                    Who moved which student files, from → to. Also appears in Audit Logs.
+                  </DialogDescription>
+                </div>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="gap-1.5 shrink-0"
+                  onClick={() =>
+                    window.open('/api/cabinets/move-history?format=csv&limit=500', '_blank')
+                  }
+                >
+                  <Download className="h-4 w-4" /> CSV
+                </Button>
+              </div>
             </DialogHeader>
             {moveHistoryLoading ? (
               <div className="flex items-center gap-2 py-8 text-muted-foreground">

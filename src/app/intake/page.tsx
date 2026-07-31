@@ -50,7 +50,7 @@ import {
   Loader2, User, Calendar, Phone, Mail, ClipboardList, LogOut, Building2,
   FolderOpen, ChevronRight, List, RefreshCw, Clock, CalendarDays,
   Users, ShieldAlert, Copy, Check, MapPin, ExternalLink, Lock, ChevronDown, BookOpen,
-  Boxes, QrCode, Archive, Database,
+  Boxes, QrCode, Archive, Database, Printer, Languages,
 } from 'lucide-react';
 import QRCode from '@/components/QRCode';
 import IntakeIssuesBanner from '@/components/IntakeIssuesBanner';
@@ -160,44 +160,96 @@ function IntakeMemberGuide() {
     }
   }, []);
 
+  function markSeen() {
+    try {
+      localStorage.setItem(GUIDE_SEEN_KEY, '1');
+    } catch {
+      // ignore storage failures
+    }
+  }
+
   function toggleOpen() {
     setOpen(prev => {
       const next = !prev;
-      if (!next) {
-        try {
-          localStorage.setItem(GUIDE_SEEN_KEY, '1');
-        } catch {
-          // ignore storage failures
-        }
-      }
+      if (!next) markSeen();
       return next;
     });
   }
 
+  function printGuide() {
+    setOpen(true);
+    // Let the guide expand before the print dialog opens
+    window.setTimeout(() => window.print(), 150);
+  }
+
   return (
-    <Card className="border-primary/20 bg-primary/[0.02]">
+    <Card className="border-primary/20 bg-primary/[0.02] intake-member-guide-card">
       <CardHeader className="pb-3">
-        <button
-          type="button"
-          onClick={toggleOpen}
-          className="w-full flex items-start gap-3 text-left"
-        >
-          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary/10 border border-primary/20">
-            <BookOpen className="h-4 w-4 text-primary" />
-          </div>
-          <div className="flex-1 min-w-0">
-            <CardTitle className="text-base flex items-center gap-2">
-              Intake member guide
-              <ChevronDown className={`h-4 w-4 text-muted-foreground transition-transform ${open ? 'rotate-180' : ''}`} />
-            </CardTitle>
-            <CardDescription className="text-xs mt-0.5">
-              Step-by-step: how to register new students, log returning visits, and what to check before you submit.
-            </CardDescription>
-          </div>
-        </button>
+        <div className="flex items-start gap-3">
+          <button
+            type="button"
+            onClick={toggleOpen}
+            className="flex-1 flex items-start gap-3 text-left min-w-0"
+          >
+            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary/10 border border-primary/20">
+              <BookOpen className="h-4 w-4 text-primary" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <CardTitle className="text-base flex items-center gap-2">
+                Intake member guide
+                <ChevronDown className={`h-4 w-4 text-muted-foreground transition-transform print:hidden ${open ? 'rotate-180' : ''}`} />
+              </CardTitle>
+              <CardDescription className="text-xs mt-0.5">
+                Step-by-step: how to register new students, log returning visits, and what to check before you submit.
+              </CardDescription>
+            </div>
+          </button>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className="gap-1.5 shrink-0 print:hidden"
+            onClick={printGuide}
+            title="Print or save as PDF for desk reference"
+          >
+            <Printer className="h-4 w-4" />
+            <span className="hidden sm:inline">Print / PDF</span>
+          </Button>
+        </div>
       </CardHeader>
-      {open && (
-        <CardContent className="pt-0 space-y-5 text-sm">
+      <CardContent
+          id="intake-member-guide-print"
+          className={`pt-0 space-y-5 text-sm ${open ? '' : 'hidden print:block'}`}
+        >
+          <div className="rounded-md border border-emerald-300/80 bg-emerald-50/80 dark:bg-emerald-950/30 dark:border-emerald-800/70 px-3 py-3 space-y-2">
+            <p className="font-semibold text-xs text-emerald-900 dark:text-emerald-100 flex items-center gap-1.5">
+              <Languages className="h-3.5 w-3.5" />
+              Tip: use Translate when the student needs another language
+            </p>
+            <ol className="list-decimal list-inside space-y-1 text-xs text-emerald-900/90 dark:text-emerald-100/90 leading-relaxed">
+              <li>
+                Look at the top-right of this page for the <strong>Translate</strong> dropdown
+                (language icon).
+              </li>
+              <li>
+                Choose the student&apos;s language (Spanish, Chinese, Arabic, French, and many more).
+                The intake form text switches so they can follow along on screen.
+              </li>
+              <li>
+                Turn the screen toward the student while you ask questions — they can read labels
+                and options in their language.
+              </li>
+              <li>
+                When finished, set Translate back to <strong>English</strong> (or select the original
+                language) before the next student so staff instructions stay clear for you.
+              </li>
+            </ol>
+            <p className="text-[11px] text-emerald-800/90 dark:text-emerald-200/90">
+              You still enter names and answers in English as the student tells you — Translate
+              helps them understand the form; it does not replace interpretation for complex cases.
+            </p>
+          </div>
+
           <div className="grid gap-5 lg:grid-cols-2">
             <div className="space-y-2.5">
               <p className="font-semibold text-foreground flex items-center gap-2">
@@ -248,8 +300,32 @@ function IntakeMemberGuide() {
           <p className="text-[11px] text-muted-foreground">
             Use <strong className="text-foreground">Reset</strong> to clear the form, or the <strong className="text-foreground">Intake History</strong> tab to review today&apos;s registrations. Contact your Data Lead for duplicates, address corrections, or cabinet issues.
           </p>
-        </CardContent>
-      )}
+      </CardContent>
+      <style>{`
+        @media print {
+          body * { visibility: hidden !important; }
+          .intake-member-guide-card,
+          .intake-member-guide-card * {
+            visibility: visible !important;
+          }
+          .intake-member-guide-card {
+            position: absolute !important;
+            left: 0;
+            top: 0;
+            width: 100%;
+            border: none !important;
+            box-shadow: none !important;
+            background: white !important;
+            padding: 0.4in;
+          }
+          .intake-member-guide-card .print\\:hidden {
+            display: none !important;
+          }
+          #intake-member-guide-print {
+            display: block !important;
+          }
+        }
+      `}</style>
     </Card>
   );
 }
@@ -1347,7 +1423,12 @@ export default function IntakePage() {
                 <span className="hidden sm:inline">Reset</span>
               </Button>
             )}
-            <GoogleTranslate />
+            <div className="flex flex-col items-end gap-0.5">
+              <GoogleTranslate />
+              <p className="hidden lg:block text-[10px] text-emerald-700 dark:text-emerald-400 max-w-[14rem] text-right leading-tight">
+                Student needs another language? Pick it here, turn the screen toward them, then switch back to English.
+              </p>
+            </div>
             <span className="text-sm text-muted-foreground hidden sm:inline">{session?.user?.name}</span>
             <Button variant="ghost" size="sm" onClick={() => signOut({ callbackUrl: '/auth/signin' })} className="gap-1.5 text-muted-foreground">
               <LogOut className="h-4 w-4" /> Sign Out
@@ -1381,6 +1462,23 @@ export default function IntakePage() {
 
           {/* ── REGISTER TAB ─────────────────────────────── */}
           <TabsContent value="register" className="space-y-6 mt-0">
+
+        <Alert className="border-emerald-300 bg-emerald-50/90 dark:bg-emerald-950/30 dark:border-emerald-800 print:hidden">
+          <Languages className="h-4 w-4 text-emerald-700 dark:text-emerald-400" />
+          <AlertTitle className="text-emerald-900 dark:text-emerald-100 text-sm">
+            Translate tip for multilingual students
+          </AlertTitle>
+          <AlertDescription className="text-emerald-900/90 dark:text-emerald-100/90 text-xs space-y-1">
+            <p>
+              Many students are more comfortable in another language. Use the <strong>Translate</strong> control
+              at the top right: pick their language, turn the screen toward them so they can follow the form,
+              then set it back to <strong>English</strong> when you are done.
+            </p>
+            <p className="text-emerald-800/80 dark:text-emerald-200/80">
+              Full steps are also in the Intake member guide below — use <strong>Print / PDF</strong> to keep a desk copy.
+            </p>
+          </AlertDescription>
+        </Alert>
 
         <IntakeMemberGuide />
 
