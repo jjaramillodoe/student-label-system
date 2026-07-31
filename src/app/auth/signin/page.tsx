@@ -3,13 +3,20 @@
 import { signIn, getProviders } from 'next-auth/react';
 import { useEffect, useState } from 'react';
 import Image from 'next/image';
-import { Eye, EyeOff, Mail, Lock, Loader2, FileText, AlertCircle } from 'lucide-react';
+import { Eye, EyeOff, Mail, Lock, Loader2, FileText, AlertCircle, Building2 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
-import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
+
+type TenantInfo = {
+  mode: string;
+  slug: string | null;
+  school: { name: string; slug: string } | null;
+  error?: string;
+};
 
 export default function SignIn() {
   const [email, setEmail] = useState('');
@@ -22,6 +29,7 @@ export default function SignIn() {
   const [error, setError] = useState('');
   const [logoError, setLogoError] = useState(false);
   const [azureEnabled, setAzureEnabled] = useState(false);
+  const [tenant, setTenant] = useState<TenantInfo | null>(null);
 
   useEffect(() => {
     getProviders()
@@ -29,6 +37,10 @@ export default function SignIn() {
         setAzureEnabled(Boolean(providers?.['azure-ad']));
       })
       .catch(() => setAzureEnabled(false));
+    fetch('/api/tenant')
+      .then((r) => r.json())
+      .then((data) => setTenant(data))
+      .catch(() => setTenant(null));
   }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -120,9 +132,25 @@ export default function SignIn() {
             <CardDescription className="text-base">
               Sign in with your DOE email{azureEnabled ? ' or Microsoft SSO' : ' and password'}
             </CardDescription>
+            {tenant?.mode === 'school' && tenant.school && (
+              <p className="text-sm text-primary font-medium flex items-center justify-center gap-1.5 pt-1">
+                <Building2 className="h-4 w-4" />
+                {tenant.school.name}
+              </p>
+            )}
           </div>
         </CardHeader>
         <CardContent className="space-y-6">
+          {tenant?.mode === 'unknown' && (
+            <Alert variant="destructive">
+              <AlertCircle className="h-4 w-4" />
+              <AlertTitle>Unknown school portal</AlertTitle>
+              <AlertDescription>
+                Subdomain <strong>{tenant.slug}</strong> is not linked to a school yet.
+                Contact your Admin to set the subdomain slug in School Settings.
+              </AlertDescription>
+            </Alert>
+          )}
           {azureEnabled && (
             <div className="space-y-3">
               <Button

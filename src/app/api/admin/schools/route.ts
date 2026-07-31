@@ -7,11 +7,12 @@ import { resolveAgencyId } from '@/lib/studentId';
 import { normalizeIntakeStringList } from '@/lib/intakeDefaults';
 import { normalizeIntakeSessions } from '@/lib/intakeSession';
 import { getCurrentFiscalYear, normalizeFiscalYear } from '@/lib/fiscalYear';
-import { DEFAULT_SCHOOLS, getSchoolOptions } from '@/lib/schoolConfig';
+import { DEFAULT_SCHOOLS, getSchoolOptions, isSchoolSlugTaken } from '@/lib/schoolConfig';
 import {
   normalizeAssistantPrincipals,
   normalizePrincipal,
 } from '@/lib/schoolLeadership';
+import { schoolNameToSlug, validateSchoolSlug } from '@/lib/schoolSlug';
 
 function escapeRegex(value: string) {
   return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -111,6 +112,7 @@ export async function POST(req: NextRequest) {
       type = 'School',
       active = true,
       agencyId,
+      slug: rawSlug,
       intakeSessions,
       intakeActivities,
       currentFiscalYear,
@@ -133,6 +135,21 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'School/program already exists' }, { status: 409 });
     }
 
+    const slugInput =
+      typeof rawSlug === 'string' && rawSlug.trim()
+        ? rawSlug
+        : schoolNameToSlug(trimmedName);
+    const slugCheck = validateSchoolSlug(slugInput);
+    if (!slugCheck.ok) {
+      return NextResponse.json({ error: slugCheck.error }, { status: 400 });
+    }
+    if (await isSchoolSlugTaken(slugCheck.slug)) {
+      return NextResponse.json(
+        { error: `Subdomain "${slugCheck.slug}" is already used by another school` },
+        { status: 409 },
+      );
+    }
+
     const resolvedAgencyId = (typeof agencyId === 'string' && agencyId.trim())
       ? agencyId.trim().toUpperCase()
       : resolveAgencyId(trimmedName);
@@ -143,6 +160,7 @@ export async function POST(req: NextRequest) {
       type,
       active: Boolean(active),
       agencyId: resolvedAgencyId,
+      slug: slugCheck.slug,
       intakeSessions: normalizeIntakeSessions(intakeSessions).filter((s) => s.name.trim()),
       intakeActivities: normalizeIntakeStringList(intakeActivities),
       currentFiscalYear: normalizeFiscalYear(currentFiscalYear),
@@ -207,6 +225,7 @@ export async function PUT(req: NextRequest) {
       type,
       active,
       agencyId,
+      slug: rawSlug,
       intakeSessions,
       intakeActivities,
       currentFiscalYear,
@@ -223,6 +242,21 @@ export async function PUT(req: NextRequest) {
       return NextResponse.json({ error: 'School/program name is required' }, { status: 400 });
     }
 
+    const slugInput =
+      typeof rawSlug === 'string' && rawSlug.trim()
+        ? rawSlug
+        : schoolNameToSlug(trimmedName);
+    const slugCheck = validateSchoolSlug(slugInput);
+    if (!slugCheck.ok) {
+      return NextResponse.json({ error: slugCheck.error }, { status: 400 });
+    }
+    if (await isSchoolSlugTaken(slugCheck.slug, _id)) {
+      return NextResponse.json(
+        { error: `Subdomain "${slugCheck.slug}" is already used by another school` },
+        { status: 409 },
+      );
+    }
+
     const resolvedAgencyId = (typeof agencyId === 'string' && agencyId.trim())
       ? agencyId.trim().toUpperCase()
       : resolveAgencyId(trimmedName);
@@ -235,6 +269,7 @@ export async function PUT(req: NextRequest) {
           type: type || 'School',
           active: Boolean(active),
           agencyId: resolvedAgencyId,
+          slug: slugCheck.slug,
           intakeSessions: normalizeIntakeSessions(intakeSessions).filter((s) => s.name.trim()),
           intakeActivities: normalizeIntakeStringList(intakeActivities),
           currentFiscalYear: normalizeFiscalYear(currentFiscalYear),

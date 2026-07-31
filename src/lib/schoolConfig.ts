@@ -1,15 +1,20 @@
 import clientPromise from '@/lib/mongodb';
-import { slugMatchesSchoolName } from '@/lib/schoolSlug';
+import {
+  effectiveSchoolSlug,
+  schoolMatchesSlug,
+  schoolNameToSlug,
+} from '@/lib/schoolSlug';
 import type { SchoolLeader } from '@/lib/schoolLeadership';
 import type { IntakeSession } from '@/lib/intakeSession';
 
 export const DEFAULT_SCHOOLS = [
-  { name: 'District 79', type: 'District', active: true, agencyId: 'R00' },
+  { name: 'District 79', type: 'District', active: true, agencyId: 'R00', slug: 'district79' },
   ...Array.from({ length: 8 }, (_, index) => ({
     name: `School ${index + 1}`,
     type: 'School',
     active: true,
     agencyId: `R${String(index + 1).padStart(2, '0')}`,
+    slug: `school${index + 1}`,
   })),
 ];
 
@@ -18,6 +23,8 @@ export type SchoolConfigRecord = {
   name: string;
   type: string;
   active: boolean;
+  /** Vanity subdomain slug, e.g. school1 → school1.yourdomain.org */
+  slug?: string;
   agencyId?: string;
   intakeSessions?: IntakeSession[];
   intakeActivities?: string[];
@@ -54,17 +61,36 @@ export async function getSchoolOptions(db: any): Promise<SchoolConfigRecord[]> {
   ).map((school, index) => ({
     _id: `default-${index}`,
     ...school,
+    slug: school.slug || schoolNameToSlug(school.name),
     isDefault: true,
   }));
 
-  return [...configured, ...fallbackDefaults].sort((a, b) =>
-    a.name.localeCompare(b.name),
-  );
+  return [...configured, ...fallbackDefaults]
+    .map((school) => ({
+      ...school,
+      slug: effectiveSchoolSlug(school),
+    }))
+    .sort((a, b) => a.name.localeCompare(b.name));
 }
 
 export async function findSchoolBySlug(slug: string): Promise<SchoolConfigRecord | null> {
   const client = await clientPromise;
   const db = client.db('student-label');
   const schools = await getSchoolOptions(db);
-  return schools.find((school) => slugMatchesSchoolName(slug, school.name)) ?? null;
+  return schools.find((school) => schoolMatchesSlug(school, slug)) ?? null;
+}
+
+/** True if another school (different _id) already uses this subdomain slug. */
+export async function isSchoolSlugTaken(
+  slug: string,
+  excludeId?: string | null,
+): Promise<boolean> {
+  const client = await clientPromise;
+  const db = client.db('student-label');
+  const schools = await getSchoolOptions(db);
+  return schools.some((school) => {
+    if (!schoolMatchesSlug(school, slug)) return false;
+    if (!excludeId) return true;
+    return String(school._id) !== String(excludeId);
+  });
 }

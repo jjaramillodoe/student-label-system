@@ -25,6 +25,7 @@ type SchoolConfig = {
   type: string;
   active: boolean;
   agencyId?: string;
+  slug?: string;
   intakeSessions?: unknown;
   intakeActivities?: string[];
   currentFiscalYear?: string;
@@ -86,7 +87,7 @@ export default function SchoolsPage() {
   }
 
   function openEditPage(school: SchoolConfig) {
-    router.push(`/admin/schools/${schoolNameToSlug(school.name)}`);
+    router.push(`/admin/schools/${school.slug || schoolNameToSlug(school.name)}`);
   }
 
   async function handleDelete(school: SchoolConfig) {
@@ -300,6 +301,7 @@ export default function SchoolsPage() {
                   <TableHead>Name</TableHead>
                   {isAdmin && (
                     <>
+                      <TableHead>Subdomain</TableHead>
                       <TableHead>Agency ID</TableHead>
                       <TableHead>Type</TableHead>
                       <TableHead>Status</TableHead>
@@ -323,6 +325,11 @@ export default function SchoolsPage() {
                     </TableCell>
                     {isAdmin && (
                       <>
+                        <TableCell>
+                          <span className="font-mono text-xs text-muted-foreground">
+                            {school.slug || schoolNameToSlug(school.name)}
+                          </span>
+                        </TableCell>
                         <TableCell>
                           {school.agencyId
                             ? <span className="font-mono text-sm bg-muted px-1.5 py-0.5 rounded">{school.agencyId}</span>

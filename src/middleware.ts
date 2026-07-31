@@ -1,6 +1,12 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 import { getToken } from 'next-auth/jwt';
+import {
+  extractTenantSlugFromHost,
+  getTenantRootDomain,
+  TENANT_ROOT_HEADER,
+  TENANT_SLUG_HEADER,
+} from '@/lib/tenantHost';
 
 function isPublicPath(pathname: string): boolean {
   return (
@@ -12,15 +18,34 @@ function isPublicPath(pathname: string): boolean {
     pathname.startsWith('/api/archive') ||
     pathname.startsWith('/api/health') ||
     pathname.startsWith('/api/sync') ||
-    pathname.startsWith('/api/cron/')
+    pathname.startsWith('/api/cron/') ||
+    pathname.startsWith('/api/tenant')
   );
 }
 
 export async function middleware(req: NextRequest) {
   const path = req.nextUrl.pathname;
+  const rootDomain = getTenantRootDomain();
+  const tenantSlug = extractTenantSlugFromHost(req.headers.get('host'), rootDomain);
+
+  const requestHeaders = new Headers(req.headers);
+  if (tenantSlug) {
+    requestHeaders.set(TENANT_SLUG_HEADER, tenantSlug);
+  }
+  if (rootDomain) {
+    requestHeaders.set(TENANT_ROOT_HEADER, rootDomain);
+  }
+
+  const withTenantHeaders = (res: NextResponse) => {
+    if (tenantSlug) res.headers.set(TENANT_SLUG_HEADER, tenantSlug);
+    if (rootDomain) res.headers.set(TENANT_ROOT_HEADER, rootDomain);
+    return res;
+  };
 
   if (isPublicPath(path)) {
-    return NextResponse.next();
+    return withTenantHeaders(
+      NextResponse.next({ request: { headers: requestHeaders } }),
+    );
   }
 
   const token = await getToken({
@@ -29,7 +54,6 @@ export async function middleware(req: NextRequest) {
   });
 
   if (!token) {
-    // Do not redirect API callers to the HTML sign-in page (breaks fetch/login flows).
     if (path.startsWith('/api/')) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
@@ -39,7 +63,7 @@ export async function middleware(req: NextRequest) {
     if (callback && callback !== '/') {
       signInUrl.searchParams.set('callbackUrl', callback);
     }
-    return NextResponse.redirect(signInUrl);
+    return withTenantHeaders(NextResponse.redirect(signInUrl));
   }
 
   // Intake Members: keep them on intake / profile / docs / public pages
@@ -51,11 +75,15 @@ export async function middleware(req: NextRequest) {
       path.startsWith('/student') ||
       path.startsWith('/archive');
     if (!allowed) {
-      return NextResponse.redirect(new URL('/intake', req.url));
+      return withTenantHeaders(
+        NextResponse.redirect(new URL('/intake', req.url)),
+      );
     }
   }
 
-  return NextResponse.next();
+  return withTenantHeaders(
+    NextResponse.next({ request: { headers: requestHeaders } }),
+  );
 }
 
 export const config = {

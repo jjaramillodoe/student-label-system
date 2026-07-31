@@ -18,6 +18,7 @@ const EMPTY_FORM: SchoolFormState = {
   type: 'School',
   active: true,
   agencyId: '',
+  slug: '',
   currentFiscalYear: getCurrentFiscalYear(),
   intakeSessions: [],
   intakeActivities: [],
@@ -61,7 +62,9 @@ export default function NewSchoolPage() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Failed to create school/program');
 
-      router.push(`/admin/schools/${schoolNameToSlug(data.name || form.name)}`);
+      router.push(
+        `/admin/schools/${data.slug || schoolNameToSlug(data.name || form.name)}`,
+      );
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to create school/program.');
     } finally {

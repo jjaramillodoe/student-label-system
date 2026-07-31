@@ -22,6 +22,7 @@ type SchoolConfig = {
   type: string;
   active: boolean;
   agencyId?: string;
+  slug?: string;
   intakeSessions?: unknown;
   intakeActivities?: string[];
   currentFiscalYear?: string;
@@ -36,6 +37,7 @@ function schoolToForm(school: SchoolConfig): SchoolFormState {
     type: school.type || 'School',
     active: school.active,
     agencyId: school.agencyId || '',
+    slug: school.slug || schoolNameToSlug(school.name),
     currentFiscalYear: school.currentFiscalYear || getCurrentFiscalYear(),
     intakeSessions: normalizeIntakeSessions(school.intakeSessions ?? []),
     intakeActivities: school.intakeActivities ?? [],
@@ -53,6 +55,7 @@ export default function EditSchoolPage({ params }: { params: Promise<{ slug: str
     type: 'School',
     active: true,
     agencyId: '',
+    slug: '',
     currentFiscalYear: getCurrentFiscalYear(),
     intakeSessions: [],
     intakeActivities: [],
@@ -152,8 +155,8 @@ export default function EditSchoolPage({ params }: { params: Promise<{ slug: str
       setSchool(updated);
       setForm(schoolToForm(updated));
 
-      if (!persisted && !isDataLead && updated.name) {
-        const newSlug = schoolNameToSlug(updated.name);
+      if (!isDataLead && updated.name) {
+        const newSlug = updated.slug || schoolNameToSlug(updated.name);
         if (newSlug !== slug) {
           router.replace(`/admin/schools/${newSlug}`);
         }

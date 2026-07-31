@@ -130,8 +130,77 @@ if (isAzureAdConfigured()) {
   );
 }
 
+/** Share session across school1.domain.org and domain.org when set (e.g. .yourdomain.org). */
+function authCookieOptions() {
+  const domain = (process.env.NEXTAUTH_COOKIE_DOMAIN || '').trim();
+  if (!domain) return undefined;
+  const useSecure = process.env.NODE_ENV === 'production' || domain.startsWith('.');
+  return {
+    sessionToken: {
+      name: useSecure
+        ? '__Secure-next-auth.session-token'
+        : 'next-auth.session-token',
+      options: {
+        httpOnly: true,
+        sameSite: 'lax' as const,
+        path: '/',
+        secure: useSecure,
+        domain,
+      },
+    },
+    callbackUrl: {
+      name: useSecure
+        ? '__Secure-next-auth.callback-url'
+        : 'next-auth.callback-url',
+      options: {
+        httpOnly: true,
+        sameSite: 'lax' as const,
+        path: '/',
+        secure: useSecure,
+        domain,
+      },
+    },
+    csrfToken: {
+      name: useSecure
+        ? '__Host-next-auth.csrf-token'
+        : 'next-auth.csrf-token',
+      options: {
+        httpOnly: true,
+        sameSite: 'lax' as const,
+        path: '/',
+        secure: useSecure,
+        // __Host- cookies cannot set Domain — fall back to non-host prefix when sharing
+        ...(useSecure
+          ? {}
+          : { domain }),
+      },
+    },
+  };
+}
+
+const cookieOpts = authCookieOptions();
+
 export const authOptions: NextAuthOptions = {
   providers,
+  ...(cookieOpts
+    ? {
+        cookies: {
+          sessionToken: cookieOpts.sessionToken,
+          callbackUrl: cookieOpts.callbackUrl,
+          // Prefer non-__Host csrf so Domain can be shared across subdomains
+          csrfToken: {
+            name: 'next-auth.csrf-token',
+            options: {
+              httpOnly: true,
+              sameSite: 'lax' as const,
+              path: '/',
+              secure: process.env.NODE_ENV === 'production',
+              domain: (process.env.NEXTAUTH_COOKIE_DOMAIN || '').trim() || undefined,
+            },
+          },
+        },
+      }
+    : {}),
   callbacks: {
     async signIn({ user, account }) {
       if (account?.provider !== 'azure-ad') return true;

@@ -34,7 +34,7 @@ description: Cleanup, activity reports, schools, address verification, and secur
 | Activity Report | `/admin/activity-report` | Student record event log |
 | Enrollment | `/admin/enrollment` | Registration metrics and intake time issues |
 | Email Validation | `/admin/validation` | EmailAwesome verification |
-| Schools / School Settings | `/admin/schools` | School names, Agency IDs, fiscal year, **intake session windows** |
+| Schools / School Settings | `/admin/schools` | School names, Agency IDs, **subdomain slug**, fiscal year, intake sessions |
 | School Year Rollover | `/admin/school-year` | End-of-year checklist |
 | Label Stock | `/admin/label-stock` | Avery inventory, burn rate, restock |
 | Users | `/admin/users` | Roles, schools, MFA recovery |
@@ -46,6 +46,16 @@ description: Cleanup, activity reports, schools, address verification, and secur
 <Tip>
   Set **start and end times** for each intake session in School Settings. Intake Members cannot save times outside those windows.
 </Tip>
+
+## School subdomains (optional)
+
+Each school can have a **subdomain slug** (e.g. `school1` → `https://school1.yourdomain.org`).
+
+1. Admin sets the slug under **School Settings** (defaults like `school1`…`school8` for the built-in schools).
+2. DNS: point `*.yourdomain.org` at Vercel and add the wildcard domain once.
+3. Env: `TENANT_ROOT_DOMAIN`, `NEXT_PUBLIC_TENANT_ROOT_DOMAIN`, and `NEXTAUTH_COOKIE_DOMAIN=.yourdomain.org`.
+
+The apex host (and the current Vercel URL) still work for district-wide Admin use. School staff can bookmark their portal URL. Wrong-school logins show a warning banner.
 
 ## Security
 

@@ -24,6 +24,8 @@ export type SchoolFormState = {
   type: string;
   active: boolean;
   agencyId: string;
+  /** Subdomain slug: school1 → school1.yourdomain.org */
+  slug: string;
   currentFiscalYear: string;
   intakeSessions: IntakeSession[];
   intakeActivities: string[];
@@ -122,10 +124,15 @@ export default function SchoolConfigForm({
   return (
     <form onSubmit={onSubmit} className="space-y-8">
       {isDataLead ? (
-        <div className="rounded-md border bg-muted/40 px-4 py-3">
+        <div className="rounded-md border bg-muted/40 px-4 py-3 space-y-1">
           <p className="text-sm font-medium">{form.name}</p>
-          <p className="text-xs text-muted-foreground mt-1">
-            School name and other settings can only be changed by an administrator.
+          {form.slug ? (
+            <p className="text-xs font-mono text-muted-foreground">
+              Portal: {form.slug}.{process.env.NEXT_PUBLIC_TENANT_ROOT_DOMAIN || 'yourdomain.org'}
+            </p>
+          ) : null}
+          <p className="text-xs text-muted-foreground">
+            School name and subdomain can only be changed by an administrator.
           </p>
         </div>
       ) : (
@@ -171,6 +178,37 @@ export default function SchoolConfigForm({
               />
               <p className="text-xs text-muted-foreground">
                 Leave blank to auto-derive from school name (School 1 → R01, School 2 → R02 …)
+              </p>
+            </div>
+            <div className="space-y-2 md:col-span-2">
+              <Label htmlFor="schoolSlug">
+                Subdomain slug
+                <span className="ml-1 text-xs text-muted-foreground font-normal">
+                  (school portal URL)
+                </span>
+              </Label>
+              <Input
+                id="schoolSlug"
+                value={form.slug}
+                onChange={(event) =>
+                  setForm((current) => ({
+                    ...current,
+                    slug: event.target.value
+                      .toLowerCase()
+                      .replace(/[^a-z0-9-]/g, ''),
+                  }))
+                }
+                placeholder="school1"
+                maxLength={48}
+                className="font-mono lowercase"
+              />
+              <p className="text-xs text-muted-foreground">
+                Staff will use{' '}
+                <span className="font-mono text-foreground">
+                  {form.slug?.trim() || 'school1'}.
+                  {process.env.NEXT_PUBLIC_TENANT_ROOT_DOMAIN || 'yourdomain.org'}
+                </span>
+                . Letters, numbers, and hyphens only. Leave blank to derive from the school name on save.
               </p>
             </div>
             <div className="space-y-2">
