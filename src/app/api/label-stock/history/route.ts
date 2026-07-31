@@ -3,7 +3,7 @@ import clientPromise from '@/lib/mongodb';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/authOptions';
 import { ObjectId } from 'mongodb';
-import { getTemplateMeta, normalizeSchoolKey } from '@/lib/labelStock';
+import { getTemplateMeta, normalizeSchoolKey } from '@/lib/labelStockMeta';
 
 export async function GET(req: NextRequest) {
   try {

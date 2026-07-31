@@ -50,7 +50,7 @@ import {
 } from '@/components/ui/select';
 import AdminHeader from '@/components/AdminHeader';
 import { Separator } from '@/components/ui/separator';
-import { LABEL_STOCK_TEMPLATES, getTemplateMeta } from '@/lib/labelStock';
+import { LABEL_STOCK_TEMPLATES, getTemplateMeta } from '@/lib/labelStockMeta';
 
 type StockRow = {
   _id: string;
