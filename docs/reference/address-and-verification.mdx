@@ -29,7 +29,7 @@ Student addresses are stored as separate fields — **street**, **apt**, **city*
     Optional `address`, `apt`, `city`, `state`, `zip` columns in CSV.
   </Card>
   <Card title="All Students" icon="users" href="/admin/data-lead-tools">
-    **Admin → All Students** (`/admin/students/all`) — edit address, verify batch, export with Apt column.
+    **Students → All Students** (`/admin/students/all`) — edit address, verify batch, export with Apt column.
   </Card>
   <Card title="Duplicates review" icon="copy" href="/workflows/duplicates-and-siblings">
     Side-by-side address comparison for flagged and auto-detected pairs.
@@ -52,7 +52,7 @@ When `NYC_GEOCLIENT_SUBSCRIPTION_KEY` (or `NYC_GEOCLIENT_APP_KEY`) is configured
 
 <Steps>
   <Step title="Filter unverified addresses">
-    Open **Admin → All Students**. Filter by **Address not yet verified** or **Needs review**.
+    Open **Students → All Students**. Filter by **Address not yet verified** or **Needs review**.
   </Step>
   <Step title="Verify and save">
     Run **Verify & save this page** or **Verify unverified batch**. Standardized street data is written; apt stays in `apt`.
@@ -76,7 +76,7 @@ When `NYC_GEOCLIENT_SUBSCRIPTION_KEY` (or `NYC_GEOCLIENT_APP_KEY`) is configured
 
 ## Duplicate matching uses addresses
 
-The intake duplicate check and **Admin → Duplicates** both compare home addresses:
+The intake duplicate check and **Students → Duplicates** both compare home addresses:
 
 | Match | Meaning |
 | --- | --- |

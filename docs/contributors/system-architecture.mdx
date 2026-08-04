@@ -48,7 +48,8 @@ flowchart TB
 | Framework | Next.js 16, React 19, TypeScript |
 | Database | MongoDB 6.x (native driver, no ORM) |
 | Auth | NextAuth.js v4 — credentials, JWT sessions, optional TOTP MFA |
-| UI | Tailwind CSS, shadcn/ui (Radix) |
+| UI | Tailwind CSS, shadcn/ui (Radix), app shell (`AppShell` / `AppSidebar`) |
+| Hosting | Vercel — production [nycadultedlabels.nyc](https://nycadultedlabels.nyc) (+ school subdomains) |
 | API docs | OpenAPI 3.0 — `/api/openapi.json`, Swagger UI at `/docs/api` in the app |
 
 There is **no Redis**, **no message queue**, and **no separate backend service**.
@@ -58,11 +59,13 @@ There is **no Redis**, **no message queue**, and **no separate backend service**
 | Module | App routes | Purpose |
 | --- | --- | --- |
 | Authentication | `/auth/signin`, `/api/auth/*` | Login, MFA, sessions |
-| Intake | `/intake`, `/api/intake/*` | Student registration at front desk |
+| App shell | `AppShell`, `navConfig` | Left sidebar for Admin / Data Lead / Data Member |
+| Intake | `/intake`, `/api/intake/*` | Student registration at front desk (no sidebar) |
 | Students | `/api/students`, `/admin/students/*` | CRUD, bulk upload, lookup |
 | Storage | `/admin/cabinets`, `/api/cabinets/*` | Cabinets, drawers, archive boxes |
 | Printing | `/api/print/*` | Avery 5163 labels, print history |
 | Admin | `/admin/*` | Enrollment, duplicates, settings, users |
+| Tenant host | middleware + `/api/tenant` | School subdomain portals |
 | Sync export | `/api/sync/v1/students` | Delta export for Power Automate → Dynamics |
 | Health | `/api/health`, `/api/health/deep` | Liveness and readiness probes |
 

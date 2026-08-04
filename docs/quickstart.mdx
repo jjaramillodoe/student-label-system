@@ -15,15 +15,21 @@ Your role determines which pages you can access:
 
 | Role | Primary starting point |
 | --- | --- |
-| Intake Member | `/intake` |
-| Data Member | Dashboard (`/`) |
-| Data Lead | Dashboard + Admin tools |
-| Admin | All schools + user management |
+| Intake Member | `/intake` (full-screen intake) |
+| Data Member | Dashboard (`/`) with left sidebar |
+| Data Lead | Dashboard + left sidebar tools |
+| Admin | All schools + left sidebar (including Users / Settings) |
+
+After sign-in (except Intake Members), use the **left sidebar** to jump between Dashboard, Intake, Cabinets, Print Queue, and other tools. On mobile, open it from the **menu** button in the top bar. Press **⌘K** / **Ctrl+K** for the command palette.
 
 See [User roles](/user-roles) for the full permission matrix.
 
 <Frame caption="Production sign-in — DOE email and password">
-  <img src="/images/screenshots/sign-in.png" alt="Student Label System sign-in page with District 79 branding" />
+  <img src="/images/screenshots/sign-in.png" alt="Student Label System sign-in page on nycadultedlabels.nyc" />
+</Frame>
+
+<Frame caption="App shell — left sidebar navigation for staff tools">
+  <img src="/images/screenshots/app-shell-sidebar.png" alt="Dashboard with left sidebar groups Daily, Students, Storage, Print, Admin, and Help" />
 </Frame>
 
 ## 2. Complete your first task
@@ -63,16 +69,16 @@ See [User roles](/user-roles) for the full permission matrix.
   <Tab title="Data Lead">
     <Steps>
       <Step title="Review cabinet health">
-        Open **Admin → Cabinet Health** and resolve unassigned students or full drawers. Drawers use sections **01–08** automatically — run **Sync Counts** on Cabinets after upgrades if sections are missing.
+        In the left sidebar open **Storage → Cabinet Health** and resolve unassigned students or full drawers. Drawers use sections **01–08** automatically — run **Sync Counts** on Cabinets after upgrades if sections are missing.
       </Step>
       <Step title="Bulk upload when needed">
-        **Admin → Bulk Upload** previews CSV rows, flags duplicates/date errors, and lets you remove bad rows before import.
+        **Students → Bulk Upload** previews CSV rows, flags duplicates/date errors, and lets you remove bad rows before import.
       </Step>
       <Step title="Check enrollment issues">
-        Open **Admin → Enrollment** and filter to intake time issues when needed.
+        Open **Students → Enrollment** and filter to intake time issues when needed.
       </Step>
       <Step title="Verify addresses">
-        Use **Admin → All Students** to run NYC Geoclient verify on a page or batch.
+        Use **Students → All Students** to run NYC Geoclient verify on a page or batch.
       </Step>
     </Steps>
 

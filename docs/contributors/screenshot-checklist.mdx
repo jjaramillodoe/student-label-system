@@ -14,6 +14,7 @@ Use PNG or WebP for final screenshots (recommended width **1200–1400px**). Sto
 | File | Used on |
 | --- | --- |
 | `sign-in.png` | [Quickstart](/quickstart) |
+| `app-shell-sidebar.png` | [Quickstart](/quickstart), [Data Lead tools](/admin/data-lead-tools) |
 | `public-student-page.png` | [QR codes](/reference/qr-codes), [Labels](/workflows/labels-and-scanning) |
 | `public-archive-box.png` | [QR codes](/reference/qr-codes), [Archive](/storage/archive-and-school-year), [Labels](/workflows/labels-and-scanning) |
 | `archive-box-label.png` | [QR codes](/reference/qr-codes), [Archive](/storage/archive-and-school-year) |
@@ -50,17 +51,22 @@ Optional older captures still in the folder:
 | Cabinets floor map dialog | `cabinets-floor-map.png` | [Cabinets](/storage/cabinets-and-drawers) |
 | Archive packing preview | `archive-packing-preview.png` | [Archive](/storage/archive-and-school-year) |
 | Drawer roster by-section drag | `drawer-roster-sections.png` | [Cabinets](/storage/cabinets-and-drawers) |
+| School portal sign-in badge | `sign-in-school-portal.png` | [School subdomains](/contributors/school-subdomains) |
 
 ## Capture from production
 
 ```bash
 # Load DOCS_SCREENSHOT_* from .env, then:
 set -a && source .env && set +a
+export BASE_URL=https://nycadultedlabels.nyc
+# Optional if the account requires MFA:
+# export DOCS_SCREENSHOT_MFA=123456
 NODE_PATH=./tmp-playwright/node_modules node scripts/capture-docs-screenshots.cjs
 ```
 
 <Warning>
   Put credentials in `.env` as plain `KEY=value` lines (no wrapping quotes or trailing `\`). `.env` is gitignored.
+  Re-capture **dashboard** and **app-shell-sidebar** after UI shell changes so Mintlify matches production.
 </Warning>
 
 ## How to add a screenshot
