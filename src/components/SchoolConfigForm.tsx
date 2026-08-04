@@ -24,7 +24,7 @@ export type SchoolFormState = {
   type: string;
   active: boolean;
   agencyId: string;
-  /** Subdomain slug: school1 → school1.yourdomain.org */
+  /** Subdomain slug: school1 → school1.nycadultedlabels.nyc */
   slug: string;
   currentFiscalYear: string;
   intakeSessions: IntakeSession[];
@@ -128,7 +128,7 @@ export default function SchoolConfigForm({
           <p className="text-sm font-medium">{form.name}</p>
           {form.slug ? (
             <p className="text-xs font-mono text-muted-foreground">
-              Portal: {form.slug}.{process.env.NEXT_PUBLIC_TENANT_ROOT_DOMAIN || 'yourdomain.org'}
+              Portal: {form.slug}.{process.env.NEXT_PUBLIC_TENANT_ROOT_DOMAIN || 'nycadultedlabels.nyc'}
             </p>
           ) : null}
           <p className="text-xs text-muted-foreground">
@@ -206,7 +206,7 @@ export default function SchoolConfigForm({
                 Staff will use{' '}
                 <span className="font-mono text-foreground">
                   {form.slug?.trim() || 'school1'}.
-                  {process.env.NEXT_PUBLIC_TENANT_ROOT_DOMAIN || 'yourdomain.org'}
+                  {process.env.NEXT_PUBLIC_TENANT_ROOT_DOMAIN || 'nycadultedlabels.nyc'}
                 </span>
                 . Letters, numbers, and hyphens only. Leave blank to derive from the school name on save.
               </p>

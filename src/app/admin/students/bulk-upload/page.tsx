@@ -45,6 +45,7 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { Separator } from '@/components/ui/separator';
+import PageIntro from '@/components/PageIntro';
 import {
   Dialog,
   DialogContent,
@@ -906,36 +907,37 @@ export default function BulkUploadPage() {
   }
 
   return (
-    <div className="w-full p-6 space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between gap-4">
-        <div>
-          <Link href="/">
-            <Button variant="ghost" size="sm" className="mb-4">
+    <div className="w-full p-4 sm:p-6 space-y-6 bg-gradient-to-b from-muted/30 via-background to-background min-h-screen">
+      <PageIntro
+        eyebrow="Students"
+        title="Bulk Upload Students"
+        description="Upload a CSV file with student data. Cabinet and drawer are selected below for the whole upload."
+        icon={<Upload className="h-5 w-5 text-primary" />}
+        back={
+          <Button variant="ghost" size="sm" asChild className="-ml-2 w-fit text-muted-foreground">
+            <Link href="/">
               <ArrowLeft className="mr-2 h-4 w-4" />
               Back to Dashboard
+            </Link>
+          </Button>
+        }
+        actions={
+          <>
+            <Button variant="outline" onClick={() => setHelpModalOpen(true)} className="gap-2">
+              <HelpCircle className="h-4 w-4" />
+              How to Upload
             </Button>
-          </Link>
-          <h1 className="text-3xl font-bold text-foreground">Bulk Upload Students</h1>
-          <p className="text-muted-foreground mt-2">
-            Upload a CSV file with student data. Cabinet and drawer are selected below for the whole upload.
-          </p>
-        </div>
-        <div className="flex flex-wrap gap-2 justify-end">
-          <Button variant="outline" onClick={() => setHelpModalOpen(true)} className="gap-2">
-            <HelpCircle className="h-4 w-4" />
-            How to Upload
-          </Button>
-          <Button variant="outline" onClick={() => downloadCsv('/student_bulk_upload_template.csv', 'student_bulk_upload_template.csv')} className="gap-2">
-            <Download className="h-4 w-4" />
-            CSV Template
-          </Button>
-          <Button variant="outline" onClick={() => downloadCsv('/student_bulk_upload_sample.csv', 'student_bulk_upload_sample.csv')} className="gap-2">
-            <FileText className="h-4 w-4" />
-            Sample CSV
-          </Button>
-        </div>
-      </div>
+            <Button variant="outline" onClick={() => downloadCsv('/student_bulk_upload_template.csv', 'student_bulk_upload_template.csv')} className="gap-2">
+              <Download className="h-4 w-4" />
+              CSV Template
+            </Button>
+            <Button variant="outline" onClick={() => downloadCsv('/student_bulk_upload_sample.csv', 'student_bulk_upload_sample.csv')} className="gap-2">
+              <FileText className="h-4 w-4" />
+              Sample CSV
+            </Button>
+          </>
+        }
+      />
 
       <Separator />
 

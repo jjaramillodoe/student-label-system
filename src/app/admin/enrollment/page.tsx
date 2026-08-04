@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import AdminHeader from '@/components/AdminHeader';
+import PageIntro from '@/components/PageIntro';
 import {
   UserPlus, Users, CalendarDays, Clock, TrendingUp,
   RefreshCw, Loader2, Search, Filter, ChevronLeft, ChevronRight,
@@ -478,8 +478,7 @@ export default function EnrollmentPage() {
   const maxStaffCount = Math.max(...staff.map(s => s.count), 1);
 
   return (
-    <div className="min-h-screen bg-background">
-      <AdminHeader />
+    <div className="min-h-screen bg-gradient-to-b from-muted/30 via-background to-background">
       <main className="w-full px-4 sm:px-6 py-6 space-y-6">
 
         {canFix && (
@@ -489,39 +488,37 @@ export default function EnrollmentPage() {
           />
         )}
 
-        {/* Back button */}
-        <Button variant="outline" onClick={() => router.back()}>
-          <ArrowLeft className="mr-2 h-4 w-4" /> Back to Dashboard
-        </Button>
-
-        {/* Page header */}
-        <div className="flex items-center justify-between flex-wrap gap-3">
-          <div>
-            <h1 className="text-2xl font-bold flex items-center gap-2">
-              <UserPlus className="h-6 w-6 text-primary" />
-              Enrollment Dashboard
-            </h1>
-            <p className="text-sm text-muted-foreground mt-1">
-              {isAdmin
-                ? 'Track student registrations by staff member, time period, and school.'
-                : `Search and review enrollments for ${school || 'your school'}.`}
-            </p>
-          </div>
-          <div className="flex items-center gap-2">
-            {isAdmin && (
-            <Button variant="outline" size="sm" asChild>
-              <Link href="/admin/thoughtspot-analytics" className="gap-2">
-                <TrendingUp className="h-4 w-4" />
-                ThoughtSpot Analytics
-              </Link>
+        <PageIntro
+          eyebrow="Students"
+          title="Enrollment Dashboard"
+          description={
+            isAdmin
+              ? 'Track student registrations by staff member, time period, and school.'
+              : `Search and review enrollments for ${school || 'your school'}.`
+          }
+          icon={<UserPlus className="h-5 w-5 text-primary" />}
+          back={
+            <Button variant="ghost" size="sm" onClick={() => router.back()} className="-ml-2 w-fit text-muted-foreground">
+              <ArrowLeft className="mr-2 h-4 w-4" /> Back to Dashboard
             </Button>
-            )}
-            <Button variant="outline" size="sm" onClick={load} disabled={loading} className="gap-2">
-              <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
-              Refresh
-            </Button>
-          </div>
-        </div>
+          }
+          actions={
+            <>
+              {isAdmin && (
+                <Button variant="outline" size="sm" asChild>
+                  <Link href="/admin/thoughtspot-analytics" className="gap-2">
+                    <TrendingUp className="h-4 w-4" />
+                    ThoughtSpot Analytics
+                  </Link>
+                </Button>
+              )}
+              <Button variant="outline" size="sm" onClick={load} disabled={loading} className="gap-2">
+                <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
+                Refresh
+              </Button>
+            </>
+          }
+        />
 
         {error && (
           <div className="rounded-md border border-destructive/40 bg-destructive/5 px-4 py-3 text-sm text-destructive">

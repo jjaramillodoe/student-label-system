@@ -6,7 +6,7 @@ export const metadata: Metadata = {
 };
 
 export default function IntakeLayout({ children }: { children: React.ReactNode }) {
-  // Intentionally plain — no shared Header/Footer/AdminHeader so intake kiosk
-  // is distraction-free and works without the main navigation.
+  // Intentionally plain — AppShell skips /intake so the front-desk kiosk
+  // stays distraction-free without the left sidebar.
   return <>{children}</>;
 }

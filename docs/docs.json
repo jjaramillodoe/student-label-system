@@ -22,7 +22,7 @@
     "links": [
       {
         "label": "App",
-        "href": "https://student-label-system.vercel.app"
+        "href": "https://nycadultedlabels.nyc"
       },
       {
         "label": "Contact",
@@ -32,7 +32,7 @@
     "primary": {
       "type": "button",
       "label": "Sign in",
-      "href": "https://student-label-system.vercel.app/auth/signin"
+      "href": "https://nycadultedlabels.nyc/auth/signin"
     }
   },
   "navigation": {
@@ -94,12 +94,12 @@
       "anchors": [
         {
           "anchor": "Live app",
-          "href": "https://student-label-system.vercel.app",
+          "href": "https://nycadultedlabels.nyc",
           "icon": "arrow-up-right-from-square"
         },
         {
           "anchor": "In-app guide",
-          "href": "https://student-label-system.vercel.app/docs",
+          "href": "https://nycadultedlabels.nyc/docs",
           "icon": "book-open-cover"
         }
       ]

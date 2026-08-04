@@ -3,7 +3,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { AlertCircle, ArrowLeft, ArrowRightLeft, CheckCircle2, Loader2, RefreshCw, Search } from 'lucide-react';
-import AdminHeader from '@/components/AdminHeader';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -169,7 +168,6 @@ export default function BulkMovePage() {
 
   return (
     <div className="w-full p-6 space-y-6">
-      <AdminHeader />
 
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>

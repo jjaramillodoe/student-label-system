@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
-import AdminHeader from '@/components/AdminHeader';
+import PageIntro from '@/components/PageIntro';
 import PrintView from '@/components/PrintView';
 import { getStoredPrintLayout, setStoredPrintLayout } from '@/lib/printLayoutStorage';
 import { formatFullName } from '@/lib/personName';
@@ -286,7 +286,6 @@ export default function PrintQueuePage() {
   if (status === 'loading' || loading) {
     return (
       <div className="min-h-screen bg-background">
-        <AdminHeader />
         <div className="w-full p-6 flex items-center justify-center min-h-[50vh]">
           <Loader2 className="h-8 w-8 animate-spin text-primary" />
         </div>
@@ -295,36 +294,32 @@ export default function PrintQueuePage() {
   }
 
   return (
-    <div className="min-h-screen bg-background">
-      <AdminHeader />
-      <div className="w-full p-6 space-y-6">
-        {/* Back button */}
-        <Button variant="outline" onClick={() => router.back()}>
-          <ArrowLeft className="mr-2 h-4 w-4" /> Back to Dashboard
-        </Button>
-
-        {/* Page header */}
-        <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 print:hidden">
-          <div>
-            <h1 className="text-3xl font-bold flex items-center gap-2">
-              <Printer className="h-8 w-8" />
-              Label Print Queue
-            </h1>
-            <p className="text-muted-foreground mt-1">
-              Review print history, reprint jobs, and monitor label stock usage.
-            </p>
-          </div>
-          <div className="flex flex-wrap gap-2">
-            <Button variant="outline" onClick={fetchData}>
-              <RefreshCw className="mr-2 h-4 w-4" />
-              Refresh
+    <div className="min-h-screen bg-gradient-to-b from-muted/30 via-background to-background">
+      <div className="w-full p-4 sm:p-6 space-y-6">
+        <PageIntro
+          className="print:hidden"
+          eyebrow="Print"
+          title="Label Print Queue"
+          description="Review print history, reprint jobs, and monitor label stock usage."
+          icon={<Printer className="h-5 w-5 text-primary" />}
+          back={
+            <Button variant="ghost" size="sm" onClick={() => router.back()} className="-ml-2 w-fit text-muted-foreground">
+              <ArrowLeft className="mr-2 h-4 w-4" /> Back to Dashboard
             </Button>
-            <Button onClick={exportHistory} disabled={filteredJobs.length === 0}>
-              <Download className="mr-2 h-4 w-4" />
-              Export CSV
-            </Button>
-          </div>
-        </div>
+          }
+          actions={
+            <>
+              <Button variant="outline" onClick={fetchData} className="gap-2">
+                <RefreshCw className="h-4 w-4" />
+                Refresh
+              </Button>
+              <Button onClick={exportHistory} disabled={filteredJobs.length === 0} className="gap-2">
+                <Download className="h-4 w-4" />
+                Export CSV
+              </Button>
+            </>
+          }
+        />
 
         {error && (
           <Alert variant="destructive" className="print:hidden">

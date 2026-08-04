@@ -3,7 +3,7 @@
 **Document purpose:** Share with AWS solutions architects / support to plan deployment of the **District 79 Adult Education Student Label System** on **Amazon EC2** using **Docker** and **Docker Compose**.
 
 **Repository:** `student-label-system` (Next.js monolith)  
-**Current production:** Vercel (`https://student-label-system.vercel.app`)  
+**Current production:** Vercel (`https://nycadultedlabels.nyc`)  
 **Target production:** AWS EC2 instance(s) behind HTTPS, containerized with Docker Compose
 
 ---
@@ -540,7 +540,7 @@ student-label-system/
 | Item | Value |
 |------|-------|
 | App name | Student Label System — District 79 |
-| Current URL | https://student-label-system.vercel.app |
+| Current URL | https://nycadultedlabels.nyc |
 | GitHub | `jjaramillodoe/student-label-system` |
 | Database | MongoDB, database name `student-label` |
 | Primary integration | Microsoft Power Automate → `/api/sync/v1/students` |

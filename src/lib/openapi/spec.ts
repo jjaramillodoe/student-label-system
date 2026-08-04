@@ -15,7 +15,7 @@ export const openApiSpec = {
       '- **Sync API key** — `Authorization: Bearer <SYNC_API_KEY>` for `/api/sync/v1/*` (Power Automate / integrations)',
       '- **Session** — NextAuth cookie when signed in at `/auth/signin` (browser); most `/api/students` and admin routes',
       '',
-      'Production: [student-label-system.vercel.app](https://student-label-system.vercel.app)',
+      'Production: [nycadultedlabels.nyc](https://nycadultedlabels.nyc)',
     ].join('\n'),
     contact: {
       name: 'Javier Jaramillo',
@@ -24,7 +24,7 @@ export const openApiSpec = {
   },
   servers: [
     {
-      url: 'https://student-label-system.vercel.app',
+      url: 'https://nycadultedlabels.nyc',
       description: 'Production (Vercel)',
     },
     {

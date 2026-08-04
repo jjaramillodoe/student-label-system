@@ -3,7 +3,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
-import AdminHeader from '@/components/AdminHeader';
 import {
   Mail, ShieldCheck, RefreshCw, Loader2, Search, CheckCircle2,
   XCircle, HelpCircle, Clock, AlertTriangle, ChevronLeft,
@@ -359,7 +358,6 @@ export default function ValidationPage() {
 
   return (
     <div className="min-h-screen bg-background">
-      <AdminHeader />
       <main className="w-full px-4 sm:px-6 py-6 space-y-6">
         {/* Back button */}
         <Button variant="outline" onClick={() => router.back()}>

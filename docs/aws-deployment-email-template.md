@@ -29,7 +29,7 @@ Application summary
 • Name: Student Label System (District 79 Adult Education)
 • Type: Monolithic Next.js 16 application (Node.js 20) — UI and REST API in one process
 • Database: MongoDB (database name: student-label) — currently on MongoDB Atlas; open to Atlas + VPC peering or self-managed MongoDB on AWS
-• Current production URL: https://student-label-system.vercel.app
+• Current production URL: https://nycadultedlabels.nyc
 • Repository: jjaramillodoe/student-label-system (private; architecture doc attached)
 
 What the app does

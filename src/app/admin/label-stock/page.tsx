@@ -48,7 +48,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import AdminHeader from '@/components/AdminHeader';
 import { Separator } from '@/components/ui/separator';
 import { LABEL_STOCK_TEMPLATES, getTemplateMeta } from '@/lib/labelStockMeta';
 
@@ -407,7 +406,6 @@ export default function LabelStockPage() {
 
   return (
     <div className="w-full p-6 space-y-6">
-      <AdminHeader />
 
       <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
         <div>

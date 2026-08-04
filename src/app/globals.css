@@ -58,6 +58,107 @@
   }
 }
 
+/* ── Surface polish (Once UI–inspired density / hierarchy, shadcn tokens) ── */
+@layer components {
+  .ui-eyebrow {
+    @apply text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground;
+  }
+
+  .ui-page-title {
+    @apply text-2xl sm:text-3xl font-semibold tracking-tight text-foreground leading-tight;
+  }
+
+  .ui-page-desc {
+    @apply text-sm text-muted-foreground leading-relaxed max-w-xl;
+  }
+
+  .ui-icon-mark {
+    @apply flex h-10 w-10 items-center justify-center rounded-xl border border-border/80
+      bg-gradient-to-b from-background to-muted/60 text-foreground shadow-sm;
+  }
+
+  .ui-soft-card {
+    @apply rounded-2xl border border-border/80 bg-card/90 shadow-sm backdrop-blur-sm;
+  }
+
+  .ui-auth-shell {
+    @apply relative min-h-screen flex items-center justify-center overflow-hidden px-4 py-12 sm:px-6;
+    background:
+      radial-gradient(ellipse 80% 60% at 10% 20%, hsl(210 80% 94% / 0.9), transparent 55%),
+      radial-gradient(ellipse 70% 50% at 90% 80%, hsl(215 40% 92% / 0.75), transparent 50%),
+      linear-gradient(180deg, hsl(210 40% 98%) 0%, hsl(0 0% 100%) 45%, hsl(214 32% 96%) 100%);
+  }
+
+  .dark .ui-auth-shell {
+    background:
+      radial-gradient(ellipse 80% 60% at 10% 20%, hsl(217 50% 18% / 0.8), transparent 55%),
+      radial-gradient(ellipse 70% 50% at 90% 80%, hsl(222 40% 14% / 0.7), transparent 50%),
+      linear-gradient(180deg, hsl(222 47% 8%) 0%, hsl(222 47% 6%) 100%);
+  }
+
+  .ui-auth-shell::before {
+    content: '';
+    pointer-events: none;
+    position: absolute;
+    inset: 0;
+    opacity: 0.35;
+    background-image:
+      linear-gradient(hsl(var(--border) / 0.45) 1px, transparent 1px),
+      linear-gradient(90deg, hsl(var(--border) / 0.45) 1px, transparent 1px);
+    background-size: 48px 48px;
+    mask-image: radial-gradient(ellipse 70% 60% at 50% 45%, black, transparent);
+  }
+
+  .ui-empty-surface {
+    @apply relative overflow-hidden rounded-2xl border border-dashed border-border/90
+      bg-gradient-to-b from-muted/40 via-background to-muted/20 px-6 py-14 text-center;
+  }
+
+  .ui-empty-surface::after {
+    content: '';
+    pointer-events: none;
+    position: absolute;
+    inset: auto -20% -40% -20%;
+    height: 55%;
+    background: radial-gradient(ellipse at center, hsl(210 70% 60% / 0.08), transparent 70%);
+  }
+}
+
+@layer utilities {
+  .ui-enter {
+    animation: ui-enter 0.4s cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
+  .ui-enter-delay-1 {
+    animation-delay: 60ms;
+  }
+  .ui-enter-delay-2 {
+    animation-delay: 120ms;
+  }
+  .ui-enter-delay-3 {
+    animation-delay: 180ms;
+  }
+}
+
+@keyframes ui-enter {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ui-enter,
+  .ui-enter-delay-1,
+  .ui-enter-delay-2,
+  .ui-enter-delay-3 {
+    animation: none !important;
+  }
+}
+
 /* ── Google Translate widget ─────────────────────────────────────────────────
    Hide ONLY the injected top banner so the page isn't pushed down. We do NOT
    hide the gadget's spans/iframes generally, because the language <select> and

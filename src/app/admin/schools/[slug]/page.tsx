@@ -3,7 +3,6 @@
 import { useEffect, useState } from 'react';
 import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
-import AdminHeader from '@/components/AdminHeader';
 import SchoolConfigForm, { type SchoolFormState } from '@/components/SchoolConfigForm';
 import SchoolLegacyRosterUpload from '@/components/SchoolLegacyRosterUpload';
 import { AlertCircle, ArrowLeft, Building2, CheckCircle2, Loader2 } from 'lucide-react';
@@ -171,7 +170,6 @@ export default function EditSchoolPage({ params }: { params: Promise<{ slug: str
   if (status === 'loading' || loading || !school) {
     return (
       <div className="min-h-screen bg-background">
-        <AdminHeader />
         <div className="w-full p-6 flex items-center justify-center min-h-[50vh]">
           {error ? (
             <div className="max-w-md space-y-4 text-center">
@@ -194,7 +192,6 @@ export default function EditSchoolPage({ params }: { params: Promise<{ slug: str
 
   return (
     <div className="min-h-screen bg-background">
-      <AdminHeader />
       <div className="w-full max-w-4xl mx-auto p-6 space-y-6">
         <Button variant="outline" onClick={() => router.push('/admin/schools')}>
           <ArrowLeft className="mr-2 h-4 w-4" />

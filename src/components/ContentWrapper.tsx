@@ -1,17 +1,9 @@
 'use client';
 
-import { usePathname } from 'next/navigation';
-
+/**
+ * @deprecated Content padding is handled by `AppShell`.
+ * Kept so older imports do not break.
+ */
 export default function ContentWrapper({ children }: { children: React.ReactNode }) {
-  const pathname = usePathname() || '';
-  const isFullscreen =
-    pathname.startsWith('/intake')
-    || pathname.startsWith('/student')
-    || pathname.startsWith('/archive');
-  if (isFullscreen) return <>{children}</>;
-  return (
-    <main className="w-full max-w-full px-4 sm:px-6 py-6 flex-1">
-      {children}
-    </main>
-  );
+  return <>{children}</>;
 }

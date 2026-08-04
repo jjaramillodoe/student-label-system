@@ -4,7 +4,6 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
-import AdminHeader from '@/components/AdminHeader';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -101,7 +100,6 @@ export default function SchoolYearPage() {
 
   return (
     <div className="min-h-screen bg-background">
-      <AdminHeader />
       <div className="w-full p-6 space-y-6">
         <Button variant="outline" asChild>
           <Link href="/admin/cabinets">

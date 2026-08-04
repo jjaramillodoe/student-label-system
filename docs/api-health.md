@@ -1,6 +1,6 @@
 # API Health Checks
 
-Quick way to verify [student-label-system.vercel.app](https://student-label-system.vercel.app) is up and dependencies are configured.
+Quick way to verify [nycadultedlabels.nyc](https://nycadultedlabels.nyc) is up and dependencies are configured.
 
 **Use the same Next.js app on Vercel** — no separate Python/FastAPI service needed. Health routes deploy with every `vercel deploy`.
 
@@ -12,13 +12,13 @@ Quick way to verify [student-label-system.vercel.app](https://student-label-syst
 |-----|------|-----|
 | [`/docs/api`](/docs/api) | None | **Interactive Swagger UI** (OpenAPI 3.0) |
 | [`/api/openapi.json`](/api/openapi.json) | None | Raw OpenAPI spec (import to Postman) |
-| [`/api/health`](https://student-label-system.vercel.app/api/health) | None | Liveness — open in a browser |
-| [`/api/health/deep`](https://student-label-system.vercel.app/api/health/deep) | None | Readiness — MongoDB, env vars, endpoint status |
+| [`/api/health`](https://nycadultedlabels.nyc/api/health) | None | Liveness — open in a browser |
+| [`/api/health/deep`](https://nycadultedlabels.nyc/api/health/deep) | None | Readiness — MongoDB, env vars, endpoint status |
 
 ### Liveness (browser-friendly)
 
 ```bash
-curl -s https://student-label-system.vercel.app/api/health | jq
+curl -s https://nycadultedlabels.nyc/api/health | jq
 ```
 
 ```json
@@ -37,7 +37,7 @@ curl -s https://student-label-system.vercel.app/api/health | jq
 ### Deep readiness
 
 ```bash
-curl -s https://student-label-system.vercel.app/api/health/deep | jq
+curl -s https://nycadultedlabels.nyc/api/health/deep | jq
 ```
 
 Returns:
@@ -56,7 +56,7 @@ Health checks do **not** call the sync route with your key. Test sync separately
 
 ```bash
 curl -s -H "Authorization: Bearer $(cat .sync-api-key.local)" \
-  "https://student-label-system.vercel.app/api/sync/v1/students?limit=1" | jq '.count, .hasMore'
+  "https://nycadultedlabels.nyc/api/sync/v1/students?limit=1" | jq '.count, .hasMore'
 ```
 
 ---
@@ -71,7 +71,7 @@ curl -s -H "Authorization: Bearer $(cat .sync-api-key.local)" \
 
 For Power Automate you can add a **daily health step** before sync:
 
-1. HTTP GET `https://student-label-system.vercel.app/api/health/deep`
+1. HTTP GET `https://nycadultedlabels.nyc/api/health/deep`
 2. Condition: `status` equals `healthy` or `degraded`
 3. Only then call `/api/sync/v1/students`
 

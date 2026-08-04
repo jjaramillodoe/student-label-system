@@ -4,7 +4,6 @@ import { useCallback, useEffect, useState } from 'react';
 import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import AdminHeader from '@/components/AdminHeader';
 import {
   Settings,
   FlaskConical,
@@ -206,7 +205,6 @@ export default function SettingsPage() {
   if (authStatus === 'loading' || loading) {
     return (
       <div className="min-h-screen bg-background">
-        <AdminHeader />
         <main className="w-full px-4 sm:px-6 py-6 flex items-center justify-center">
           <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
         </main>
@@ -218,7 +216,6 @@ export default function SettingsPage() {
 
   return (
     <div className="min-h-screen bg-background">
-      <AdminHeader />
       <main className="w-full p-6 space-y-6">
 
         {/* Back button + header */}

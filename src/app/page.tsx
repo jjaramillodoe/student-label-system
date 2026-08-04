@@ -5,8 +5,6 @@ import Barcode from 'react-barcode';
 import { FileDown, FileUp, Printer, Trash2, Edit, Eye, Moon, Sun, RotateCcw, List, Archive, X, Upload, History, Filter, TrendingUp, Package } from 'lucide-react';
 import { useSession } from 'next-auth/react';
 import StudentTable, { Student } from "../components/StudentTable";
-import StudentForm from "../components/StudentForm";
-import AdminHeader from '@/components/AdminHeader';
 import DashboardStats from '@/components/DashboardStats';
 import PrintHistory from '@/components/PrintHistory';
 import QRCode from '@/components/QRCode';
@@ -40,7 +38,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
-import { User, Calendar, Mail, MapPin, FileText, Hash, ScanLine, UserPlus, Boxes } from 'lucide-react';
+import { User, Calendar, Mail, MapPin, FileText, Hash, ScanLine, Boxes } from 'lucide-react';
 import { buildStudentQrPayload, extractStudentIdFromQrPayload } from '@/lib/qrPayload';
 import { getStudentStorageDisplay } from '@/lib/studentLocation';
 import { downloadCsvFile, objectsToCsv } from '@/lib/csv';
@@ -79,19 +77,6 @@ function Dashboard() {
   const searchParams = useSearchParams();
   const userRole = (session?.user as any)?.role;
   const [students, setStudents] = useState<Student[]>([]);
-  const [form, setForm] = useState({
-    firstName: "",
-    lastName: "",
-    dob: "",
-    fiscalYear: "",
-    status: "",
-    startDate: "",
-    cabinet: "",
-    drawer: "",
-    email: "",
-    phone: "",
-  });
-  const [clearForm, setClearForm] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
@@ -118,7 +103,6 @@ function Dashboard() {
   const [showQRCode, setShowQRCode] = useState(true);
   const [showPrinterConfig, setShowPrinterConfig] = useState(false);
   const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
-  const [showAddStudentForm, setShowAddStudentForm] = useState(false);
   const [needsLabelMode, setNeedsLabelMode] = useState(false);
   const [printedIds, setPrintedIds] = useState<Set<string>>(new Set());
   const searchInputRef = useRef<HTMLInputElement | null>(null);
@@ -226,16 +210,6 @@ function Dashboard() {
     studentId: student.studentId,
   }), []);
 
-  // Handle form input
-  function handleChange(e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) {
-    const { name, value } = e.target;
-    if (name === 'firstName' || name === 'lastName' || name === 'dob' || 
-        name === 'fiscalYear' || name === 'status' || name === 'startDate' || 
-        name === 'cabinet' || name === 'drawer' || name === 'email') {
-      setForm(prev => ({ ...prev, [name]: value }));
-    }
-  }
-
   // Fetch audit logs from API
   async function fetchAuditLogs() {
     if (status !== 'authenticated') return;
@@ -270,69 +244,6 @@ function Dashboard() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(log),
     });
-  }
-
-  // Handle form submit
-  async function handleSubmit(formData: any, onSuccess?: () => void, onError?: (msg: string) => void) {
-    setLoading(true);
-    setError("");
-    setSuccess("");
-    // Validation
-    if (!formData.firstName || !formData.lastName || !formData.dob || !formData.fiscalYear || !formData.status || !formData.startDate || !formData.cabinet || !formData.drawer) {
-      setError('Please fill in all required fields.');
-      if (onError) onError('Please fill in all required fields.');
-      setLoading(false);
-      return;
-    }
-    try {
-      // Generate studentId
-      const initials = `${formData.firstName[0] || ''}${formData.lastName[0] || ''}`.toUpperCase();
-      const birthYear = formData.dob.split('-')[0];
-      // Fetch existing students with same year and initials
-      const res = await fetch(`/api/students?birthYear=${birthYear}&initials=${initials}`);
-      const existing = await res.json();
-      let nextNum = 1;
-      if (Array.isArray(existing) && existing.length > 0) {
-        // Find max counter
-        const max = existing.reduce((acc, s) => {
-          const match = s.studentId?.match(/-(\d{7})$/);
-          const num = match ? parseInt(match[1], 10) : 0;
-          return Math.max(acc, num);
-        }, 0);
-        nextNum = max + 1;
-      }
-      const studentId = `${birthYear}-${initials}-${String(nextNum).padStart(7, '0')}`;
-      const payload: Student = {
-        ...formData,
-        studentId,
-        endDate: null,
-        email: formData.email || null,
-        archived: false
-      };
-      const postRes = await fetch("/api/students", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      });
-      if (!postRes.ok) throw new Error("Failed to add student");
-      setSuccess("Student added successfully!");
-      if (onSuccess) onSuccess();
-      await logAudit('Add', payload);
-      fetchStudents();
-      // Clear form and show success message
-      setForm({ firstName: "", lastName: "", dob: "", fiscalYear: "", status: "", startDate: "", cabinet: "", drawer: "", email: "", phone: "" });
-      // Clear success message after 3 seconds
-      setTimeout(() => { setSuccess(""); }, 3000);
-      // Trigger form clear
-      setClearForm(true);
-      // Reset clearForm flag after a short delay
-      setTimeout(() => { setClearForm(false); }, 100);
-    } catch (err) {
-      setError("Failed to add student");
-      if (onError) onError("Failed to add student");
-    } finally {
-      setLoading(false);
-    }
   }
 
   function openEditModal(student: Student) {
@@ -865,8 +776,7 @@ function Dashboard() {
 
   return (
     <div suppressHydrationWarning>
-      <main className="w-full p-4 sm:p-6 bg-white dark:bg-gray-900 shadow-lg rounded-lg mt-6 min-h-screen transition-colors">
-        <AdminHeader />
+      <main className="w-full p-4 sm:p-6 mt-4 sm:mt-6 min-h-screen transition-colors rounded-2xl border border-border/70 bg-card/80 shadow-sm backdrop-blur-[2px]">
         <DashboardHeader
           schoolName={session?.user?.school}
           onShowPrinterConfig={() => setShowPrinterConfig(!showPrinterConfig)}
@@ -1091,41 +1001,6 @@ function Dashboard() {
               )}
             </div>
           )}
-        </section>
-
-        <section className="mb-8 mt-8">
-          <Card>
-            <CardHeader className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-              <div>
-                <CardTitle className="flex items-center gap-2 text-blue-600">
-                  <UserPlus className="h-5 w-5" />
-                  Add New Student
-                </CardTitle>
-                <CardDescription>
-                  Prefer Intake for front-desk enrollments. Keep this closed while printing.
-                </CardDescription>
-              </div>
-              <Button
-                type="button"
-                variant={showAddStudentForm ? 'outline' : 'default'}
-                onClick={() => setShowAddStudentForm((open) => !open)}
-                className="gap-2"
-              >
-                <UserPlus className="h-4 w-4" />
-                {showAddStudentForm ? 'Hide Form' : 'Add Student'}
-              </Button>
-            </CardHeader>
-            {showAddStudentForm && (
-              <CardContent>
-                <StudentForm
-                  onSubmit={handleSubmit}
-                  loading={loading}
-                  clearForm={clearForm}
-                  toast={success ? { message: success, type: 'success' } : error ? { message: error, type: 'error' } : null}
-                />
-              </CardContent>
-            )}
-          </Card>
         </section>
 
         <DashboardStats defaultCollapsed />

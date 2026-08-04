@@ -31,7 +31,7 @@ Install Mintlify skill: `npm run docs:skill`
 - Active voice, second person
 - Sentence case headings
 - Bold UI elements; code formatting for paths, IDs, and commands
-- Link to `https://student-label-system.vercel.app` for live app routes
+- Link to `https://nycadultedlabels.nyc` for live app routes
 
 ## Content boundaries
 

@@ -193,7 +193,7 @@ Create a scheduled cloud flow that runs daily at 2:00 AM Eastern.
 Steps:
 1. Read the latest successful watermark from Dataverse table crd79_syncrun (column crd79_watermarkafter), ordered by crd79_completedat descending. If none, use yesterday at midnight UTC.
 2. Insert a new crd79_syncrun row with status Running and crd79_watermarkbefore = watermark.
-3. HTTP GET to https://student-label-system.vercel.app/api/sync/v1/students?since=<watermark>&limit=500
+3. HTTP GET to https://nycadultedlabels.nyc/api/sync/v1/students?since=<watermark>&limit=500
    Headers: Authorization: Bearer <stored in Azure Key Vault or environment variable>
 4. Parse JSON body { students: [...], nextCursor, hasMore }.
 5. Apply to each student:

@@ -3,7 +3,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
-import AdminHeader from '@/components/AdminHeader';
 import {
   AlertTriangle, Download, ExternalLink, Loader2, Mail, MailCheck, MailQuestion, MailX,
   MapPin, Pencil, RefreshCw, Search, Users, X,
@@ -403,7 +402,6 @@ export default function AllStudentsPage() {
 
   return (
     <div className="min-h-screen bg-background">
-      <AdminHeader />
       <main className="w-full px-4 sm:px-6 py-6 space-y-5">
 
         {/* Header */}

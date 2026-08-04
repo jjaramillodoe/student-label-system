@@ -183,7 +183,7 @@ function IntakeMemberGuide() {
   }
 
   return (
-    <Card className="border-primary/20 bg-primary/[0.02] intake-member-guide-card">
+    <Card className="border-primary/20 bg-primary/[0.02] intake-member-guide-card shadow-sm rounded-2xl">
       <CardHeader className="pb-3">
         <div className="flex items-start gap-3">
           <button
@@ -191,11 +191,11 @@ function IntakeMemberGuide() {
             onClick={toggleOpen}
             className="flex-1 flex items-start gap-3 text-left min-w-0"
           >
-            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary/10 border border-primary/20">
+            <div className="ui-icon-mark h-9 w-9 rounded-lg shrink-0">
               <BookOpen className="h-4 w-4 text-primary" />
             </div>
             <div className="flex-1 min-w-0">
-              <CardTitle className="text-base flex items-center gap-2">
+              <CardTitle className="text-base flex items-center gap-2 tracking-tight">
                 Intake member guide
                 <ChevronDown className={`h-4 w-4 text-muted-foreground transition-transform print:hidden ${open ? 'rotate-180' : ''}`} />
               </CardTitle>
@@ -1249,12 +1249,17 @@ export default function IntakePage() {
     }
 
     return (
-      <div className="min-h-screen bg-green-50 dark:bg-green-950/20 flex flex-col items-center justify-center p-6 gap-6">
-        <div className="flex items-center gap-3 text-green-700 dark:text-green-400">
-          <CheckCircle2 className="h-8 w-8" />
-          <h1 className="text-2xl font-bold">
-            {savedAsVisit ? 'Visit Logged!' : 'Student Registered!'}
-          </h1>
+      <div className="min-h-screen bg-gradient-to-b from-emerald-50 via-background to-background dark:from-emerald-950/30 dark:via-background dark:to-background flex flex-col items-center justify-center p-6 gap-6">
+        <div className="flex flex-col items-center gap-3 text-center ui-enter">
+          <div className="flex h-14 w-14 items-center justify-center rounded-2xl border border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-300 shadow-sm">
+            <CheckCircle2 className="h-7 w-7" />
+          </div>
+          <div className="space-y-1">
+            <p className="ui-eyebrow text-emerald-700/80 dark:text-emerald-400/80">Intake complete</p>
+            <h1 className="ui-page-title text-emerald-900 dark:text-emerald-100">
+              {savedAsVisit ? 'Visit logged' : 'Student registered'}
+            </h1>
+          </div>
         </div>
 
         <IntakeSuccessSummary
@@ -1395,22 +1400,25 @@ export default function IntakePage() {
 
   // ── INTAKE FORM ─────────────────────────────────────────────────────────────
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-gradient-to-b from-muted/40 via-background to-background">
       {/* Top bar */}
-      <header className="border-b bg-background/95 backdrop-blur sticky top-0 z-40">
-        <div className="w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="flex items-center justify-center h-9 w-9 rounded-lg bg-primary/10 border border-primary/20">
+      <header className="border-b border-border/80 bg-background/85 backdrop-blur-md sticky top-0 z-40">
+        <div className="w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3.5 flex items-center justify-between gap-3">
+          <div className="flex items-center gap-3 min-w-0 ui-enter">
+            <div className="ui-icon-mark shrink-0">
               <UserPlus className="h-5 w-5 text-primary" />
             </div>
-            <div>
-              <h1 className="text-lg font-bold leading-tight">Student Intake</h1>
+            <div className="min-w-0">
+              <p className="ui-eyebrow">Front desk</p>
+              <h1 className="text-lg sm:text-xl font-semibold tracking-tight leading-tight truncate">
+                Student Intake
+              </h1>
               {session?.user?.school && (
-                <p className="text-xs text-muted-foreground">{session.user.school}</p>
+                <p className="text-xs text-muted-foreground truncate">{session.user.school}</p>
               )}
             </div>
           </div>
-          <div className="flex items-center gap-2 sm:gap-3">
+          <div className="flex items-center gap-2 sm:gap-3 shrink-0 ui-enter ui-enter-delay-1">
             {activeTab === 'register' && (
               <Button
                 variant="outline"
@@ -1429,7 +1437,9 @@ export default function IntakePage() {
                 Student needs another language? Pick it here, turn the screen toward them, then switch back to English.
               </p>
             </div>
-            <span className="text-sm text-muted-foreground hidden sm:inline">{session?.user?.name}</span>
+            <span className="text-sm text-muted-foreground hidden md:inline truncate max-w-[10rem]">
+              {session?.user?.name}
+            </span>
             <Button variant="ghost" size="sm" onClick={() => signOut({ callbackUrl: '/auth/signin' })} className="gap-1.5 text-muted-foreground">
               <LogOut className="h-4 w-4" /> Sign Out
             </Button>
@@ -1437,7 +1447,7 @@ export default function IntakePage() {
         </div>
       </header>
 
-      <main className="w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-4">
+      <main className="w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8 space-y-5">
         <IntakeIssuesBanner
           reviewHref="/intake"
           refreshToken={issuesRefresh}
@@ -1447,12 +1457,12 @@ export default function IntakePage() {
           })}
         />
 
-        <Tabs value={activeTab} onValueChange={v => setActiveTab(v)} className="space-y-6">
-          <TabsList className="grid w-full grid-cols-2 h-11">
-            <TabsTrigger value="register" className="gap-2 text-sm">
+        <Tabs value={activeTab} onValueChange={v => setActiveTab(v)} className="space-y-6 ui-enter ui-enter-delay-1">
+          <TabsList className="grid w-full grid-cols-2 h-11 p-1 rounded-xl">
+            <TabsTrigger value="register" className="gap-2 text-sm rounded-lg">
               <UserPlus className="h-4 w-4" /> Register Student
             </TabsTrigger>
-            <TabsTrigger value="history" className="gap-2 text-sm">
+            <TabsTrigger value="history" className="gap-2 text-sm rounded-lg">
               <List className="h-4 w-4" /> Intake History
               {historyStudents.length > 0 && activeTab === 'history' && (
                 <Badge className="ml-1 h-5 min-w-5 text-xs px-1.5">{historyStudents.length}</Badge>

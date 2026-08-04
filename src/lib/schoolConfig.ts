@@ -23,7 +23,7 @@ export type SchoolConfigRecord = {
   name: string;
   type: string;
   active: boolean;
-  /** Vanity subdomain slug, e.g. school1 → school1.yourdomain.org */
+  /** Vanity subdomain slug, e.g. school1 → school1.nycadultedlabels.nyc */
   slug?: string;
   agencyId?: string;
   intakeSessions?: IntakeSession[];

@@ -3,7 +3,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
-import AdminHeader from '@/components/AdminHeader';
 import { AlertCircle, Building2, CheckCircle2, Edit2, Loader2, Plus, RefreshCw, Trash2, DatabaseZap, ArrowLeft } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
@@ -147,7 +146,6 @@ export default function SchoolsPage() {
   if (status === 'loading' || loading) {
     return (
       <div className="min-h-screen bg-background">
-        <AdminHeader />
         <div className="w-full p-6 flex items-center justify-center min-h-[50vh]">
           <Loader2 className="h-8 w-8 animate-spin text-primary" />
         </div>
@@ -157,7 +155,6 @@ export default function SchoolsPage() {
 
   return (
     <div className="min-h-screen bg-background">
-      <AdminHeader />
       <div className="w-full p-6 space-y-6">
         <Button variant="outline" onClick={() => router.back()}>
           <ArrowLeft className="mr-2 h-4 w-4" /> Back to Dashboard

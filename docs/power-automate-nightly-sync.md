@@ -22,10 +22,10 @@ Companion docs:
 **Production URL:**
 
 ```text
-https://student-label-system.vercel.app/api/sync/v1/students
+https://nycadultedlabels.nyc/api/sync/v1/students
 ```
 
-Live app: [student-label-system.vercel.app](https://student-label-system.vercel.app/)
+Live app: [nycadultedlabels.nyc](https://nycadultedlabels.nyc/)
 
 ---
 
@@ -35,7 +35,7 @@ In **Power Platform admin center → Environments → your env → Settings → 
 
 | Display name | Schema name | Type | Example |
 |--------------|-------------|------|---------|
-| Student Label Sync API Base URL | `stlabel_SyncApiBaseUrl` | Text | `https://student-label-system.vercel.app` |
+| Student Label Sync API Base URL | `stlabel_SyncApiBaseUrl` | Text | `https://nycadultedlabels.nyc` |
 | Student Label Sync API Key | `stlabel_SyncApiKey` | Secret | *(same as `SYNC_API_KEY` in Vercel)* |
 
 Add both to your **solution** so the flow can reference them.
@@ -345,7 +345,7 @@ Inside `On failure`:
 
 ```bash
 curl -s -H "Authorization: Bearer $SYNC_API_KEY" \
-  "https://student-label-system.vercel.app/api/sync/v1/students?since=2026-05-29T00:00:00.000Z&limit=10"
+  "https://nycadultedlabels.nyc/api/sync/v1/students?since=2026-05-29T00:00:00.000Z&limit=10"
 ```
 
 Expected: HTTP 200, JSON with `students` array, `hasMore`, `nextCursor`.

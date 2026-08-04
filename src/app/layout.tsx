@@ -1,9 +1,7 @@
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import Providers from '@/components/Providers';
-import AppHeaderWrapper from '@/components/AppHeaderWrapper';
-import ContentWrapper from '@/components/ContentWrapper';
-import Footer from '@/components/Footer';
+import AppShell from '@/components/AppShell';
 import ScrollToTop from '@/components/ScrollToTop';
 import { Analytics } from '@vercel/analytics/react';
 
@@ -24,15 +22,13 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en" className={`${geistSans.variable} ${geistMono.variable}`} suppressHydrationWarning>
-      <body className={`${geistSans.className} min-h-screen bg-gray-50 dark:bg-gray-900 flex flex-col`} suppressHydrationWarning>
+      <body className={`${geistSans.className} min-h-screen bg-background text-foreground flex flex-col`} suppressHydrationWarning>
         <Providers>
           <Analytics />
-          <AppHeaderWrapper />
-          <ContentWrapper>
+          <AppShell>
             {children}
-          </ContentWrapper>
+          </AppShell>
           <ScrollToTop />
-          <Footer />
         </Providers>
       </body>
     </html>

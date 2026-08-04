@@ -3,7 +3,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
-import AdminHeader from '@/components/AdminHeader';
 import {
   AlertTriangle,
   Archive,
@@ -241,7 +240,6 @@ export default function DataCleanupPage() {
   if (status === 'loading' || loading) {
     return (
       <div className="min-h-screen bg-background">
-        <AdminHeader />
         <div className="w-full p-6 flex items-center justify-center min-h-[50vh]">
           <Loader2 className="h-8 w-8 animate-spin text-primary" />
         </div>
@@ -251,7 +249,6 @@ export default function DataCleanupPage() {
 
   return (
     <div className="min-h-screen bg-background">
-      <AdminHeader />
       <div className="w-full p-6 space-y-6">
         {/* Back button */}
         <Button variant="outline" onClick={() => router.back()}>

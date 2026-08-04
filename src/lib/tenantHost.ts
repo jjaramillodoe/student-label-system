@@ -1,5 +1,5 @@
 /**
- * Host / subdomain helpers for school portals (school1.yourdomain.org).
+ * Host / subdomain helpers for school portals (school1.nycadultedlabels.nyc).
  * Edge-safe — no MongoDB imports.
  */
 
@@ -8,7 +8,7 @@ import { isReservedSchoolSlug, normalizeSchoolSlug } from '@/lib/schoolSlug';
 export const TENANT_SLUG_HEADER = 'x-tenant-slug';
 export const TENANT_ROOT_HEADER = 'x-tenant-root';
 
-/** Apex / root domain for school subdomains, e.g. yourdomain.org */
+/** Apex / root domain for school subdomains, e.g. nycadultedlabels.nyc */
 export function getTenantRootDomain(): string {
   return (process.env.TENANT_ROOT_DOMAIN || process.env.NEXT_PUBLIC_TENANT_ROOT_DOMAIN || '')
     .trim()
@@ -19,8 +19,8 @@ export function getTenantRootDomain(): string {
 
 /**
  * Extract school subdomain from Host.
- * - school1.yourdomain.org → school1 (when TENANT_ROOT_DOMAIN=yourdomain.org)
- * - yourdomain.org / www.yourdomain.org → null (district apex)
+ * - school1.nycadultedlabels.nyc → school1 (when TENANT_ROOT_DOMAIN=nycadultedlabels.nyc)
+ * - nycadultedlabels.nyc / www.nycadultedlabels.nyc → null (district apex)
  * - *.vercel.app / localhost → null (single-tenant mode)
  */
 export function extractTenantSlugFromHost(

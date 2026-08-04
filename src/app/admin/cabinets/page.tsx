@@ -88,6 +88,7 @@ import {
 import { Separator } from '@/components/ui/separator';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Textarea } from '@/components/ui/textarea';
+import PageIntro from '@/components/PageIntro';
 
 interface SchoolOption {
   name: string;
@@ -970,89 +971,90 @@ export default function CabinetsPage() {
   }
 
   return (
-    <div className="w-full p-6 space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <Link href="/">
-            <Button variant="ghost" size="sm" className="mb-4">
+    <div className="w-full p-4 sm:p-6 space-y-6">
+      <PageIntro
+        eyebrow="Storage"
+        title="Cabinet Management"
+        description="Manage cabinets, drawers, and storage assignments."
+        icon={<LayoutGrid className="h-5 w-5 text-primary" />}
+        back={
+          <Button variant="ghost" size="sm" asChild className="-ml-2 w-fit text-muted-foreground">
+            <Link href="/">
               <ArrowLeft className="mr-2 h-4 w-4" />
               Back to Dashboard
+            </Link>
+          </Button>
+        }
+        actions={
+          <>
+            <Button variant="outline" onClick={() => setHelpModalOpen(true)} className="gap-2">
+              <HelpCircle className="h-4 w-4" />
+              How to Create
             </Button>
-          </Link>
-          <h1 className="text-3xl font-bold text-foreground">Cabinet Management</h1>
-          <p className="text-muted-foreground mt-2">
-            Manage cabinets, drawers, and storage assignments
-          </p>
-        </div>
-        <div className="flex gap-2 flex-wrap justify-end">
-          <Button variant="outline" onClick={() => setHelpModalOpen(true)} className="gap-2">
-            <HelpCircle className="h-4 w-4" />
-            How to Create
-          </Button>
-          <Button
-            onClick={() => {
-              setEditingCabinet(null);
-              setForm(emptyCabinetForm(userSchool));
-              setIsModalOpen(true);
-            }}
-            className="gap-2"
-          >
-            <Plus className="h-4 w-4" />
-            Add Cabinet
-          </Button>
-        </div>
-      </div>
+            <Button
+              onClick={() => {
+                setEditingCabinet(null);
+                setForm(emptyCabinetForm(userSchool));
+                setIsModalOpen(true);
+              }}
+              className="gap-2"
+            >
+              <Plus className="h-4 w-4" />
+              Add Cabinet
+            </Button>
+          </>
+        }
+      />
 
       <Separator />
 
       {/* Overview */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <Card>
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 ui-enter ui-enter-delay-1">
+        <Card className="rounded-2xl shadow-sm">
           <CardContent className="p-4">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-muted-foreground">Total Cabinets</p>
-                <p className="text-2xl font-bold">{cabinets.length}</p>
+                <p className="text-2xl font-semibold tracking-tight">{cabinets.length}</p>
               </div>
-              <Archive className="h-8 w-8 text-muted-foreground" />
+              <Archive className="h-8 w-8 text-muted-foreground/70" />
             </div>
           </CardContent>
         </Card>
-        <Card>
+        <Card className="rounded-2xl shadow-sm">
           <CardContent className="p-4">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-muted-foreground">Stored Files</p>
-                <p className="text-2xl font-bold">{cabinetStats.currentCount}</p>
+                <p className="text-2xl font-semibold tracking-tight">{cabinetStats.currentCount}</p>
               </div>
-              <Boxes className="h-8 w-8 text-muted-foreground" />
+              <Boxes className="h-8 w-8 text-muted-foreground/70" />
             </div>
           </CardContent>
         </Card>
-        <Card>
+        <Card className="rounded-2xl shadow-sm">
           <CardContent className="p-4">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-muted-foreground">Available Space</p>
-                <p className={`text-2xl font-bold ${availableCapacity < 0 ? 'text-destructive' : ''}`}>
+                <p className={`text-2xl font-semibold tracking-tight ${availableCapacity < 0 ? 'text-destructive' : ''}`}>
                   {availableCapacity}
                 </p>
               </div>
-              <Gauge className="h-8 w-8 text-muted-foreground" />
+              <Gauge className="h-8 w-8 text-muted-foreground/70" />
             </div>
           </CardContent>
         </Card>
-        <Card>
+        <Card className="rounded-2xl shadow-sm">
           <CardContent className="p-4">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-muted-foreground">Needs Attention</p>
-                <p className={`text-2xl font-bold ${cabinetStats.overCapacity > 0 ? 'text-destructive' : ''}`}>
+                <p className={`text-2xl font-semibold tracking-tight ${cabinetStats.overCapacity > 0 ? 'text-destructive' : ''}`}>
                   {cabinetStats.needsAttention + cabinetStats.overCapacity}
                 </p>
               </div>
-              <AlertCircle className="h-8 w-8 text-muted-foreground" />
+              <AlertCircle className="h-8 w-8 text-muted-foreground/70" />
             </div>
           </CardContent>
         </Card>

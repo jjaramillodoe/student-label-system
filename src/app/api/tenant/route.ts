@@ -27,7 +27,7 @@ export async function GET(req: NextRequest) {
         portalUrl: null,
         message: rootDomain
           ? 'District / apex host — no school subdomain'
-          : 'Set TENANT_ROOT_DOMAIN to enable school subdomains (e.g. yourdomain.org)',
+          : 'Set TENANT_ROOT_DOMAIN to enable school subdomains (e.g. nycadultedlabels.nyc)',
       });
     }
 

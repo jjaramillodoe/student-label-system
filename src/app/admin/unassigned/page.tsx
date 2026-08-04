@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { AlertCircle, ArrowLeft, Inbox, Loader2, RefreshCw, ShieldAlert, Wrench } from 'lucide-react';
-import AdminHeader from '@/components/AdminHeader';
+import PageIntro from '@/components/PageIntro';
 import FixStudentAssignmentDialog from '@/components/FixStudentAssignmentDialog';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
@@ -105,32 +105,33 @@ export default function UnassignedStudentsPage() {
   });
 
   return (
-    <div className="w-full p-6 space-y-6">
-      <AdminHeader />
+    <div className="w-full p-4 sm:p-6 space-y-6 bg-gradient-to-b from-muted/30 via-background to-background min-h-screen">
 
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div>
-          <Button variant="ghost" size="sm" asChild className="mb-2">
+      <PageIntro
+        eyebrow="Storage"
+        title="Unassigned Student Queue"
+        description="Review students missing locations or assigned to invalid, full, or over-capacity drawers."
+        icon={<Inbox className="h-5 w-5 text-primary" />}
+        back={
+          <Button variant="ghost" size="sm" asChild className="-ml-2 w-fit text-muted-foreground">
             <Link href="/">
               <ArrowLeft className="mr-2 h-4 w-4" />
               Back to Dashboard
             </Link>
           </Button>
-          <h1 className="text-3xl font-bold text-foreground">Unassigned Student Queue</h1>
-          <p className="text-muted-foreground mt-1">
-            Review students missing locations or assigned to invalid, full, or over-capacity drawers.
-          </p>
-        </div>
-        <div className="flex gap-2">
-          <Button variant="outline" onClick={fetchQueue} disabled={loading} className="gap-2">
-            {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
-            Refresh
-          </Button>
-          <Button asChild>
-            <Link href="/admin/cabinets">Manage Cabinets</Link>
-          </Button>
-        </div>
-      </div>
+        }
+        actions={
+          <>
+            <Button variant="outline" onClick={fetchQueue} disabled={loading} className="gap-2">
+              {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
+              Refresh
+            </Button>
+            <Button asChild>
+              <Link href="/admin/cabinets">Manage Cabinets</Link>
+            </Button>
+          </>
+        }
+      />
 
       {success && (
         <Alert className="border-green-200 bg-green-50 dark:bg-green-950 dark:border-green-800">

@@ -130,7 +130,7 @@ if (isAzureAdConfigured()) {
   );
 }
 
-/** Share session across school1.domain.org and domain.org when set (e.g. .yourdomain.org). */
+/** Share session across school1.domain.org and domain.org when set (e.g. .nycadultedlabels.nyc). */
 function authCookieOptions() {
   const domain = (process.env.NEXTAUTH_COOKIE_DOMAIN || '').trim();
   if (!domain) return undefined;

@@ -2,7 +2,7 @@
 
 Test the live sync API before building the full nightly flow.
 
-**Production endpoint:** `https://student-label-system.vercel.app/api/sync/v1/students`  
+**Production endpoint:** `https://nycadultedlabels.nyc/api/sync/v1/students`  
 **API key:** copy from `student-label-system/.sync-api-key.local` (gitignored)
 
 Do this in **three phases** — stop after each phase and confirm the run succeeds.
@@ -36,7 +36,7 @@ Goal: prove Power Automate can call your API and parse the response. **No Datave
 
 ```text
 concat(
-  'https://student-label-system.vercel.app/api/sync/v1/students?since=',
+  'https://nycadultedlabels.nyc/api/sync/v1/students?since=',
   uriComponent(coalesce(triggerBody()?['text'], '2026-05-29T00:00:00.000Z')),
   '&limit=10'
 )
@@ -45,7 +45,7 @@ concat(
 If you skipped the trigger input, use this fixed URI instead:
 
 ```text
-https://student-label-system.vercel.app/api/sync/v1/students?since=2026-05-29T00:00:00.000Z&limit=10
+https://nycadultedlabels.nyc/api/sync/v1/students?since=2026-05-29T00:00:00.000Z&limit=10
 ```
 
 **Headers:**
@@ -120,7 +120,7 @@ https://student-label-system.vercel.app/api/sync/v1/students?since=2026-05-29T00
 | HTTP code | Fix |
 |-----------|-----|
 | 401 | Wrong Bearer token — re-copy from `.sync-api-key.local` |
-| 404 | Old deployment — confirm URL is exactly `student-label-system.vercel.app` |
+| 404 | Old deployment — confirm URL is exactly `nycadultedlabels.nyc` |
 | 403 / blocked | Your org may block HTTP connector — ask admin to allow **HTTP with Microsoft Entra ID** or premium HTTP |
 
 ---
@@ -199,7 +199,7 @@ For a quick test without a full loop:
 
 ```text
 concat(
-  'https://student-label-system.vercel.app/api/sync/v1/students?since=2026-05-29T00:00:00.000Z&limit=2&cursor=',
+  'https://nycadultedlabels.nyc/api/sync/v1/students?since=2026-05-29T00:00:00.000Z&limit=2&cursor=',
   uriComponent('PASTE_CURSOR_FROM_RUN_1')
 )
 ```
@@ -238,7 +238,7 @@ Later nightly runs use the **watermark** from `crd79_syncrun.crd79_watermarkafte
 
 | Name | Value |
 |------|-------|
-| `stlabel_SyncApiBaseUrl` | `https://student-label-system.vercel.app` |
+| `stlabel_SyncApiBaseUrl` | `https://nycadultedlabels.nyc` |
 | `stlabel_SyncApiKey` | *(contents of `.sync-api-key.local`)* |
 
 Create in **Power Platform admin center → Environment → Environment variables**, add to your **solution**, then reference in the HTTP header:

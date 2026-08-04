@@ -17,7 +17,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import AdminHeader from '@/components/AdminHeader';
 import { Separator } from '@/components/ui/separator';
 import {
   BarChart,
@@ -127,7 +126,6 @@ export default function ReportsPage() {
 
   return (
     <div className="w-full p-6 space-y-6">
-      <AdminHeader />
       
       {/* Header */}
       <div className="flex items-center justify-between">

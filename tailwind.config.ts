@@ -53,6 +53,15 @@ const config: Config = {
         md: "calc(var(--radius) - 2px)",
         sm: "calc(var(--radius) - 4px)",
       },
+      keyframes: {
+        "ui-enter": {
+          from: { opacity: "0", transform: "translateY(8px)" },
+          to: { opacity: "1", transform: "translateY(0)" },
+        },
+      },
+      animation: {
+        "ui-enter": "ui-enter 0.4s cubic-bezier(0.22, 1, 0.36, 1) both",
+      },
     },
   },
   plugins: [],

@@ -235,7 +235,7 @@ db.students.createIndex({ labelId: 1 }, { sparse: true })
 
 ### Sync API usage
 
-**Production is live** at [student-label-system.vercel.app](https://student-label-system.vercel.app/api/sync/v1/students).
+**Production is live** at [nycadultedlabels.nyc](https://nycadultedlabels.nyc/api/sync/v1/students).
 
 - `SYNC_API_KEY` is set in **Vercel → student-label-system → Settings → Environment Variables**
 - Local copy (gitignored): **`.sync-api-key.local`** — use this value in Power Automate `stlabel_SyncApiKey`
@@ -252,7 +252,7 @@ curl -s -H "Authorization: Bearer $SYNC_API_KEY" \
 
 # Production (Vercel)
 curl -s -H "Authorization: Bearer $SYNC_API_KEY" \
-  "https://student-label-system.vercel.app/api/sync/v1/students?since=2026-01-01T00:00:00.000Z&limit=10"
+  "https://nycadultedlabels.nyc/api/sync/v1/students?since=2026-01-01T00:00:00.000Z&limit=10"
 ```
 
 Response shape: `{ students, hasMore, nextCursor, since, count }`

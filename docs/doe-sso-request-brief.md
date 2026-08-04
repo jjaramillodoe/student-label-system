@@ -27,7 +27,7 @@ Credentials login will remain as a **break-glass / fallback** until SSO is fully
 
 1. **Preferred:** OpenID Connect (OIDC) with Microsoft Entra ID (Azure AD)  
    - App registration (or DOE-approved multi-tenant / enterprise app)  
-   - Redirect URI: `https://student-label-system.vercel.app/api/auth/callback/azure-ad`  
+   - Redirect URI: `https://nycadultedlabels.nyc/api/auth/callback/azure-ad`  
    - Local/dev: `http://localhost:3000/api/auth/callback/azure-ad`
 2. **Acceptable alternative:** SAML 2.0 federation per **DIIT SAML Integration Guidelines**, if that is the required DOE path.
 

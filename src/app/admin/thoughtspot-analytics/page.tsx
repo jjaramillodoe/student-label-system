@@ -3,7 +3,6 @@
 import Link from 'next/link';
 import { useSession } from 'next-auth/react';
 import { ArrowLeft, BarChart3 } from 'lucide-react';
-import AdminHeader from '@/components/AdminHeader';
 import ThoughtSpotEnrollmentLiveboard from '@/components/ThoughtSpotEnrollmentLiveboard';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
@@ -19,7 +18,6 @@ export default function ThoughtSpotAnalyticsPage() {
 
   return (
     <div className="w-full space-y-6 p-6">
-      <AdminHeader />
 
       <div className="flex items-center justify-between">
         <div>

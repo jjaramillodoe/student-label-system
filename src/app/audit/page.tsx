@@ -3,7 +3,6 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useSession } from 'next-auth/react';
 import Link from 'next/link';
-import AdminHeader from '@/components/AdminHeader';
 import { 
   ArrowLeft, 
   Search, 
@@ -274,7 +273,6 @@ export default function AuditLogPage() {
 
   return (
     <div className="w-full p-6 space-y-6">
-      <AdminHeader />
       
       {/* Header */}
       <div className="flex items-center justify-between">
