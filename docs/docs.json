@@ -4,18 +4,19 @@
   "name": "Student Label System",
   "description": "Documentation for NYC Adult Education student file labels, intake, cabinets, and archive workflows.",
   "colors": {
-    "primary": "#1D4ED8",
-    "light": "#3B82F6",
-    "dark": "#1E3A8A"
+    "primary": "#0B1F4A",
+    "light": "#3D9BB8",
+    "dark": "#061433"
   },
-  "favicon": "/favicon.svg",
+  "favicon": "/favicon.png",
   "logo": {
-    "light": "/logo/light.svg",
-    "dark": "/logo/dark.svg"
+    "light": "/logo/light.jpg",
+    "dark": "/logo/dark.jpg",
+    "href": "https://docs.nycadultedlabels.nyc"
   },
   "seo": {
     "metatags": {
-      "canonical": "https://district79.mintlify.app"
+      "canonical": "https://docs.nycadultedlabels.nyc"
     }
   },
   "navbar": {

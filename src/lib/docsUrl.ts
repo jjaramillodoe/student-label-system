@@ -1,4 +1,4 @@
-/** Production Mintlify docs (District 79 Adult Education). */
+/** Production Mintlify docs — https://docs.nycadultedlabels.nyc */
 export const MINTLIFY_DOCS_URL =
   process.env.NEXT_PUBLIC_DOCS_URL?.replace(/\/$/, '') ||
-  'https://district79.mintlify.app';
+  'https://docs.nycadultedlabels.nyc';

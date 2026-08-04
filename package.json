@@ -10,6 +10,8 @@
     "add-user": "tsx scripts/add-user.ts",
     "add-district-admins": "tsx scripts/add-district-admins.ts",
     "reset-password": "tsx scripts/reset-password.ts",
+    "wipe-data": "tsx scripts/wipe-operational-data.ts",
+    "wipe-data:confirm": "tsx scripts/wipe-operational-data.ts --confirm",
     "ui:add": "shadcn@latest add",
     "docs:dev": "cd docs && mint dev",
     "docs:skill": "npx skills add https://mintlify.com/docs"

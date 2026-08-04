@@ -14,7 +14,7 @@ Legacy Vercel host (`https://student-label-system.vercel.app`) remains available
 
 You do **not** create a separate Vercel project per school. One deploy + one wildcard DNS record covers every school.
 
-Mintlify copy of this guide: [School subdomains](https://district79.mintlify.app/contributors/school-subdomains) (after deploy).
+Mintlify copy of this guide: [School subdomains](https://docs.nycadultedlabels.nyc/contributors/school-subdomains) (after deploy).
 
 ---
 
