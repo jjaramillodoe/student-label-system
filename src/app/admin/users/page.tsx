@@ -3,8 +3,9 @@ import React, { useEffect, useState } from "react";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import Link from 'next/link';
-import { Plus, Edit2, Trash2, Search, Mail, Shield, Loader2, AlertCircle, Users as UsersIcon, ArrowRightLeft, Eye, EyeOff, KeyRound, ShieldOff } from 'lucide-react';
+import { Plus, Edit2, Trash2, Search, Mail, Shield, Loader2, AlertCircle, Users as UsersIcon, ArrowRightLeft, Eye, EyeOff, KeyRound, ShieldOff, Upload } from 'lucide-react';
 import PageIntro from '@/components/PageIntro';
+import BulkUploadUsersDialog from '@/components/BulkUploadUsersDialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
@@ -110,6 +111,7 @@ export default function UsersPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [bulkUploadOpen, setBulkUploadOpen] = useState(false);
   const [securityModalOpen, setSecurityModalOpen] = useState(false);
   const [editingUser, setEditingUser] = useState<User | null>(null);
   const [securityUser, setSecurityUser] = useState<User | null>(null);
@@ -369,6 +371,10 @@ export default function UsersPage() {
                 <ArrowRightLeft className="mr-2 h-4 w-4" />
                 Migrate Users
               </Link>
+            </Button>
+            <Button variant="outline" onClick={() => setBulkUploadOpen(true)}>
+              <Upload className="mr-2 h-4 w-4" />
+              Bulk Upload
             </Button>
             <Button onClick={() => {
               setEditingUser(null);
@@ -939,6 +945,14 @@ export default function UsersPage() {
           )}
         </DialogContent>
       </Dialog>
+
+      <BulkUploadUsersDialog
+        open={bulkUploadOpen}
+        onOpenChange={setBulkUploadOpen}
+        onDone={() => {
+          void fetchUsers();
+        }}
+      />
     </div>
   );
 } 

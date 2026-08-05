@@ -45,8 +45,8 @@ export type NavGroup = {
   id: string;
   label: string;
   items: NavItem[];
-  /** Start collapsed when no child route is active (Admin tools). */
-  defaultCollapsed?: boolean;
+  /** Allow collapsing this group; starts expanded so tools stay discoverable. */
+  collapsible?: boolean;
 };
 
 export const SHELL_ROLES: NavRole[] = ['Admin', 'Data Lead', 'Data Member'];
@@ -94,7 +94,7 @@ export const NAV_GROUPS: NavGroup[] = [
   {
     id: 'admin',
     label: 'Admin',
-    defaultCollapsed: true,
+    collapsible: true,
     items: [
       { href: '/admin/users', label: 'User Management', icon: Users, roles: ['Admin'] },
       { href: '/admin/schools', label: 'Schools', icon: Settings, roles: ['Admin', 'Data Lead'] },

@@ -1,0 +1,4 @@
+name,email,role,school,password,intakeSessions
+Jane Doe,jane.doe@schools.nyc.gov,Data Member,School 6,,
+John Smith,john.smith@schools.nyc.gov,Data Lead,School 8,,
+Maria Lopez,maria.lopez@schools.nyc.gov,Intake Member,School 6,,MORNING;EVENING

@@ -1349,6 +1349,25 @@ export const openApiSpec = {
         },
       },
     },
+    '/api/users/bulk-upload': {
+      post: {
+        tags: ['Users'],
+        summary: 'Bulk create users from CSV rows',
+        description:
+          'Admin-only. Creates up to 200 users. Blank passwords are auto-generated; all bulk users must change password on first sign-in.',
+        security: sessionSecurity,
+        requestBody: {
+          content: { 'application/json': { schema: jsonObject } },
+        },
+        responses: {
+          '200': {
+            description: 'Created / skipped / errors summary',
+            content: { 'application/json': { schema: jsonObject } },
+          },
+          '403': err,
+        },
+      },
+    },
     '/api/users/{id}': {
       get: {
         tags: ['Users'],

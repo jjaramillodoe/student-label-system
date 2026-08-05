@@ -100,7 +100,7 @@ export default function AppSidebar({
   const mobileTitleId = useId();
   const mobilePanelRef = useRef<HTMLElement>(null);
   const previouslyFocused = useRef<HTMLElement | null>(null);
-  /** Manual expand/collapse overrides for defaultCollapsed groups */
+  /** Manual expand/collapse for collapsible groups (default: open). */
   const [groupOpen, setGroupOpen] = useState<Record<string, boolean>>({});
 
   useEffect(() => {
@@ -155,10 +155,10 @@ export default function AppSidebar({
   }, [mobileOpen, onMobileClose]);
 
   const isGroupExpanded = (group: NavGroup) => {
-    if (!group.defaultCollapsed) return true;
+    if (!group.collapsible) return true;
     if (groupHasActiveItem(group, pathname)) return true;
     if (groupOpen[group.id] !== undefined) return groupOpen[group.id];
-    return false;
+    return true; // start open so Admin tools (User Management, etc.) stay visible
   };
 
   const toggleGroup = (groupId: string, currentlyOpen: boolean) => {
@@ -206,7 +206,7 @@ export default function AppSidebar({
       <nav className="flex-1 space-y-5 overflow-y-auto px-2 py-4" aria-label="Main">
         {groups.map((group) => {
           const expanded = railCollapsed || isGroupExpanded(group);
-          const collapsible = Boolean(group.defaultCollapsed) && !railCollapsed;
+          const collapsible = Boolean(group.collapsible) && !railCollapsed;
           const forcedOpen = groupHasActiveItem(group, pathname);
 
           return (
