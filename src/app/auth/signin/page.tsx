@@ -9,6 +9,7 @@ import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Separator } from '@/components/ui/separator';
+import { MINTLIFY_DOCS_URL } from '@/lib/docsUrl';
 
 type TenantInfo = {
   mode: string;
@@ -76,7 +77,6 @@ export default function SignIn() {
       }
 
       if (result?.ok) {
-        // Full navigation so the session cookie is sent on the next document request
         window.location.assign('/');
         return;
       }
@@ -101,50 +101,83 @@ export default function SignIn() {
   }
 
   return (
-    <div className="ui-auth-shell">
-      <div className="relative z-10 w-full max-w-[420px] ui-enter">
-        <div className="ui-soft-card px-6 py-8 sm:px-8 sm:py-9 space-y-7">
-          <div className="space-y-4 text-center">
-            <div className="flex justify-center ui-enter ui-enter-delay-1">
-              {!logoError ? (
-                <Image
-                  src="/doe-logo.png"
-                  alt="DOE Logo"
-                  width={120}
-                  height={120}
-                  className="h-20 w-auto drop-shadow-sm"
-                  priority
-                  onError={() => setLogoError(true)}
-                />
-              ) : (
-                <div className="ui-icon-mark h-16 w-16 rounded-2xl">
-                  <FileText className="h-7 w-7 text-muted-foreground" />
-                </div>
-              )}
-            </div>
-            {logoError && (
-              <p className="text-xs text-muted-foreground">
-                DOE logo not found. Add <code className="text-xs bg-muted px-1 py-0.5 rounded">public/doe-logo.png</code> for branding.
-              </p>
+    <div className="signin-root">
+      <aside className="signin-brand">
+        <div className="signin-label-rail" aria-hidden="true">
+          <span style={{ top: '18%', right: '42%' }}>Label archive</span>
+          <span style={{ top: '48%', right: '18%' }}>Cabinet · Drawer</span>
+        </div>
+
+        <div className="relative z-10 space-y-8">
+          <div className="signin-rise flex items-center gap-3">
+            {!logoError ? (
+              <Image
+                src="/doe-logo.png"
+                alt="DOE Logo"
+                width={56}
+                height={56}
+                className="h-12 w-auto sm:h-14"
+                priority
+                onError={() => setLogoError(true)}
+              />
+            ) : (
+              <div className="flex h-12 w-12 items-center justify-center rounded-xl border border-black/10 bg-white/50 dark:border-white/10 dark:bg-white/5">
+                <FileText className="h-5 w-5 text-muted-foreground" />
+              </div>
             )}
-            <div className="space-y-2 ui-enter ui-enter-delay-2">
-              <p className="ui-eyebrow">NYC Adult Education</p>
-              <h1 className="ui-page-title text-[1.75rem] sm:text-[2rem]">
-                Student Label System
-              </h1>
-              <p className="ui-page-desc mx-auto text-center">
-                Sign in with your DOE email{azureEnabled ? ' or Microsoft SSO' : ' and password'}
+            <div className="text-left leading-tight">
+              <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[hsl(var(--signin-ink-soft))]">
+                Department of Education
               </p>
-              {tenant?.mode === 'school' && tenant.school && (
-                <div className="inline-flex items-center gap-1.5 rounded-full border border-primary/20 bg-primary/5 px-3 py-1 text-sm font-medium text-primary">
-                  <Building2 className="h-3.5 w-3.5" />
-                  {tenant.school.name}
-                </div>
-              )}
+              <p className="text-sm font-medium text-[hsl(var(--signin-ink))]">
+                New York City
+              </p>
             </div>
           </div>
 
-          <div className="space-y-5 ui-enter ui-enter-delay-3">
+          <div className="max-w-xl space-y-4">
+            <p className="signin-brand-kicker signin-rise signin-rise-delay-1">
+              NYC Adult Education
+            </p>
+            <h1 className="signin-brand-title signin-rise signin-rise-delay-2">
+              Student Label System
+            </h1>
+            <p className="signin-rise signin-rise-delay-3 max-w-md text-base leading-relaxed text-[hsl(var(--signin-ink-soft))] sm:text-lg">
+              Sign in to manage student labels, cabinets, and intake for Adult Education programs.
+            </p>
+          </div>
+        </div>
+
+        <div className="relative z-10 mt-10 hidden max-w-md space-y-1 text-sm text-[hsl(var(--signin-ink-soft))] lg:block">
+          <p className="font-medium text-[hsl(var(--signin-ink))]">For DOE staff</p>
+          <p>Use your schools.nyc.gov account. Contact your Data Lead if you need access.</p>
+        </div>
+      </aside>
+
+      <main className="signin-panel signin-panel-in">
+        <div className="mx-auto w-full max-w-[400px] space-y-7">
+          <div className="space-y-2">
+            <h2 className="text-2xl font-semibold tracking-tight text-foreground">
+              Sign in
+            </h2>
+            <p className="text-sm text-muted-foreground">
+              DOE email{azureEnabled ? ' or Microsoft SSO' : ' and password'}
+              {tenant?.mode === 'school' && tenant.school ? (
+                <>
+                  {' '}for{' '}
+                  <span className="font-medium text-foreground">{tenant.school.name}</span>
+                </>
+              ) : null}
+            </p>
+            {tenant?.mode === 'school' && tenant.school && (
+              <div className="flex items-center gap-2 border-l-2 border-[hsl(var(--signin-sky))] pl-3 text-sm text-muted-foreground">
+                <Building2 className="h-3.5 w-3.5 shrink-0 text-[hsl(var(--signin-sky))]" />
+                <span>School portal · {tenant.school.name}</span>
+              </div>
+            )}
+          </div>
+
+          <div className="space-y-5">
             {tenant?.mode === 'unknown' && (
               <Alert variant="destructive">
                 <AlertCircle className="h-4 w-4" />
@@ -155,12 +188,13 @@ export default function SignIn() {
                 </AlertDescription>
               </Alert>
             )}
+
             {azureEnabled && (
               <div className="space-y-3">
                 <Button
                   type="button"
                   variant="outline"
-                  className="w-full gap-2 h-11"
+                  className="h-11 w-full gap-2"
                   size="lg"
                   disabled={ssoLoading || isLoading}
                   onClick={handleMicrosoftSignIn}
@@ -179,7 +213,7 @@ export default function SignIn() {
                 </Button>
                 <div className="relative py-1">
                   <Separator />
-                  <span className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 bg-card px-2.5 text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
+                  <span className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 bg-[hsl(var(--signin-paper))] px-2.5 text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
                     or email
                   </span>
                 </div>
@@ -191,7 +225,7 @@ export default function SignIn() {
                 <div className="space-y-1.5">
                   <Label htmlFor="email">Email address</Label>
                   <div className="relative">
-                    <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                    <Mail className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                     <Input
                       id="email"
                       name="email"
@@ -204,8 +238,8 @@ export default function SignIn() {
                         setMfaRequired(false);
                         setMfaCode('');
                       }}
-                      placeholder="Enter your email"
-                      className="pl-10 h-11"
+                      placeholder="name@schools.nyc.gov"
+                      className="h-11 pl-10"
                       disabled={isLoading || ssoLoading}
                     />
                   </div>
@@ -214,7 +248,7 @@ export default function SignIn() {
                 <div className="space-y-1.5">
                   <Label htmlFor="password">Password</Label>
                   <div className="relative">
-                    <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                    <Lock className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                     <Input
                       id="password"
                       name="password"
@@ -228,7 +262,7 @@ export default function SignIn() {
                         setMfaCode('');
                       }}
                       placeholder="Enter your password"
-                      className="pl-10 pr-10 h-11"
+                      className="h-11 pl-10 pr-10"
                       disabled={isLoading || ssoLoading}
                     />
                     <Button
@@ -238,6 +272,7 @@ export default function SignIn() {
                       className="absolute right-0 top-0 h-full px-3 hover:bg-transparent"
                       onClick={() => setShowPassword(!showPassword)}
                       disabled={isLoading || ssoLoading}
+                      aria-label={showPassword ? 'Hide password' : 'Show password'}
                     >
                       {showPassword ? (
                         <EyeOff className="h-4 w-4 text-muted-foreground" />
@@ -280,7 +315,7 @@ export default function SignIn() {
 
               <Button
                 type="submit"
-                className="w-full h-11"
+                className="h-11 w-full"
                 disabled={isLoading || ssoLoading}
                 size="lg"
               >
@@ -295,8 +330,22 @@ export default function SignIn() {
               </Button>
             </form>
           </div>
+
+          <p className="text-center text-xs leading-relaxed text-muted-foreground">
+            Need help?{' '}
+            <a
+              href={MINTLIFY_DOCS_URL}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="underline underline-offset-2 hover:text-foreground"
+            >
+              Documentation
+            </a>
+            <span className="mx-1.5 text-border">·</span>
+            © {new Date().getFullYear()} NYC DOE Adult Education
+          </p>
         </div>
-      </div>
+      </main>
     </div>
   );
 }

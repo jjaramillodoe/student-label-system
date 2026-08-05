@@ -72,7 +72,8 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   // Fullscreen / kiosk-style routes keep their own chrome
   if (!useShell) {
     const hideFooter =
-      pathname.startsWith('/intake')
+      pathname.startsWith('/auth')
+      || pathname.startsWith('/intake')
       || pathname.startsWith('/student')
       || pathname.startsWith('/archive');
     return (
