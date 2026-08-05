@@ -24,6 +24,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
+import { readApiJson } from '@/lib/apiClient';
 
 type QueueStudent = {
   _id: string;
@@ -77,7 +78,7 @@ export default function UnassignedStudentsPage() {
 
     try {
       const res = await fetch('/api/admin/unassigned-students');
-      const response = await res.json();
+      const response = await readApiJson<QueueResponse & { error?: string }>(res);
 
       if (!res.ok) {
         throw new Error(response.error || 'Failed to load unassigned student queue');
