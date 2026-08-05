@@ -3,8 +3,9 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
-import { AlertCircle, Building2, CheckCircle2, Edit2, Loader2, Plus, RefreshCw, Trash2, DatabaseZap } from 'lucide-react';
+import { AlertCircle, Building2, CheckCircle2, Edit2, Loader2, Plus, RefreshCw, Trash2, DatabaseZap, FileSpreadsheet } from 'lucide-react';
 import PageIntro from '@/components/PageIntro';
+import ImportPrincipalsDialog from '@/components/ImportPrincipalsDialog';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -44,6 +45,7 @@ export default function SchoolsPage() {
   const [success, setSuccess] = useState('');
   const [migrating, setMigrating] = useState(false);
   const [migrateResult, setMigrateResult] = useState<{ updated: number; skipped?: number; message: string } | null>(null);
+  const [importPrincipalsOpen, setImportPrincipalsOpen] = useState(false);
 
   const userRole = (session?.user as { role?: string })?.role;
   const isAdmin = userRole === 'Admin';
@@ -171,6 +173,14 @@ export default function SchoolsPage() {
               </Button>
               {isAdmin && (
                 <>
+                  <Button
+                    variant="outline"
+                    onClick={() => setImportPrincipalsOpen(true)}
+                    title="Import principal/AP CSV and optionally copy School 8 intake settings"
+                  >
+                    <FileSpreadsheet className="mr-2 h-4 w-4" />
+                    Import Principals
+                  </Button>
                   <Button
                     variant="outline"
                     onClick={handleMigrateStudentIds}
@@ -345,6 +355,16 @@ export default function SchoolsPage() {
             </Table>
           </CardContent>
         </Card>
+
+        <ImportPrincipalsDialog
+          open={importPrincipalsOpen}
+          onOpenChange={setImportPrincipalsOpen}
+          templateSchool="School 8"
+          onDone={() => {
+            void fetchSchools();
+            setSuccess('Principals import finished. Schools refreshed.');
+          }}
+        />
     </div>
   );
 }
