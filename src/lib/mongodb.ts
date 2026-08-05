@@ -1,10 +1,14 @@
 import { MongoClient, type MongoClientOptions } from 'mongodb';
 
-const uri = process.env.MONGODB_URI;
-
-if (!uri) {
-  throw new Error('Please add your Mongo URI to .env.local');
+function requireMongoUri(): string {
+  const uri = process.env.MONGODB_URI;
+  if (!uri) {
+    throw new Error('Please add your Mongo URI to .env.local');
+  }
+  return uri;
 }
+
+const uri = requireMongoUri();
 
 const options: MongoClientOptions = {
   // Fail faster than the driver default (30s) so API routes can surface errors cleanly
