@@ -1,6 +1,8 @@
 'use client';
 
+import { useEffect } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 import { ArrowLeft, BarChart3 } from 'lucide-react';
 import ThoughtSpotEnrollmentLiveboard from '@/components/ThoughtSpotEnrollmentLiveboard';
@@ -13,8 +15,19 @@ const thoughtSpotHost = process.env.NEXT_PUBLIC_THOUGHTSPOT_HOST;
 const liveboardId = process.env.NEXT_PUBLIC_THOUGHTSPOT_ENROLLMENT_LIVEBOARD_ID;
 
 export default function ThoughtSpotAnalyticsPage() {
-  const { status } = useSession();
+  const { data: session, status } = useSession();
+  const router = useRouter();
+  const role = session?.user?.role ?? '';
   const isConfigured = Boolean(thoughtSpotHost && liveboardId);
+
+  useEffect(() => {
+    if (status === 'unauthenticated') router.replace('/auth/signin');
+    if (status === 'authenticated' && role !== 'Admin') router.replace('/');
+  }, [status, role, router]);
+
+  if (status === 'loading' || (status === 'authenticated' && role !== 'Admin')) {
+    return null;
+  }
 
   return (
     <div className="w-full space-y-6 p-6">
@@ -33,7 +46,7 @@ export default function ThoughtSpotAnalyticsPage() {
           </h1>
           <p className="mt-2 text-muted-foreground">
             ThoughtSpot Liveboard for enrollment trends, intake volume, and school comparisons.
-            Non-admin users see data scoped to their school automatically.
+            Admin-only district view.
           </p>
         </div>
       </div>
@@ -60,7 +73,7 @@ export default function ThoughtSpotAnalyticsPage() {
             </p>
           </AlertDescription>
         </Alert>
-      ) : status === 'loading' ? null : (
+      ) : (
         <Card>
           <CardHeader>
             <CardTitle>Enrollment Liveboard</CardTitle>

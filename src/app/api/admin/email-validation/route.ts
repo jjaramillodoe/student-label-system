@@ -32,7 +32,7 @@ export async function GET(req: NextRequest) {
   const session = await getServerSession(authOptions);
   const role  = (session?.user as any)?.role;
   const school = (session?.user as any)?.school;
-  if (!session || !['Admin', 'Data Lead'].includes(role)) {
+  if (!session || role !== 'Admin') {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
 
@@ -73,7 +73,7 @@ export async function POST(req: NextRequest) {
   const session = await getServerSession(authOptions);
   const role   = (session?.user as any)?.role;
   const school = (session?.user as any)?.school;
-  if (!session || !['Admin', 'Data Lead'].includes(role)) {
+  if (!session || role !== 'Admin') {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
 

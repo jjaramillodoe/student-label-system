@@ -14,7 +14,7 @@ const API_KEY  = process.env.EMAIL_VALIDATION_API_KEY ?? '';
 export async function GET() {
   const session = await getServerSession(authOptions);
   const role = (session?.user as any)?.role;
-  if (!session || !['Admin', 'Data Lead'].includes(role)) {
+  if (!session || role !== 'Admin') {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
 

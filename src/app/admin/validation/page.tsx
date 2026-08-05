@@ -162,7 +162,7 @@ export default function ValidationPage() {
 
   useEffect(() => {
     if (authStatus === 'unauthenticated') router.replace('/admin');
-    if (authStatus === 'authenticated' && !['Admin', 'Data Lead'].includes(role)) router.replace('/admin');
+    if (authStatus === 'authenticated' && role !== 'Admin') router.replace('/');
   }, [authStatus, role, router]);
 
   // ── Load jobs ──────────────────────────────────────────────────────────────

@@ -42,7 +42,7 @@ export async function POST() {
   const session = await getServerSession(authOptions);
   const role    = (session?.user as any)?.role;
   const school  = (session?.user as any)?.school;
-  if (!session || !['Admin', 'Data Lead'].includes(role)) {
+  if (!session || role !== 'Admin') {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
 

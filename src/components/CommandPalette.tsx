@@ -21,6 +21,7 @@ import {
   Printer,
   Search,
   Settings,
+  ShieldCheck,
   Sparkles,
   TrendingUp,
   Upload,
@@ -130,7 +131,8 @@ export default function CommandPalette() {
       { id: 'schoolyear', label: 'School Year', group: 'Admin', href: '/admin/school-year', icon: CalendarRange, show: isAdminOrDataLead },
       { id: 'cleanup', label: 'Data Cleanup', group: 'Admin', href: '/admin/data-cleanup', icon: Sparkles, show: isAdminOrDataLead },
       { id: 'audit', label: 'Audit Log', group: 'Admin', href: '/audit', icon: List, show: isAdminOrDataLead },
-      { id: 'thoughtspot', label: 'ThoughtSpot Analytics', group: 'Admin', href: '/admin/thoughtspot-analytics', icon: LineChart, show: isAdminOrDataLead },
+      { id: 'thoughtspot', label: 'ThoughtSpot Analytics', group: 'Admin', href: '/admin/thoughtspot-analytics', icon: LineChart, show: isAdmin },
+      { id: 'validation', label: 'Email Validation', group: 'Admin', href: '/admin/validation', icon: ShieldCheck, show: isAdmin },
       { id: 'docs', label: 'In-app guide', group: 'Help', href: '/docs', icon: BookOpen, show: true },
       {
         id: 'mintlify',

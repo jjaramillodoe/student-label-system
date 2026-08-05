@@ -26,7 +26,7 @@ const roleGuides = [
     scope: 'Assigned school',
     color: 'bg-violet-50 border-violet-200 dark:bg-violet-950/20',
     badge: 'secondary' as const,
-    notes: 'Manage school data, cabinets, bulk imports, duplicate review, sibling confirmation, unassigned queue, bulk move, enrollment dashboard, email validation, school settings, school year rollover, archive boxes, and cleanup tools.',
+    notes: 'Manage school data, cabinets, bulk imports, duplicate review, sibling confirmation, unassigned queue, bulk move, enrollment dashboard, school settings, school year rollover, archive boxes, and cleanup tools.',
   },
   {
     role: 'Data Member',

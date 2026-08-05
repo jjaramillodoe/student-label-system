@@ -15,6 +15,11 @@ export async function GET() {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
+  const role = (session.user as { role?: string }).role;
+  if (role !== 'Admin') {
+    return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+  }
+
   if (!isThoughtSpotConfigured()) {
     return NextResponse.json(
       {

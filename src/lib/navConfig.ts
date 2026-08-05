@@ -64,7 +64,7 @@ export const NAV_GROUPS: NavGroup[] = [
       { href: '/admin/students/bulk-upload', label: 'Bulk Upload', icon: Upload, emphasize: true },
       { href: '/admin/enrollment', label: 'Enrollment', icon: UserPlus },
       { href: '/admin/duplicates', label: 'Duplicates', icon: CopyCheck, roles: ['Admin', 'Data Lead'] },
-      { href: '/admin/validation', label: 'Email Validation', icon: ShieldCheck, roles: ['Admin', 'Data Lead'] },
+      { href: '/admin/validation', label: 'Email Validation', icon: ShieldCheck, roles: ['Admin'] },
     ],
   },
   {
@@ -94,7 +94,7 @@ export const NAV_GROUPS: NavGroup[] = [
       { href: '/admin/activity-report', label: 'Activity Report', icon: BarChart3, roles: ['Admin', 'Data Lead'] },
       { href: '/audit', label: 'Audit Log', icon: List, roles: ['Admin', 'Data Lead'] },
       { href: '/admin/data-cleanup', label: 'Data Cleanup', icon: Sparkles, roles: ['Admin', 'Data Lead'] },
-      { href: '/admin/thoughtspot-analytics', label: 'ThoughtSpot', icon: LineChart, roles: ['Admin', 'Data Lead'] },
+      { href: '/admin/thoughtspot-analytics', label: 'ThoughtSpot', icon: LineChart, roles: ['Admin'] },
       {
         href: '/admin/migrate/drawers',
         label: 'Migrate Drawers',
