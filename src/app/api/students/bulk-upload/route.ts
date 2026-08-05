@@ -220,8 +220,18 @@ function bulkUploadErrorMessage(error: unknown): string {
     return `Duplicate key conflict${key ? ` on ${key}` : ''}. Check for students already in the system.`;
   }
 
-  if (typeof err.message === 'string' && err.message.trim()) {
-    return err.message;
+  const message = typeof err.message === 'string' ? err.message : '';
+  const name = (error as { name?: string }).name || '';
+  if (
+    name === 'MongoServerSelectionError'
+    || /server selection timed out/i.test(message)
+    || /ReplicaSetNoPrimary/i.test(message)
+  ) {
+    return 'Database is temporarily unreachable (MongoDB Atlas). Wait a moment and try again — this is not a problem with your CSV.';
+  }
+
+  if (message.trim()) {
+    return message;
   }
   return 'Failed to bulk upload students';
 }
