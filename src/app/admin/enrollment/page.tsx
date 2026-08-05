@@ -6,10 +6,10 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import PageIntro from '@/components/PageIntro';
 import {
-  UserPlus, Users, CalendarDays, Clock, TrendingUp,
+  UserPlus, Users, Clock, TrendingUp,
   RefreshCw, Loader2, Search, Filter, ChevronLeft, ChevronRight,
   Medal, Award, Star, AlertTriangle, Link2,
-  ArrowLeft, ChevronDown, ChevronUp, Wrench,
+  ChevronDown, ChevronUp, Wrench,
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -226,18 +226,15 @@ function validateEnrollmentVisits(
 function IntakeFlagBadge({ flag }: { flag: IntakeVisitFlag }) {
   const style =
     flag.type === 'outside_session_window'
-      ? 'bg-sky-100 text-sky-900 border-sky-300 hover:bg-sky-100'
+      ? 'ui-badge-info'
       : flag.type === 'premature_clock_out'
-        ? 'bg-amber-100 text-amber-800 border-amber-300 hover:bg-amber-100'
-        : 'bg-rose-100 text-rose-800 border-rose-300 hover:bg-rose-100';
+        ? 'ui-badge-warning'
+        : 'ui-badge-danger';
   return (
-    <Badge
-      title={flag.message}
-      className={`text-[10px] px-1.5 py-0 gap-1 ${style}`}
-    >
+    <span title={flag.message} className={`${style} text-[10px]`}>
       <AlertTriangle className="h-2.5 w-2.5 shrink-0" />
       {INTAKE_FLAG_LABELS[flag.type]}
-    </Badge>
+    </span>
   );
 }
 
@@ -469,17 +466,16 @@ export default function EnrollmentPage() {
   };
 
   const METRIC_CARDS = metrics ? [
-    { label: 'Today', value: metrics.today, icon: <Clock className="h-5 w-5 text-blue-500" />, color: 'text-blue-600' },
-    { label: 'This Week', value: metrics.week, icon: <CalendarDays className="h-5 w-5 text-violet-500" />, color: 'text-violet-600' },
-    { label: 'This Month', value: metrics.month, icon: <TrendingUp className="h-5 w-5 text-emerald-500" />, color: 'text-emerald-600' },
-    { label: 'All Time', value: metrics.all, icon: <Users className="h-5 w-5 text-orange-500" />, color: 'text-orange-600' },
+    { label: 'Today', value: metrics.today },
+    { label: 'This Week', value: metrics.week },
+    { label: 'This Month', value: metrics.month },
+    { label: 'All Time', value: metrics.all },
   ] : [];
 
   const maxStaffCount = Math.max(...staff.map(s => s.count), 1);
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-muted/30 via-background to-background">
-      <main className="w-full px-4 sm:px-6 py-6 space-y-6">
+    <div className="w-full space-y-6">
 
         {canFix && (
           <IntakeIssuesBanner
@@ -490,18 +486,13 @@ export default function EnrollmentPage() {
 
         <PageIntro
           eyebrow="Students"
-          title="Enrollment Dashboard"
+          title="Enrollments"
           description={
             isAdmin
-              ? 'Track student registrations by staff member, time period, and school.'
+              ? 'Search registrations, review intake time, and filter by staff or school.'
               : `Search and review enrollments for ${school || 'your school'}.`
           }
           icon={<UserPlus className="h-5 w-5 text-primary" />}
-          back={
-            <Button variant="ghost" size="sm" onClick={() => router.back()} className="-ml-2 w-fit text-muted-foreground">
-              <ArrowLeft className="mr-2 h-4 w-4" /> Back to Dashboard
-            </Button>
-          }
           actions={
             <>
               {isAdmin && (
@@ -526,73 +517,49 @@ export default function EnrollmentPage() {
           </div>
         )}
 
-        {/* ── Metric cards ── */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+        {/* ── Registration counts ── */}
+        <div className="flex flex-wrap gap-x-8 gap-y-3 rounded-lg border border-border bg-muted/30 px-4 py-3">
           {loading && !metrics
-            ? Array.from({ length: 4 }).map((_, i) => (
-              <Card key={i}><CardContent className="pt-6"><Skeleton className="h-16 w-full" /></CardContent></Card>
-            ))
+            ? Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-10 w-20" />)
             : METRIC_CARDS.map(m => (
-              <Card key={m.label} className="hover:shadow-md transition-shadow">
-                <CardContent className="pt-5 pb-4">
-                  <div className="flex items-start justify-between">
-                    <div>
-                      <p className="text-xs text-muted-foreground font-medium uppercase tracking-wide">{m.label}</p>
-                      <p className={`text-3xl font-bold mt-1 ${m.color}`}>{m.value.toLocaleString()}</p>
-                    </div>
-                    <div className="p-2 rounded-lg bg-muted/50">{m.icon}</div>
-                  </div>
-                </CardContent>
-              </Card>
-            ))
-          }
+              <div key={m.label}>
+                <p className="text-[11px] uppercase tracking-wide text-muted-foreground">{m.label}</p>
+                <p className="text-xl font-semibold tabular-nums tracking-tight">{m.value.toLocaleString()}</p>
+              </div>
+            ))}
         </div>
 
         {/* ── Intake time summary ── */}
         {intakeTime && (
           <div className="space-y-3">
-          <div className="rounded-lg border border-blue-200 bg-blue-50/80 dark:bg-blue-950/30 dark:border-blue-800 px-4 py-3 text-sm text-blue-900 dark:text-blue-100">
-            <p className="font-medium flex items-center gap-2">
-              <Clock className="h-4 w-4" />
-              EPE Clock — half-hour rounding
-            </p>
-              <p className="text-xs mt-1 text-blue-800/90 dark:text-blue-200/90">
-                Times and durations use EPE rules: :00–:14 → :00, :15–:44 → :30, :45–:59 → next hour.
-                Hover a rounded time to see the actual clock entry.                 Rows with multiple same-day activities are flagged for early Time Out, missing final
-                clock-out, or Time In/Out outside the school&apos;s configured intake session hours.
+            <div className="rounded-lg border border-border bg-muted/40 px-4 py-3 text-sm">
+              <p className="font-medium flex items-center gap-2 text-foreground">
+                <Clock className="h-4 w-4 text-muted-foreground" />
+                EPE Clock — half-hour rounding
               </p>
-          </div>
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            <Card className="border-primary/30 bg-primary/5">
-              <CardContent className="pt-5 pb-4 flex items-start justify-between">
-                <div>
-                  <p className="text-xs text-muted-foreground font-medium uppercase tracking-wide">Total Intake Time</p>
-                  <p className="text-3xl font-bold mt-1 text-primary">{fmtTotalHM(intakeTime.totalMinutes)}</p>
-                  <p className="text-[11px] text-muted-foreground mt-0.5">{intakeTime.totalMinutes.toLocaleString()} minutes total</p>
-                </div>
-                <div className="p-2 rounded-lg bg-muted/50"><Clock className="h-5 w-5 text-primary" /></div>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardContent className="pt-5 pb-4 flex items-start justify-between">
-                <div>
-                  <p className="text-xs text-muted-foreground font-medium uppercase tracking-wide">Avg per Student</p>
-                  <p className="text-3xl font-bold mt-1">{fmtTotalHM(intakeTime.avgMinutes)}</p>
-                  <p className="text-[11px] text-muted-foreground mt-0.5">{intakeTime.avgMinutes} min · across all visits</p>
-                </div>
-                <div className="p-2 rounded-lg bg-muted/50"><TrendingUp className="h-5 w-5 text-emerald-500" /></div>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardContent className="pt-5 pb-4 flex items-start justify-between">
-                <div>
-                  <p className="text-xs text-muted-foreground font-medium uppercase tracking-wide">Total Visits</p>
-                  <p className="text-3xl font-bold mt-1">{intakeTime.visits.toLocaleString()}</p>
-                  <p className="text-[11px] text-muted-foreground mt-0.5">{intakeTime.sessions.toLocaleString()} students with time logged</p>
-                </div>
-                <div className="p-2 rounded-lg bg-muted/50"><CalendarDays className="h-5 w-5 text-violet-500" /></div>
-              </CardContent>
-            </Card>
+              <p className="text-xs mt-1 text-muted-foreground">
+                Times and durations use EPE rules: :00–:14 → :00, :15–:44 → :30, :45–:59 → next hour.
+                Hover a rounded time to see the actual clock entry. Rows with multiple same-day activities
+                are flagged for early Time Out, missing final clock-out, or Time In/Out outside the
+                school&apos;s configured intake session hours.
+              </p>
+            </div>
+            <div className="flex flex-wrap gap-x-8 gap-y-3 rounded-lg border border-border px-4 py-3">
+              <div>
+                <p className="text-[11px] uppercase tracking-wide text-muted-foreground">Total intake time</p>
+                <p className="text-xl font-semibold tabular-nums tracking-tight">{fmtTotalHM(intakeTime.totalMinutes)}</p>
+                <p className="text-[11px] text-muted-foreground">{intakeTime.totalMinutes.toLocaleString()} minutes</p>
+              </div>
+              <div>
+                <p className="text-[11px] uppercase tracking-wide text-muted-foreground">Avg per student</p>
+                <p className="text-xl font-semibold tabular-nums tracking-tight">{fmtTotalHM(intakeTime.avgMinutes)}</p>
+                <p className="text-[11px] text-muted-foreground">{intakeTime.avgMinutes} min · all visits</p>
+              </div>
+              <div>
+                <p className="text-[11px] uppercase tracking-wide text-muted-foreground">Total visits</p>
+                <p className="text-xl font-semibold tabular-nums tracking-tight">{intakeTime.visits.toLocaleString()}</p>
+                <p className="text-[11px] text-muted-foreground">{intakeTime.sessions.toLocaleString()} students with time logged</p>
+              </div>
             </div>
           </div>
         )}
@@ -858,13 +825,13 @@ export default function EnrollmentPage() {
                             : <span className="text-muted-foreground">—</span>}
                           {visitValidation.hasIssues && (
                             <div className="mt-1 flex flex-col items-start gap-1">
-                              <Badge
-                                className="text-[10px] px-1.5 py-0 gap-1 bg-amber-100 text-amber-800 border-amber-300 hover:bg-amber-100"
+                              <span
+                                className="ui-badge-warning text-[10px]"
                                 title={visitValidation.flags.map(f => f.message).join('\n')}
                               >
                                 <AlertTriangle className="h-2.5 w-2.5" />
                                 Intake issue
-                              </Badge>
+                              </span>
                               {canFix && visitValidation.flags.some(f =>
                                 f.type === 'premature_clock_out' || f.type === 'missing_final_clock_out',
                               ) && (
@@ -897,7 +864,7 @@ export default function EnrollmentPage() {
                         <TableCell>
                           {e.createdBy ? (
                             <div className="flex items-center gap-2">
-                              <div className="flex h-7 w-7 items-center justify-center rounded-full bg-violet-100 text-violet-700 text-[10px] font-bold shrink-0 border border-violet-200">
+                              <div className="flex h-7 w-7 items-center justify-center rounded-full bg-muted text-foreground text-[10px] font-bold shrink-0 border border-border">
                                 {initials(e.createdBy.name || e.createdBy.email)}
                               </div>
                               <div className="min-w-0">
@@ -921,14 +888,14 @@ export default function EnrollmentPage() {
                               {e.status || 'Active'}
                             </Badge>
                             {e.siblingFlag && (
-                              <Badge className="text-[10px] px-1.5 py-0.5 bg-amber-100 text-amber-700 border-amber-300 hover:bg-amber-100">
-                                <AlertTriangle className="h-2.5 w-2.5 mr-0.5" /> Flagged
-                              </Badge>
+                              <span className="ui-badge-warning text-[10px]">
+                                <AlertTriangle className="h-2.5 w-2.5" /> Flagged
+                              </span>
                             )}
                             {e.siblingConfirmed && (
-                              <Badge className="text-[10px] px-1.5 py-0.5 bg-blue-100 text-blue-700 border-blue-300 hover:bg-blue-100">
-                                <Link2 className="h-2.5 w-2.5 mr-0.5" /> Sibling
-                              </Badge>
+                              <span className="ui-badge-info text-[10px]">
+                                <Link2 className="h-2.5 w-2.5" /> Sibling
+                              </span>
                             )}
                           </div>
                         </TableCell>
@@ -997,8 +964,6 @@ export default function EnrollmentPage() {
             )}
           </CardContent>
         </Card>
-
-      </main>
 
       {fixTarget && (
         <IntakeHandoffFixDialog

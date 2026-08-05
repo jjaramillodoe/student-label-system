@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { AlertCircle, Archive, ArrowLeft, Building2, CheckCircle2, Loader2, RefreshCw, ShieldAlert, Wrench } from 'lucide-react';
+import { AlertCircle, Archive, Building2, CheckCircle2, Loader2, RefreshCw, ShieldAlert, Wrench } from 'lucide-react';
 import PageIntro from '@/components/PageIntro';
 import FixStudentAssignmentDialog from '@/components/FixStudentAssignmentDialog';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
@@ -151,21 +151,13 @@ export default function CabinetHealthPage() {
   );
 
   return (
-    <div className="w-full p-4 sm:p-6 space-y-6 bg-gradient-to-b from-muted/30 via-background to-background min-h-screen">
+    <div className="w-full space-y-6">
 
       <PageIntro
         eyebrow="Storage"
         title="Cabinet Health"
         description="Review active cabinet storage, empty drawers, over-capacity cabinets, and bad assignments. Archived cabinets use archive boxes on the Cabinets page."
         icon={<ShieldAlert className="h-5 w-5 text-primary" />}
-        back={
-          <Button variant="ghost" size="sm" asChild className="-ml-2 w-fit text-muted-foreground">
-            <Link href="/">
-              <ArrowLeft className="mr-2 h-4 w-4" />
-              Back to Dashboard
-            </Link>
-          </Button>
-        }
         actions={
           <>
             <Button variant="outline" onClick={fetchHealth} disabled={loading} className="gap-2">

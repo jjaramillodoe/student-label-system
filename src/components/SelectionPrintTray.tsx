@@ -55,7 +55,7 @@ export default function SelectionPrintTray({
         <Button
           type="button"
           size="sm"
-          className="gap-2 shrink-0 bg-purple-600 hover:bg-purple-700"
+          className="gap-2 shrink-0"
           onClick={onPrint}
         >
           <Printer className="h-4 w-4" />

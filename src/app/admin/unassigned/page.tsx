@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
-import { AlertCircle, ArrowLeft, Inbox, Loader2, RefreshCw, ShieldAlert, Wrench } from 'lucide-react';
+import { AlertCircle, Inbox, Loader2, RefreshCw, ShieldAlert, Wrench } from 'lucide-react';
 import PageIntro from '@/components/PageIntro';
 import FixStudentAssignmentDialog from '@/components/FixStudentAssignmentDialog';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
@@ -106,21 +106,13 @@ export default function UnassignedStudentsPage() {
   });
 
   return (
-    <div className="w-full p-4 sm:p-6 space-y-6 bg-gradient-to-b from-muted/30 via-background to-background min-h-screen">
+    <div className="w-full space-y-6">
 
       <PageIntro
         eyebrow="Storage"
         title="Unassigned Student Queue"
         description="Review students missing locations or assigned to invalid, full, or over-capacity drawers."
         icon={<Inbox className="h-5 w-5 text-primary" />}
-        back={
-          <Button variant="ghost" size="sm" asChild className="-ml-2 w-fit text-muted-foreground">
-            <Link href="/">
-              <ArrowLeft className="mr-2 h-4 w-4" />
-              Back to Dashboard
-            </Link>
-          </Button>
-        }
         actions={
           <>
             <Button variant="outline" onClick={fetchQueue} disabled={loading} className="gap-2">

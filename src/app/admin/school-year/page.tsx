@@ -5,12 +5,11 @@ import Link from 'next/link';
 import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import PageIntro from '@/components/PageIntro';
 import {
   AlertCircle,
-  ArrowLeft,
   ArrowRight,
   CalendarRange,
   CheckCircle2,
@@ -47,12 +46,12 @@ type RolloverData = {
 
 function StatusBadge({ status }: { status: ChecklistItem['status'] }) {
   if (status === 'complete') {
-    return <Badge className="bg-green-600 hover:bg-green-600">Ready</Badge>;
+    return <span className="ui-badge-success">Ready</span>;
   }
   if (status === 'warning') {
-    return <Badge variant="secondary">Review</Badge>;
+    return <span className="ui-badge-warning">Review</span>;
   }
-  return <Badge variant="destructive">Action needed</Badge>;
+  return <span className="ui-badge-danger">Action needed</span>;
 }
 
 export default function SchoolYearPage() {
@@ -99,31 +98,19 @@ export default function SchoolYearPage() {
   );
 
   return (
-    <div className="min-h-screen bg-background">
-      <div className="w-full p-6 space-y-6">
-        <Button variant="outline" asChild>
-          <Link href="/admin/cabinets">
-            <ArrowLeft className="mr-2 h-4 w-4" />
-            Back to Cabinets
-          </Link>
-        </Button>
-
-        <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
-          <div>
-            <h1 className="text-3xl font-bold flex items-center gap-2">
-              <CalendarRange className="h-8 w-8" />
-              School Year Rollover
-            </h1>
-            <p className="text-muted-foreground mt-1 max-w-3xl">
-              Use this checklist when closing one school year and starting the next.
-              Archive old files into boxes, then open a fresh active cabinet for new intake.
-            </p>
-          </div>
-          <Button variant="outline" onClick={load} disabled={loading} className="gap-2">
-            {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
-            Refresh
-          </Button>
-        </div>
+    <div className="w-full space-y-6">
+        <PageIntro
+          eyebrow="Storage"
+          title="School Year Rollover"
+          description="Use this checklist when closing one school year and starting the next. Archive old files into boxes, then open a fresh active cabinet for new intake."
+          icon={<CalendarRange className="h-5 w-5 text-primary" />}
+          actions={
+            <Button variant="outline" onClick={load} disabled={loading} className="gap-2">
+              {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
+              Refresh
+            </Button>
+          }
+        />
 
         {error && (
           <Alert variant="destructive">
@@ -303,7 +290,6 @@ export default function SchoolYearPage() {
             </Card>
           </>
         )}
-      </div>
     </div>
   );
 }

@@ -7,7 +7,6 @@ import PageIntro from '@/components/PageIntro';
 import {
   Users, GitMerge, CheckCheck, X, RefreshCw, Loader2,
   AlertTriangle, ChevronRight, Info, MapPin,
-  ArrowLeft,
 } from 'lucide-react';
 import {
   addressMatchHint,
@@ -88,18 +87,17 @@ function Field({ label, value }: { label: string; value?: string | null }) {
 function addressMatchBadgeClass(match?: AddressMatchKind): string {
   switch (match) {
     case 'same_verified':
-      return 'bg-green-100 text-green-800 border-green-300';
     case 'same':
     case 'similar':
-      return 'bg-emerald-50 text-emerald-800 border-emerald-300';
+      return 'ui-badge-success';
     case 'different':
-      return 'bg-sky-50 text-sky-800 border-sky-300';
+      return 'ui-badge-info';
     case 'incoming_missing':
     case 'existing_missing':
     case 'both_missing':
-      return 'bg-amber-50 text-amber-800 border-amber-300';
+      return 'ui-badge-warning';
     default:
-      return 'bg-slate-50 text-slate-600 border-slate-300';
+      return 'ui-badge-muted';
   }
 }
 
@@ -120,9 +118,7 @@ function AddressBlock({ student }: { student: Pick<StudentRecord, 'address' | 'a
         <MapPin className="h-3 w-3 shrink-0" />
         <span>Address</span>
         {student.addressValidationStatus === 'verified' && (
-          <Badge variant="outline" className="text-[9px] h-4 px-1 bg-green-50 text-green-700 border-green-300">
-            Verified
-          </Badge>
+          <span className="ui-badge-success text-[9px]">Verified</span>
         )}
       </div>
       {stacked.streetLine && (
@@ -139,13 +135,12 @@ function AddressComparisonBlock({ comparison }: { comparison: AddressComparison 
   return (
     <div className="rounded-md border border-dashed bg-muted/40 px-3 py-2.5 text-xs space-y-2">
       <div className="flex flex-wrap items-center gap-1.5">
-        <Badge
-          variant="outline"
+        <span
           title={comparison.hint || addressMatchHint(comparison.match)}
-          className={`text-[10px] ${addressMatchBadgeClass(comparison.match)}`}
+          className={`${addressMatchBadgeClass(comparison.match)} text-[10px]`}
         >
           {comparison.label || addressMatchLabel(comparison.match)}
-        </Badge>
+        </span>
         {comparison.addressDriven && (
           <Badge variant="outline" className="text-[10px]">Matched by address</Badge>
         )}
@@ -412,29 +407,21 @@ export default function DuplicatesPage() {
 
   if (status === 'loading' || loading) {
     return (
-      <div className="min-h-screen bg-background">
-        <div className="w-full p-6 space-y-4">
+      <div className="w-full space-y-4">
           {Array.from({ length: 3 }).map((_, i) => (
             <Skeleton key={i} className="h-48 w-full rounded-xl" />
           ))}
         </div>
-      </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-muted/30 via-background to-background">
-      <div className="w-full p-4 sm:p-6 space-y-6">
+    <div className="w-full space-y-6">
         <PageIntro
           eyebrow="Students"
           title="Duplicate Review"
           description="Students flagged as possible siblings or duplicates by intake staff. Review each pair and confirm, merge, or dismiss."
           icon={<Users className="h-5 w-5 text-primary" />}
-          back={
-            <Button variant="ghost" size="sm" onClick={() => router.back()} className="-ml-2 w-fit text-muted-foreground">
-              <ArrowLeft className="mr-2 h-4 w-4" /> Back to Dashboard
-            </Button>
-          }
           actions={
             <Button variant="outline" onClick={load} disabled={loading} className="gap-2">
               <RefreshCw className="h-4 w-4" /> Refresh
@@ -527,8 +514,6 @@ export default function DuplicatesPage() {
             ))}
           </div>
         )}
-
-      </div>
 
       {/* Merge dialog — pick which record to keep */}
       <Dialog open={!!mergeDialog} onOpenChange={(open) => { if (!open) setMergeDialog(null); }}>

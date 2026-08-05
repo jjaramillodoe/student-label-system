@@ -77,7 +77,7 @@ export default function StudentActionsBar({
         onClick={onPrintSelected}
         disabled={!hasSelection}
         variant="default"
-        className="gap-2 bg-purple-600 hover:bg-purple-700"
+        className="gap-2"
       >
         <Printer size={18} /> Print Selected ({selectedCount})
       </Button>

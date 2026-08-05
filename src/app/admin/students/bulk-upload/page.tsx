@@ -1,10 +1,8 @@
 "use client";
 import React, { useState, useRef } from 'react';
-import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 import { 
-  ArrowLeft, 
   Download, 
   Upload, 
   FileSpreadsheet, 
@@ -907,20 +905,12 @@ export default function BulkUploadPage() {
   }
 
   return (
-    <div className="w-full p-4 sm:p-6 space-y-6 bg-gradient-to-b from-muted/30 via-background to-background min-h-screen">
+    <div className="w-full space-y-6">
       <PageIntro
         eyebrow="Students"
         title="Bulk Upload Students"
         description="Upload a CSV file with student data. Cabinet and drawer are selected below for the whole upload."
         icon={<Upload className="h-5 w-5 text-primary" />}
-        back={
-          <Button variant="ghost" size="sm" asChild className="-ml-2 w-fit text-muted-foreground">
-            <Link href="/">
-              <ArrowLeft className="mr-2 h-4 w-4" />
-              Back to Dashboard
-            </Link>
-          </Button>
-        }
         actions={
           <>
             <Button variant="outline" onClick={() => setHelpModalOpen(true)} className="gap-2">
@@ -1088,9 +1078,9 @@ export default function BulkUploadPage() {
               <Badge variant="secondary">{preview.length} students</Badge>
               {issueCount > 0 && <Badge variant="destructive">{issueCount} issue(s)</Badge>}
               {warningCount > 0 && (
-                <Badge className="bg-amber-100 text-amber-800 border border-amber-300 hover:bg-amber-100 dark:bg-amber-900/40 dark:text-amber-300 dark:border-amber-700">
+                <span className="ui-badge-warning">
                   ⚠ {warningCount} warning{warningCount !== 1 ? 's' : ''} (duplicates / addresses)
-                </Badge>
+                </span>
               )}
             </div>
           )}

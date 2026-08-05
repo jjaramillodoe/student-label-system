@@ -776,7 +776,7 @@ function Dashboard() {
 
   return (
     <div suppressHydrationWarning>
-      <main className="w-full p-4 sm:p-6 mt-4 sm:mt-6 min-h-screen transition-colors rounded-2xl border border-border/70 bg-card/80 shadow-sm backdrop-blur-[2px]">
+      <main className="w-full space-y-6">
         <DashboardHeader
           schoolName={session?.user?.school}
           onShowPrinterConfig={() => setShowPrinterConfig(!showPrinterConfig)}
@@ -929,9 +929,9 @@ function Dashboard() {
                     <option value={100}>100</option>
                     <option value={filteredStudents.length}>All ({filteredStudents.length})</option>
                   </select>
-                  <span className="text-sm text-gray-600">per page</span>
+                  <span className="text-sm text-muted-foreground">per page</span>
                 </div>
-                <div className="text-sm text-gray-600">
+                <div className="text-sm text-muted-foreground">
                   Showing {((page - 1) * pageSize) + 1} to {Math.min(page * pageSize, filteredStudents.length)} of {filteredStudents.length} students
                 </div>
               </div>
@@ -941,14 +941,14 @@ function Dashboard() {
                   <button
                     onClick={() => setPage(1)}
                     disabled={page === 1}
-                    className="px-3 py-1 text-sm border rounded hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="px-3 py-1 text-sm border border-border rounded-md bg-background hover:bg-muted disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     First
                   </button>
                   <button
                     onClick={() => setPage(page - 1)}
                     disabled={page === 1}
-                    className="px-3 py-1 text-sm border rounded hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="px-3 py-1 text-sm border border-border rounded-md bg-background hover:bg-muted disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     Previous
                   </button>
@@ -971,10 +971,10 @@ function Dashboard() {
                         <button
                           key={pageNum}
                           onClick={() => setPage(pageNum)}
-                          className={`px-3 py-1 text-sm border rounded ${
+                          className={`px-3 py-1 text-sm border rounded-md ${
                             page === pageNum
-                              ? 'bg-blue-500 text-white border-blue-500'
-                              : 'hover:bg-gray-50'
+                              ? 'bg-primary text-primary-foreground border-primary'
+                              : 'border-border bg-background hover:bg-muted'
                           }`}
                         >
                           {pageNum}
@@ -986,14 +986,14 @@ function Dashboard() {
                   <button
                     onClick={() => setPage(page + 1)}
                     disabled={page === pageCount}
-                    className="px-3 py-1 text-sm border rounded hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="px-3 py-1 text-sm border border-border rounded-md bg-background hover:bg-muted disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     Next
                   </button>
                   <button
                     onClick={() => setPage(pageCount)}
                     disabled={page === pageCount}
-                    className="px-3 py-1 text-sm border rounded hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="px-3 py-1 text-sm border border-border rounded-md bg-background hover:bg-muted disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     Last
                   </button>

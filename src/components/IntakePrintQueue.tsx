@@ -58,7 +58,7 @@ export default function IntakePrintQueue({
         </div>
         <Button
           size="sm"
-          className="gap-2 bg-purple-600 hover:bg-purple-700 shrink-0"
+          className="gap-2 shrink-0"
           onClick={() => onSelectForPrint(ids)}
         >
           <Printer className="h-4 w-4" />

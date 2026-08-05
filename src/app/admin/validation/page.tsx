@@ -7,8 +7,8 @@ import {
   Mail, ShieldCheck, RefreshCw, Loader2, Search, CheckCircle2,
   XCircle, HelpCircle, Clock, AlertTriangle, ChevronLeft,
   ChevronRight, Play, Download, CheckCheck, Zap,
-  ArrowLeft,
 } from 'lucide-react';
+import PageIntro from '@/components/PageIntro';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -357,29 +357,34 @@ export default function ValidationPage() {
   if (authStatus === 'loading') return null;
 
   return (
-    <div className="min-h-screen bg-background">
-      <main className="w-full px-4 sm:px-6 py-6 space-y-6">
-        {/* Back button */}
-        <Button variant="outline" onClick={() => router.back()}>
-          <ArrowLeft className="mr-2 h-4 w-4" /> Back to Dashboard
-        </Button>
-
-        {/* Page header */}
-        <div className="flex items-center justify-between flex-wrap gap-3">
-          <div>
-            <h1 className="text-2xl font-bold flex items-center gap-2">
-              <ShieldCheck className="h-6 w-6 text-primary" />
-              Email Validation
-            </h1>
-            <p className="text-sm text-muted-foreground mt-1">
-              Validate student emails via EmailAwesome · {usage?.quota.toLocaleString() ?? '1,000'}/month limit
-            </p>
-          </div>
-        </div>
+    <div className="w-full space-y-6">
+        <PageIntro
+          eyebrow="Admin"
+          title="Email Validation"
+          description={`Validate student emails via EmailAwesome · ${usage?.quota.toLocaleString() ?? '1,000'}/month limit`}
+          icon={<ShieldCheck className="h-5 w-5 text-primary" />}
+          actions={
+            <div className="flex flex-wrap items-center gap-2">
+              <Button variant="outline" size="sm" onClick={handleSync} disabled={syncing || loadingJobs} className="gap-2">
+                {syncing ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
+                Sync Status
+              </Button>
+              <Button variant="outline" size="sm" onClick={handleTest} disabled={testing} className="gap-2">
+                {testing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Zap className="h-4 w-4" />}
+                Test API Connection
+              </Button>
+              {pendingApply > 0 && (
+                <Button size="sm" onClick={handleApply} disabled={applying} className="gap-2">
+                  {applying ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
+                  Apply {pendingApply} Result{pendingApply !== 1 ? 's' : ''} to Students
+                </Button>
+              )}
+            </div>
+          }
+        />
 
         {actionMsg && (
-          <Alert variant={actionMsg.type === 'error' ? 'destructive' : 'default'}
-            className={actionMsg.type === 'success' ? 'border-green-400 bg-green-50 text-green-800' : ''}>
+          <Alert variant={actionMsg.type === 'error' ? 'destructive' : 'default'}>
             <AlertDescription>{actionMsg.text}</AlertDescription>
           </Alert>
         )}
@@ -387,45 +392,25 @@ export default function ValidationPage() {
         {/* Usage meter */}
         {usage ? <UsageMeter usage={usage} /> : <Skeleton className="h-24 w-full" />}
 
-        {/* Action bar */}
-        <div className="flex items-center gap-2 flex-wrap">
-          <Button variant="outline" size="sm" onClick={handleSync} disabled={syncing || loadingJobs} className="gap-2">
-            {syncing ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
-            Sync Status
-          </Button>
-
-          <Button variant="outline" size="sm" onClick={handleTest} disabled={testing} className="gap-2 border-violet-300 text-violet-700 hover:bg-violet-50">
-            {testing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Zap className="h-4 w-4" />}
-            Test API Connection
-          </Button>
-
-          {pendingApply > 0 && (
-            <Button size="sm" onClick={handleApply} disabled={applying} className="gap-2 bg-emerald-600 hover:bg-emerald-700 text-white">
-              {applying ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
-              Apply {pendingApply} Result{pendingApply !== 1 ? 's' : ''} to Students
-            </Button>
-          )}
-
-          {inProgress > 0 && (
-            <div className="flex items-center gap-2">
-              <Badge className="gap-1 bg-amber-100 text-amber-700 border-amber-300 hover:bg-amber-100">
-                <Loader2 className="h-3 w-3 animate-spin" />
-                {inProgress} checking…
-              </Badge>
-              {pollCountdown > 0 && (
-                <span className="text-xs text-muted-foreground tabular-nums">
-                  next sync in {pollCountdown}s
-                </span>
-              )}
-            </div>
-          )}
-        </div>
+        {inProgress > 0 && (
+          <div className="flex items-center gap-2">
+            <Badge variant="outline" className="gap-1">
+              <Loader2 className="h-3 w-3 animate-spin" />
+              {inProgress} checking…
+            </Badge>
+            {pollCountdown > 0 && (
+              <span className="text-xs text-muted-foreground tabular-nums">
+                next sync in {pollCountdown}s
+              </span>
+            )}
+          </div>
+        )}
 
         {/* API test result */}
         {testResult && (
-          <Card className="border-violet-200 bg-violet-50 dark:bg-violet-950/20">
+          <Card className="border-border bg-muted/30">
             <CardHeader className="pb-2 pt-4">
-              <CardTitle className="text-sm flex items-center gap-2 text-violet-700">
+              <CardTitle className="text-sm flex items-center gap-2">
                 <Zap className="h-4 w-4" /> API Diagnostic Result
               </CardTitle>
             </CardHeader>
@@ -726,8 +711,6 @@ export default function ValidationPage() {
             </Card>
           </TabsContent>
         </Tabs>
-
-      </main>
     </div>
   );
 }

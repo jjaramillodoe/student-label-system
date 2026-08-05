@@ -3,7 +3,8 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
-import { AlertCircle, Building2, CheckCircle2, Edit2, Loader2, Plus, RefreshCw, Trash2, DatabaseZap, ArrowLeft } from 'lucide-react';
+import { AlertCircle, Building2, CheckCircle2, Edit2, Loader2, Plus, RefreshCw, Trash2, DatabaseZap } from 'lucide-react';
+import PageIntro from '@/components/PageIntro';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -145,58 +146,50 @@ export default function SchoolsPage() {
 
   if (status === 'loading' || loading) {
     return (
-      <div className="min-h-screen bg-background">
-        <div className="w-full p-6 flex items-center justify-center min-h-[50vh]">
+      <div className="w-full flex items-center justify-center min-h-[50vh]">
           <Loader2 className="h-8 w-8 animate-spin text-primary" />
         </div>
-      </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-background">
-      <div className="w-full p-6 space-y-6">
-        <Button variant="outline" onClick={() => router.back()}>
-          <ArrowLeft className="mr-2 h-4 w-4" /> Back to Dashboard
-        </Button>
-
-        <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
-          <div>
-            <h1 className="text-3xl font-bold flex items-center gap-2">
-              <Building2 className="h-8 w-8" />
-              {isDataLead ? 'School Intake Settings' : 'School Configuration'}
-            </h1>
-            <p className="text-muted-foreground mt-1">
-              {isDataLead
-                ? 'Configure intake session and activity options shown on your school\'s intake form.'
-                : 'Manage the school and program names used in user, cabinet, and seed-data workflows.'}
-            </p>
-          </div>
-          <div className="flex flex-wrap gap-2">
-            <Button variant="outline" onClick={fetchSchools}>
-              <RefreshCw className="mr-2 h-4 w-4" />
-              Refresh
-            </Button>
-            {isAdmin && (
-              <>
-                <Button
-                  variant="outline"
-                  onClick={handleMigrateStudentIds}
-                  disabled={migrating}
-                  title="Backfill labelId and new demographic studentId for existing records"
-                >
-                  {migrating
-                    ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Migrating…</>
-                    : <><DatabaseZap className="mr-2 h-4 w-4" /> Backfill Student IDs</>}
-                </Button>
-                <Button onClick={openCreatePage}>
-                  <Plus className="mr-2 h-4 w-4" />
-                  Add School/Program
-                </Button>
-              </>
-            )}
-          </div>
-        </div>
+    <div className="w-full space-y-6">
+        <PageIntro
+          eyebrow="Admin"
+          title="School Settings"
+          description={
+            isDataLead
+              ? 'Configure intake session and activity options shown on your school\'s intake form.'
+              : 'Manage the school and program names used in user, cabinet, and seed-data workflows.'
+          }
+          icon={<Building2 className="h-5 w-5 text-primary" />}
+          actions={
+            <>
+              <Button variant="outline" onClick={fetchSchools}>
+                <RefreshCw className="mr-2 h-4 w-4" />
+                Refresh
+              </Button>
+              {isAdmin && (
+                <>
+                  <Button
+                    variant="outline"
+                    onClick={handleMigrateStudentIds}
+                    disabled={migrating}
+                    title="Backfill labelId and new demographic studentId for existing records"
+                  >
+                    {migrating
+                      ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Migrating…</>
+                      : <><DatabaseZap className="mr-2 h-4 w-4" /> Backfill Student IDs</>}
+                  </Button>
+                  <Button onClick={openCreatePage}>
+                    <Plus className="mr-2 h-4 w-4" />
+                    Add School/Program
+                  </Button>
+                </>
+              )}
+            </>
+          }
+        />
 
         {error && (
           <Alert variant="destructive">
@@ -229,39 +222,23 @@ export default function SchoolsPage() {
 
         {isAdmin && (
           <>
-            <div className="grid gap-4 md:grid-cols-4">
-              <Card>
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-sm font-medium text-muted-foreground">Total Options</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="text-3xl font-bold">{stats.total}</div>
-                </CardContent>
-              </Card>
-              <Card>
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-sm font-medium text-muted-foreground">Active</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="text-3xl font-bold">{stats.active}</div>
-                </CardContent>
-              </Card>
-              <Card>
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-sm font-medium text-muted-foreground">Custom</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="text-3xl font-bold">{stats.custom}</div>
-                </CardContent>
-              </Card>
-              <Card>
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-sm font-medium text-muted-foreground">Fallback Defaults</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="text-3xl font-bold">{stats.defaultCount}</div>
-                </CardContent>
-              </Card>
+            <div className="flex flex-wrap gap-x-8 gap-y-3 rounded-lg border border-border bg-muted/30 px-4 py-3">
+              <div>
+                <p className="text-[11px] uppercase tracking-wide text-muted-foreground">Total options</p>
+                <p className="text-xl font-semibold tabular-nums tracking-tight">{stats.total}</p>
+              </div>
+              <div>
+                <p className="text-[11px] uppercase tracking-wide text-muted-foreground">Active</p>
+                <p className="text-xl font-semibold tabular-nums tracking-tight">{stats.active}</p>
+              </div>
+              <div>
+                <p className="text-[11px] uppercase tracking-wide text-muted-foreground">Custom</p>
+                <p className="text-xl font-semibold tabular-nums tracking-tight">{stats.custom}</p>
+              </div>
+              <div>
+                <p className="text-[11px] uppercase tracking-wide text-muted-foreground">Fallback defaults</p>
+                <p className="text-xl font-semibold tabular-nums tracking-tight">{stats.defaultCount}</p>
+              </div>
             </div>
 
             <Alert>
@@ -368,7 +345,6 @@ export default function SchoolsPage() {
             </Table>
           </CardContent>
         </Card>
-      </div>
     </div>
   );
 }

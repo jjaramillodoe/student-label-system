@@ -4,7 +4,6 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useSession } from 'next-auth/react';
 import Link from 'next/link';
 import {
-  ArrowLeft,
   Plus,
   Edit2,
   Trash2,
@@ -18,6 +17,7 @@ import {
   ShoppingCart,
   ExternalLink,
 } from 'lucide-react';
+import PageIntro from '@/components/PageIntro';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -397,7 +397,7 @@ export default function LabelStockPage() {
 
   if (status === 'loading') {
     return (
-      <div className="w-full p-6 space-y-6">
+      <div className="w-full space-y-6">
         <Skeleton className="h-10 w-64" />
         <Skeleton className="h-96 w-full" />
       </div>
@@ -405,55 +405,49 @@ export default function LabelStockPage() {
   }
 
   return (
-    <div className="w-full p-6 space-y-6">
+    <div className="w-full space-y-6">
 
-      <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-        <div>
-          <Link href="/">
-            <Button variant="ghost" size="sm" className="mb-4">
-              <ArrowLeft className="mr-2 h-4 w-4" />
-              Back to Dashboard
+      <PageIntro
+        eyebrow="Print"
+        title="Label Stock"
+        description="Track sheets (Avery) and labels (Brother), restock quickly, and plan reorders."
+        icon={<Package className="h-5 w-5 text-primary" />}
+        actions={
+          <>
+            {isAdmin && (
+              <Select
+                value={schoolFilter || 'all'}
+                onValueChange={(v) => setSchoolFilter(v === 'all' ? '' : v)}
+              >
+                <SelectTrigger className="w-[200px]">
+                  <SelectValue placeholder="All schools" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All schools</SelectItem>
+                  {schools.map((s) => (
+                    <SelectItem key={s.name} value={s.name}>
+                      {s.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
+            <Button variant="outline" asChild>
+              <Link href="/admin/print-queue">View Print Queue</Link>
             </Button>
-          </Link>
-          <h1 className="text-3xl font-bold text-foreground">Label Stock Management</h1>
-          <p className="text-muted-foreground mt-2">
-            Track sheets (Avery) and labels (Brother), restock quickly, and plan reorders
-          </p>
-        </div>
-        <div className="flex flex-wrap gap-2">
-          {isAdmin && (
-            <Select
-              value={schoolFilter || 'all'}
-              onValueChange={(v) => setSchoolFilter(v === 'all' ? '' : v)}
-            >
-              <SelectTrigger className="w-[200px]">
-                <SelectValue placeholder="All schools" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All schools</SelectItem>
-                {schools.map((s) => (
-                  <SelectItem key={s.name} value={s.name}>
-                    {s.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          )}
-          <Button variant="outline" asChild>
-            <Link href="/admin/print-queue">View Print Queue</Link>
-          </Button>
-          <Button variant="outline" asChild>
-            <a href={exportHref}>
-              <Download className="h-4 w-4 mr-2" />
-              Export CSV
-            </a>
-          </Button>
-          <Button onClick={openAddDialog} className="gap-2">
-            <Plus className="h-4 w-4" />
-            Add Stock Entry
-          </Button>
-        </div>
-      </div>
+            <Button variant="outline" asChild>
+              <a href={exportHref}>
+                <Download className="h-4 w-4 mr-2" />
+                Export CSV
+              </a>
+            </Button>
+            <Button onClick={openAddDialog} className="gap-2">
+              <Plus className="h-4 w-4" />
+              Add Stock Entry
+            </Button>
+          </>
+        }
+      />
 
       <Separator />
 

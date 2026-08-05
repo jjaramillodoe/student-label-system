@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
-import { ArrowLeft, User, Mail, Building2, Shield, Calendar, Save, Loader2, KeyRound } from 'lucide-react';
+import { User, Mail, Building2, Shield, Calendar, Save, Loader2, KeyRound } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -13,7 +13,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Separator } from '@/components/ui/separator';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import Link from 'next/link';
+import PageIntro from '@/components/PageIntro';
 import { QRCodeSVG } from 'qrcode.react';
 
 export default function ProfilePage() {
@@ -222,7 +222,7 @@ export default function ProfilePage() {
 
   if (status === 'loading' || loading) {
     return (
-      <div className="max-w-4xl mx-auto p-6 space-y-6">
+      <div className="w-full max-w-4xl space-y-6">
         <Skeleton className="h-10 w-64" />
         <Skeleton className="h-96 w-full" />
       </div>
@@ -234,31 +234,18 @@ export default function ProfilePage() {
   }
 
   return (
-    <div className="max-w-4xl mx-auto p-6 space-y-6">
-        {/* Header */}
-        <div className="flex items-center justify-between">
-          <div>
-            <Link href="/">
-              <Button variant="ghost" size="sm" className="mb-4">
-                <ArrowLeft className="mr-2 h-4 w-4" />
-                Back to Dashboard
-              </Button>
-            </Link>
-            <h1 className="text-3xl font-bold text-foreground">My Profile</h1>
-            <p className="text-muted-foreground mt-2">
-              View and manage your account information
-            </p>
-          </div>
-        </div>
-
-        <Separator />
+    <div className="w-full max-w-4xl space-y-6">
+        <PageIntro
+          eyebrow="Account"
+          title="My Profile"
+          description="View and manage your account information"
+          icon={<User className="h-5 w-5 text-primary" />}
+        />
 
         {/* Success/Error Messages */}
         {success && (
-          <Alert className="border-green-200 bg-green-50 dark:bg-green-900/20">
-            <AlertDescription className="text-green-800 dark:text-green-200">
-              {success}
-            </AlertDescription>
+          <Alert>
+            <AlertDescription>{success}</AlertDescription>
           </Alert>
         )}
         {error && (

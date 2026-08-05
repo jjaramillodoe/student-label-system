@@ -7,6 +7,7 @@ import {
   AlertTriangle, Download, ExternalLink, Loader2, Mail, MailCheck, MailQuestion, MailX,
   MapPin, Pencil, RefreshCw, Search, Users, X,
 } from 'lucide-react';
+import PageIntro from '@/components/PageIntro';
 import StudentAddressEditDialog, { type StudentAddressRecord } from '@/components/StudentAddressEditDialog';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
@@ -129,31 +130,31 @@ function AddressStatusBadge({ status }: { status?: string }) {
     return <span className="text-muted-foreground text-xs">—</span>;
   }
   const map: Record<string, { label: string; className: string }> = {
-    verified:   { label: 'Verified',   className: 'bg-green-100 text-green-700 border-green-300' },
-    warning:    { label: 'Warning',    className: 'bg-amber-100 text-amber-700 border-amber-300' },
-    not_found:  { label: 'Not found',  className: 'bg-red-100 text-red-700 border-red-300' },
-    unverified: { label: 'Unverified', className: 'bg-slate-100 text-slate-600 border-slate-300' },
-    error:      { label: 'Error',      className: 'bg-red-100 text-red-700 border-red-300' },
+    verified:   { label: 'Verified',   className: 'ui-badge-success' },
+    warning:    { label: 'Warning',    className: 'ui-badge-warning' },
+    not_found:  { label: 'Not found',  className: 'ui-badge-danger' },
+    unverified: { label: 'Unverified', className: 'ui-badge-muted' },
+    error:      { label: 'Error',      className: 'ui-badge-danger' },
   };
   const cfg = map[status];
-  if (!cfg) return <Badge variant="outline" className="text-xs">{status}</Badge>;
-  return <Badge variant="outline" className={`text-xs ${cfg.className}`}>{cfg.label}</Badge>;
+  if (!cfg) return <span className="ui-badge-muted">{status}</span>;
+  return <span className={cfg.className}>{cfg.label}</span>;
 }
 
 function EmailStatusBadge({ status }: { status?: string }) {
   if (!status) return <span className="text-muted-foreground text-xs">—</span>;
   const map: Record<string, { label: string; className: string; icon: React.ReactNode }> = {
-    VALID:     { label: 'Valid',     className: 'bg-green-100 text-green-700 border-green-300',  icon: <MailCheck  className="h-3 w-3" /> },
-    INVALID:   { label: 'Invalid',   className: 'bg-red-100 text-red-700 border-red-300',        icon: <MailX      className="h-3 w-3" /> },
-    CATCH_ALL: { label: 'Catch-all', className: 'bg-amber-100 text-amber-700 border-amber-300',  icon: <Mail       className="h-3 w-3" /> },
-    UNKNOWN:   { label: 'Unknown',   className: 'bg-gray-100 text-gray-600 border-gray-300',     icon: <MailQuestion className="h-3 w-3" /> },
+    VALID:     { label: 'Valid',     className: 'ui-badge-success', icon: <MailCheck  className="h-3 w-3" /> },
+    INVALID:   { label: 'Invalid',   className: 'ui-badge-danger',  icon: <MailX      className="h-3 w-3" /> },
+    CATCH_ALL: { label: 'Catch-all', className: 'ui-badge-warning', icon: <Mail       className="h-3 w-3" /> },
+    UNKNOWN:   { label: 'Unknown',   className: 'ui-badge-muted',   icon: <MailQuestion className="h-3 w-3" /> },
   };
   const cfg = map[status];
-  if (!cfg) return <Badge variant="outline" className="text-xs">{status}</Badge>;
+  if (!cfg) return <span className="ui-badge-muted">{status}</span>;
   return (
-    <Badge variant="outline" className={`gap-1 text-xs ${cfg.className}`}>
+    <span className={cfg.className}>
       {cfg.icon}{cfg.label}
-    </Badge>
+    </span>
   );
 }
 
@@ -401,47 +402,46 @@ export default function AllStudentsPage() {
   const end   = Math.min(page * limit, total);
 
   return (
-    <div className="min-h-screen bg-background">
-      <main className="w-full px-4 sm:px-6 py-6 space-y-5">
+    <div className="w-full space-y-6">
 
-        {/* Header */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-          <div>
-            <h1 className="text-2xl font-bold flex items-center gap-2">
-              <Users className="h-6 w-6 text-primary" />
-              All Students
-            </h1>
-            <p className="text-sm text-muted-foreground mt-0.5">
+        <PageIntro
+          eyebrow="Students"
+          title="All Students"
+          description={
+            <>
               Browse, verify addresses, and export student records for mailings.
               {!isAdmin && ' Showing students for your school only.'}
-            </p>
-          </div>
-          <div className="flex gap-2">
-            <Button variant="outline" size="sm" onClick={fetchStudents} disabled={loading} className="gap-2">
-              <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
-              Refresh
-            </Button>
-            <Button
-              variant="outline"
-              onClick={() => handleExport('needs_review')}
-              disabled={exporting || loading}
-              className="gap-2"
-            >
-              {exporting
-                ? <Loader2 className="h-4 w-4 animate-spin" />
-                : <Download className="h-4 w-4" />
-              }
-              Export issues
-            </Button>
-            <Button onClick={() => handleExport()} disabled={exporting || loading} className="gap-2">
-              {exporting
-                ? <Loader2 className="h-4 w-4 animate-spin" />
-                : <Download className="h-4 w-4" />
-              }
-              Export CSV
-            </Button>
-          </div>
-        </div>
+            </>
+          }
+          icon={<Users className="h-5 w-5 text-primary" />}
+          actions={
+            <>
+              <Button variant="outline" size="sm" onClick={fetchStudents} disabled={loading} className="gap-2">
+                <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
+                Refresh
+              </Button>
+              <Button
+                variant="outline"
+                onClick={() => handleExport('needs_review')}
+                disabled={exporting || loading}
+                className="gap-2"
+              >
+                {exporting
+                  ? <Loader2 className="h-4 w-4 animate-spin" />
+                  : <Download className="h-4 w-4" />
+                }
+                Export issues
+              </Button>
+              <Button onClick={() => handleExport()} disabled={exporting || loading} className="gap-2">
+                {exporting
+                  ? <Loader2 className="h-4 w-4 animate-spin" />
+                  : <Download className="h-4 w-4" />
+                }
+                Export CSV
+              </Button>
+            </>
+          }
+        />
 
         {error && (
           <Alert variant="destructive">
@@ -529,10 +529,10 @@ export default function AllStudentsPage() {
               <div>
                 <p className="font-medium text-foreground text-xs mb-1">Status meanings</p>
                 <ul className="space-y-1 text-xs">
-                  <li><Badge variant="outline" className="text-[10px] bg-green-100 text-green-700 border-green-300 mr-1">Verified</Badge> NYC Geoclient matched the address</li>
-                  <li><Badge variant="outline" className="text-[10px] bg-amber-100 text-amber-700 border-amber-300 mr-1">Warning</Badge> Matched with issues — review the standardized line</li>
-                  <li><Badge variant="outline" className="text-[10px] bg-red-100 text-red-700 border-red-300 mr-1">Not found</Badge> No NYC match — fix street, borough, or ZIP</li>
-                  <li><Badge variant="outline" className="text-[10px] bg-slate-100 text-slate-600 border-slate-300 mr-1">Unverified</Badge> Address on file but not checked yet</li>
+                  <li><span className="ui-badge-success text-[10px] mr-1">Verified</span> NYC Geoclient matched the address</li>
+                  <li><span className="ui-badge-warning text-[10px] mr-1">Warning</span> Matched with issues — review the standardized line</li>
+                  <li><span className="ui-badge-danger text-[10px] mr-1">Not found</span> No NYC match — fix street, borough, or ZIP</li>
+                  <li><span className="ui-badge-muted text-[10px] mr-1">Unverified</span> Address on file but not checked yet</li>
                 </ul>
               </div>
               <div>
@@ -722,7 +722,7 @@ export default function AllStudentsPage() {
                         {formatFullName(s) || '—'}
                       </div>
                       {s.siblingConfirmed && (
-                        <Badge variant="outline" className="text-[10px] mt-0.5 bg-purple-50 text-purple-700 border-purple-200">
+                        <Badge variant="outline" className="text-[10px] mt-0.5 bg-muted text-muted-foreground">
                           Sibling
                         </Badge>
                       )}
@@ -875,7 +875,6 @@ export default function AllStudentsPage() {
           }}
         />
 
-      </main>
     </div>
   );
 }

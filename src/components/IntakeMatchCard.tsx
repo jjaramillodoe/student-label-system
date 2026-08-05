@@ -17,13 +17,13 @@ function addressMatchBadgeClass(kind: string): string {
   switch (kind) {
     case 'same_verified':
     case 'same':
-      return 'border-green-400 text-green-800 bg-green-50 dark:text-green-300';
+      return 'ui-badge-success';
     case 'similar':
-      return 'border-amber-400 text-amber-800 bg-amber-50 dark:text-amber-300';
+      return 'ui-badge-warning';
     case 'different':
-      return 'border-sky-400 text-sky-800 bg-sky-50 dark:text-sky-300';
+      return 'ui-badge-info';
     default:
-      return '';
+      return 'ui-badge-muted';
   }
 }
 
@@ -80,10 +80,10 @@ export function IntakeArchivedBadge({ student }: { student: IntakeMatchStudent }
     );
   }
   return (
-    <Badge className="text-[10px] bg-amber-600 hover:bg-amber-600 text-white gap-1">
+    <span className="ui-badge-warning text-[10px]">
       <Archive className="h-3 w-3" />
       Archived
-    </Badge>
+    </span>
   );
 }
 
@@ -169,13 +169,12 @@ export default function IntakeMatchCard({
       {student._addressMatch && (
         <div className="text-xs space-y-1 border-t border-dashed pt-2 mt-2">
           <div className="flex flex-wrap items-center gap-1.5">
-            <Badge
-              variant="outline"
+            <span
               title={addressMatchHint(student._addressMatch as AddressMatchKind)}
-              className={`text-[10px] ${addressMatchBadgeClass(student._addressMatch)}`}
+              className={`${addressMatchBadgeClass(student._addressMatch)} text-[10px]`}
             >
               {addressMatchLabel(student._addressMatch as AddressMatchKind)}
-            </Badge>
+            </span>
             {student._addressExistingVerified && (
               <span className="text-[10px] text-muted-foreground">NYC verified on file</span>
             )}

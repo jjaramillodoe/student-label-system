@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import SchoolConfigForm, { type SchoolFormState } from '@/components/SchoolConfigForm';
+import PageIntro from '@/components/PageIntro';
 import { AlertCircle, ArrowLeft, Building2, Loader2 } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
@@ -73,31 +74,26 @@ export default function NewSchoolPage() {
 
   if (status === 'loading') {
     return (
-      <div className="min-h-screen bg-background">
-        <div className="w-full p-6 flex items-center justify-center min-h-[50vh]">
-          <Loader2 className="h-8 w-8 animate-spin text-primary" />
-        </div>
+      <div className="w-full flex items-center justify-center min-h-[50vh]">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-background">
-      <div className="w-full max-w-4xl mx-auto p-6 space-y-6">
-        <Button variant="outline" onClick={() => router.push('/admin/schools')}>
-          <ArrowLeft className="mr-2 h-4 w-4" />
-          Back to schools
-        </Button>
-
-        <div className="space-y-1">
-          <h1 className="text-3xl font-bold flex items-center gap-2">
-            <Building2 className="h-8 w-8" />
-            Add School/Program
-          </h1>
-          <p className="text-muted-foreground">
-            Create a school or program option for new assignments.
-          </p>
-        </div>
+    <div className="w-full max-w-4xl mx-auto space-y-6">
+        <PageIntro
+          eyebrow="Admin"
+          title="Add School/Program"
+          description="Create a school or program option for new assignments."
+          icon={<Building2 className="h-5 w-5 text-primary" />}
+          back={
+            <Button variant="ghost" size="sm" onClick={() => router.push('/admin/schools')} className="-ml-2 w-fit text-muted-foreground">
+              <ArrowLeft className="mr-2 h-4 w-4" />
+              Back to schools
+            </Button>
+          }
+        />
 
         {error && (
           <Alert variant="destructive">
@@ -125,7 +121,6 @@ export default function NewSchoolPage() {
             />
           </CardContent>
         </Card>
-      </div>
     </div>
   );
 }

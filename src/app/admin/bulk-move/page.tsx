@@ -1,8 +1,8 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import Link from 'next/link';
-import { AlertCircle, ArrowLeft, ArrowRightLeft, CheckCircle2, Loader2, RefreshCw, Search } from 'lucide-react';
+import { AlertCircle, ArrowRightLeft, CheckCircle2, Loader2, RefreshCw, Search } from 'lucide-react';
+import PageIntro from '@/components/PageIntro';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -167,26 +167,20 @@ export default function BulkMovePage() {
   const canMove = selectedIds.length > 0 && targetCabinetId && targetDrawerId && selectedIds.length <= targetAvailable;
 
   return (
-    <div className="w-full p-6 space-y-6">
+    <div className="w-full space-y-6">
 
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div>
-          <Button variant="ghost" size="sm" asChild className="mb-2">
-            <Link href="/">
-              <ArrowLeft className="mr-2 h-4 w-4" />
-              Back to Dashboard
-            </Link>
+      <PageIntro
+        eyebrow="Storage"
+        title="Bulk Move Students"
+        description="Select students and move them to a target cabinet/drawer with capacity validation."
+        icon={<ArrowRightLeft className="h-5 w-5 text-primary" />}
+        actions={
+          <Button variant="outline" onClick={fetchContext} disabled={loading || moving} className="gap-2">
+            {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
+            Refresh
           </Button>
-          <h1 className="text-3xl font-bold text-foreground">Bulk Move Students</h1>
-          <p className="text-muted-foreground mt-1">
-            Select students and move them to a target cabinet/drawer with capacity validation.
-          </p>
-        </div>
-        <Button variant="outline" onClick={fetchContext} disabled={loading || moving} className="gap-2">
-          {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
-          Refresh
-        </Button>
-      </div>
+        }
+      />
 
       {error && (
         <Alert variant="destructive">

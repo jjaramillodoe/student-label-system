@@ -21,8 +21,10 @@ import {
   ClipboardList,
   FileText,
   BookOpen,
+  ExternalLink,
   type LucideIcon,
 } from 'lucide-react';
+import { MINTLIFY_DOCS_URL } from '@/lib/docsUrl';
 
 export type NavRole = 'Admin' | 'Data Lead' | 'Data Member' | 'Intake Member' | string;
 
@@ -35,12 +37,16 @@ export type NavItem = {
   /** Requires app setting showMigrateDrawers */
   requiresMigrateDrawers?: boolean;
   emphasize?: boolean;
+  /** Open in a new tab (external docs, etc.) */
+  external?: boolean;
 };
 
 export type NavGroup = {
   id: string;
   label: string;
   items: NavItem[];
+  /** Start collapsed when no child route is active (Admin tools). */
+  defaultCollapsed?: boolean;
 };
 
 export const SHELL_ROLES: NavRole[] = ['Admin', 'Data Lead', 'Data Member'];
@@ -88,6 +94,7 @@ export const NAV_GROUPS: NavGroup[] = [
   {
     id: 'admin',
     label: 'Admin',
+    defaultCollapsed: true,
     items: [
       { href: '/admin/users', label: 'User Management', icon: Users, roles: ['Admin'] },
       { href: '/admin/schools', label: 'Schools', icon: Settings, roles: ['Admin', 'Data Lead'] },
@@ -110,6 +117,7 @@ export const NAV_GROUPS: NavGroup[] = [
     label: 'Help',
     items: [
       { href: '/docs', label: 'In-app guide', icon: BookOpen },
+      { href: MINTLIFY_DOCS_URL, label: 'Full docs', icon: ExternalLink, external: true },
     ],
   },
 ];

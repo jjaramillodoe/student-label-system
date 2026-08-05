@@ -17,29 +17,21 @@ const roleGuides = [
   {
     role: 'Admin',
     scope: 'All schools',
-    color: 'bg-red-50 border-red-200 dark:bg-red-950/20',
-    badge: 'destructive' as const,
     notes: 'Full access: user management, security recovery, school & agency ID configuration, all cabinets, all students, enrollment dashboard, email validation, school year rollover, archive boxes, reports, cleanup, and system migration tools.',
   },
   {
     role: 'Data Lead',
     scope: 'Assigned school',
-    color: 'bg-violet-50 border-violet-200 dark:bg-violet-950/20',
-    badge: 'secondary' as const,
     notes: 'Manage school data, cabinets, bulk imports, duplicate review, sibling confirmation, unassigned queue, bulk move, enrollment dashboard, school settings, school year rollover, archive boxes, and cleanup tools.',
   },
   {
     role: 'Data Member',
     scope: 'Assigned school',
-    color: 'bg-blue-50 border-blue-200 dark:bg-blue-950/20',
-    badge: 'secondary' as const,
     notes: 'Add, edit, search, print, and export student records for their assigned school. Print Avery 5163 / 94205 via Download Word Doc on Letter.',
   },
   {
     role: 'Intake Member',
     scope: 'Assigned school',
-    color: 'bg-green-50 border-green-200 dark:bg-green-950/20',
-    badge: 'secondary' as const,
     notes: 'Access only the Intake Form. Register new and returning students, run live duplicate checks, flag potential siblings, and review a success summary after save. Labels are printed later in batches from the Dashboard (Word Doc). Cannot access the main dashboard or admin tools.',
     isNew: true,
   },
@@ -299,7 +291,7 @@ export default function DocsPage() {
                 <Link href="/docs/api">API Reference (Swagger)</Link>
               </Button>
               <Button variant="outline" asChild>
-                <Link href="/">Back to Dashboard</Link>
+                <Link href="/">Back to app</Link>
               </Button>
             </div>
           </div>
@@ -312,12 +304,12 @@ export default function DocsPage() {
           </h2>
           <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
             {roleGuides.map(r => (
-              <Card key={r.role} className={`border ${r.color}`}>
+              <Card key={r.role}>
                 <CardHeader className="pb-2">
                   <CardTitle className="flex items-center justify-between gap-2 text-base">
                     {r.role}
                     <div className="flex items-center gap-1">
-                      {r.isNew && <Badge className="text-[10px] px-1.5 py-0.5 bg-green-100 text-green-700 border-green-300">New</Badge>}
+                      {r.isNew && <span className="ui-badge-success text-[10px]">New</span>}
                       <Badge variant="outline" className="text-xs">{r.scope}</Badge>
                     </div>
                   </CardTitle>
@@ -344,7 +336,7 @@ export default function DocsPage() {
                     <CardTitle className="flex items-center gap-2 text-base">
                       <Icon className="h-5 w-5 text-primary" />
                       {group.title}
-                      {group.isNew && <Badge className="text-[10px] px-1.5 py-0.5 bg-green-100 text-green-700 border-green-300 ml-1">New</Badge>}
+                      {group.isNew && <span className="ui-badge-success text-[10px] ml-1">New</span>}
                     </CardTitle>
                     <CardDescription>{group.description}</CardDescription>
                   </CardHeader>
@@ -599,7 +591,7 @@ address, apt, city, state, zip`}
                   <Link href={link.href}>
                     <Icon className="h-4 w-4 shrink-0" />
                     <span className="flex-1 text-left">{link.label}</span>
-                    {link.isNew && <Badge className="text-[10px] px-1 py-0 bg-green-100 text-green-700 border-green-300">New</Badge>}
+                    {link.isNew && <span className="ui-badge-success text-[10px]">New</span>}
                   </Link>
                 </Button>
               );

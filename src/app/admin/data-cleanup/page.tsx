@@ -6,7 +6,6 @@ import { useRouter } from 'next/navigation';
 import {
   AlertTriangle,
   Archive,
-  ArrowLeft,
   CalendarX,
   CheckCircle2,
   Loader2,
@@ -15,6 +14,7 @@ import {
   Sparkles,
   Wrench,
 } from 'lucide-react';
+import PageIntro from '@/components/PageIntro';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -239,38 +239,26 @@ export default function DataCleanupPage() {
 
   if (status === 'loading' || loading) {
     return (
-      <div className="min-h-screen bg-background">
-        <div className="w-full p-6 flex items-center justify-center min-h-[50vh]">
+      <div className="w-full flex items-center justify-center min-h-[50vh]">
           <Loader2 className="h-8 w-8 animate-spin text-primary" />
         </div>
-      </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-background">
-      <div className="w-full p-6 space-y-6">
-        {/* Back button */}
-        <Button variant="outline" onClick={() => router.back()}>
-          <ArrowLeft className="mr-2 h-4 w-4" /> Back to Dashboard
-        </Button>
-
-        {/* Page header */}
-        <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
-          <div>
-            <h1 className="text-3xl font-bold flex items-center gap-2">
-              <Sparkles className="h-8 w-8" />
-              Data Cleanup Center
-            </h1>
-            <p className="text-muted-foreground mt-1">
-              Find invalid emails, missing dates, stale inactive records, and archived students still assigned to drawers.
-            </p>
-          </div>
-          <Button variant="outline" onClick={fetchCleanupData}>
-            <RefreshCw className="mr-2 h-4 w-4" />
-            Rescan
-          </Button>
-        </div>
+    <div className="w-full space-y-6">
+        <PageIntro
+          eyebrow="Admin"
+          title="Data Cleanup Center"
+          description="Find invalid emails, missing dates, stale inactive records, and archived students still assigned to drawers."
+          icon={<Sparkles className="h-5 w-5 text-primary" />}
+          actions={
+            <Button variant="outline" onClick={fetchCleanupData}>
+              <RefreshCw className="mr-2 h-4 w-4" />
+              Rescan
+            </Button>
+          }
+        />
 
         {error && (
           <Alert variant="destructive">
@@ -293,31 +281,23 @@ export default function DataCleanupPage() {
           </Alert>
         )}
 
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5">
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">Students Scanned</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-3xl font-bold">{data.summary.scanned}</div>
-              <p className="text-xs text-muted-foreground">{data.summary.totalIssues} total issue(s)</p>
-            </CardContent>
-          </Card>
-          {issueCards.map(card => {
+        <div className="flex flex-wrap gap-x-8 gap-y-3 rounded-lg border border-border bg-muted/30 px-4 py-3">
+          <div>
+            <p className="text-[11px] uppercase tracking-wide text-muted-foreground">Students scanned</p>
+            <p className="text-xl font-semibold tabular-nums tracking-tight">{data.summary.scanned}</p>
+            <p className="text-[11px] text-muted-foreground">{data.summary.totalIssues} total issue(s)</p>
+          </div>
+          {issueCards.map((card) => {
             const Icon = card.icon;
             return (
-              <Card key={card.label}>
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
-                    <Icon className="h-4 w-4" />
-                    {card.label}
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="text-3xl font-bold">{card.value}</div>
-                  <p className="text-xs text-muted-foreground">{card.description}</p>
-                </CardContent>
-              </Card>
+              <div key={card.label}>
+                <p className="text-[11px] uppercase tracking-wide text-muted-foreground flex items-center gap-1">
+                  <Icon className="h-3 w-3" />
+                  {card.label}
+                </p>
+                <p className="text-xl font-semibold tabular-nums tracking-tight">{card.value}</p>
+                <p className="text-[11px] text-muted-foreground max-w-[12rem]">{card.description}</p>
+              </div>
             );
           })}
         </div>
@@ -402,7 +382,6 @@ export default function DataCleanupPage() {
             <StudentIssueTable students={data.archivedAssigned} />
           </CardContent>
         </Card>
-      </div>
     </div>
   );
 }

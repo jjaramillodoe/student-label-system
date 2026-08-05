@@ -2,9 +2,7 @@
 
 import { useState, useEffect, useMemo } from 'react';
 import { useSession } from 'next-auth/react';
-import Link from 'next/link';
 import { 
-  ArrowLeft, 
   Search, 
   Filter, 
   Download, 
@@ -18,8 +16,10 @@ import {
   RefreshCw,
   AlertCircle,
   CheckCircle2,
-  X
+  X,
+  List,
 } from 'lucide-react';
+import PageIntro from '@/components/PageIntro';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -81,13 +81,13 @@ const ACTION_ICONS: Record<string, any> = {
 };
 
 const ACTION_COLORS: Record<string, string> = {
-  'Add Student': 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200',
-  'Edit Student': 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200',
-  'Delete Student': 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200',
-  'Bulk Archive': 'bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200',
-  'Bulk Update': 'bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200',
-  'Archive Student': 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200',
-  'Restore Student': 'bg-cyan-100 text-cyan-800 dark:bg-cyan-900 dark:text-cyan-200',
+  'Add Student': 'ui-badge-success',
+  'Edit Student': 'ui-badge-info',
+  'Delete Student': 'ui-badge-danger',
+  'Bulk Archive': 'ui-badge-warning',
+  'Bulk Update': 'ui-badge-info',
+  'Archive Student': 'ui-badge-warning',
+  'Restore Student': 'ui-badge-muted',
 };
 
 export default function AuditLogPage() {
@@ -253,7 +253,7 @@ export default function AuditLogPage() {
 
   if (status === 'loading') {
     return (
-      <div className="w-full p-6 space-y-6">
+      <div className="w-full space-y-6">
         <Skeleton className="h-10 w-64" />
         <Skeleton className="h-96 w-full" />
       </div>
@@ -262,7 +262,7 @@ export default function AuditLogPage() {
 
   if (status === 'unauthenticated') {
     return (
-      <div className="w-full p-6">
+      <div className="w-full">
         <Alert variant="destructive">
           <AlertCircle className="h-4 w-4" />
           <AlertDescription>You must be logged in to view audit logs.</AlertDescription>
@@ -272,35 +272,25 @@ export default function AuditLogPage() {
   }
 
   return (
-    <div className="w-full p-6 space-y-6">
-      
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <Link href="/">
-            <Button variant="ghost" size="sm" className="mb-4">
-              <ArrowLeft className="mr-2 h-4 w-4" />
-              Back to Dashboard
+    <div className="w-full space-y-6">
+      <PageIntro
+        eyebrow="Admin"
+        title="Audit Log"
+        description="Track all system actions and changes"
+        icon={<List className="h-5 w-5 text-primary" />}
+        actions={
+          <>
+            <Button onClick={fetchLogs} variant="outline" className="gap-2">
+              <RefreshCw className="h-4 w-4" />
+              Refresh
             </Button>
-          </Link>
-          <h1 className="text-3xl font-bold text-foreground">Audit Log</h1>
-          <p className="text-muted-foreground mt-2">
-            Track all system actions and changes
-          </p>
-        </div>
-        <div className="flex gap-2">
-          <Button onClick={fetchLogs} variant="outline" className="gap-2">
-            <RefreshCw className="h-4 w-4" />
-            Refresh
-          </Button>
-          <Button onClick={exportToCSV} variant="outline" className="gap-2">
-            <Download className="h-4 w-4" />
-            Export CSV
-          </Button>
-        </div>
-      </div>
-
-      <Separator />
+            <Button onClick={exportToCSV} variant="outline" className="gap-2">
+              <Download className="h-4 w-4" />
+              Export CSV
+            </Button>
+          </>
+        }
+      />
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <Card>
@@ -500,7 +490,7 @@ export default function AuditLogPage() {
                 <TableBody>
                   {filteredLogs.map((log, idx) => {
                     const ActionIcon = ACTION_ICONS[log.action] || FileText;
-                    const actionColor = ACTION_COLORS[log.action] || 'bg-gray-100 text-gray-800';
+                    const actionColor = ACTION_COLORS[log.action] || 'ui-badge-muted';
                     const isBulk = Array.isArray(log.student);
 
                     return (
@@ -509,10 +499,10 @@ export default function AuditLogPage() {
                           {new Date(log.time).toLocaleString()}
                         </TableCell>
                         <TableCell>
-                          <Badge className={actionColor}>
-                            <ActionIcon className="h-3 w-3 mr-1" />
+                          <span className={actionColor}>
+                            <ActionIcon className="h-3 w-3" />
                             {log.action}
-                          </Badge>
+                          </span>
                         </TableCell>
                         <TableCell>
                           {log.user ? (
@@ -606,9 +596,9 @@ export default function AuditLogPage() {
                 <div>
                   <Label className="text-sm font-semibold">Action</Label>
                   <div className="mt-1">
-                    <Badge className={ACTION_COLORS[selectedLog.action] || 'bg-gray-100'}>
+                    <span className={ACTION_COLORS[selectedLog.action] || 'ui-badge-muted'}>
                       {selectedLog.action}
-                    </Badge>
+                    </span>
                   </div>
                 </div>
                 <div>

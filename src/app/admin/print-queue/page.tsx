@@ -9,7 +9,6 @@ import { getStoredPrintLayout, setStoredPrintLayout } from '@/lib/printLayoutSto
 import { formatFullName } from '@/lib/personName';
 import {
   AlertCircle,
-  ArrowLeft,
   CheckCircle2,
   Download,
   FileText,
@@ -285,28 +284,20 @@ export default function PrintQueuePage() {
 
   if (status === 'loading' || loading) {
     return (
-      <div className="min-h-screen bg-background">
-        <div className="w-full p-6 flex items-center justify-center min-h-[50vh]">
+      <div className="w-full flex items-center justify-center min-h-[50vh]">
           <Loader2 className="h-8 w-8 animate-spin text-primary" />
         </div>
-      </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-muted/30 via-background to-background">
-      <div className="w-full p-4 sm:p-6 space-y-6">
+    <div className="w-full space-y-6">
         <PageIntro
           className="print:hidden"
           eyebrow="Print"
           title="Label Print Queue"
           description="Review print history, reprint jobs, and monitor label stock usage."
           icon={<Printer className="h-5 w-5 text-primary" />}
-          back={
-            <Button variant="ghost" size="sm" onClick={() => router.back()} className="-ml-2 w-fit text-muted-foreground">
-              <ArrowLeft className="mr-2 h-4 w-4" /> Back to Dashboard
-            </Button>
-          }
           actions={
             <>
               <Button variant="outline" onClick={fetchData} className="gap-2">
@@ -337,47 +328,31 @@ export default function PrintQueuePage() {
           </Alert>
         )}
 
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4 print:hidden">
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">Print Jobs</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-3xl font-bold">{stats.totalJobs}</div>
-              <p className="text-xs text-muted-foreground">Recent history loaded</p>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">Labels Printed</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-3xl font-bold">{stats.labels}</div>
-              <p className="text-xs text-muted-foreground">Across loaded jobs</p>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">Estimated Sheets Used</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-3xl font-bold">{stats.sheets}</div>
-              <p className="text-xs text-muted-foreground">Based on label layout</p>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">Last Printed</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-sm font-semibold truncate">
-                {stats.latest ? formatDateTime(stats.latest.time) : 'None'}
-              </div>
-              <p className="text-xs text-muted-foreground">
-                {stats.latest ? `${getStudentCount(stats.latest)} label(s)` : 'No print jobs yet'}
-              </p>
-            </CardContent>
-          </Card>
+        <div className="flex flex-wrap gap-x-8 gap-y-3 rounded-lg border border-border bg-muted/30 px-4 py-3 print:hidden">
+          <div>
+            <p className="text-[11px] uppercase tracking-wide text-muted-foreground">Print jobs</p>
+            <p className="text-xl font-semibold tabular-nums tracking-tight">{stats.totalJobs}</p>
+            <p className="text-[11px] text-muted-foreground">Recent history loaded</p>
+          </div>
+          <div>
+            <p className="text-[11px] uppercase tracking-wide text-muted-foreground">Labels printed</p>
+            <p className="text-xl font-semibold tabular-nums tracking-tight">{stats.labels}</p>
+            <p className="text-[11px] text-muted-foreground">Across loaded jobs</p>
+          </div>
+          <div>
+            <p className="text-[11px] uppercase tracking-wide text-muted-foreground">Est. sheets</p>
+            <p className="text-xl font-semibold tabular-nums tracking-tight">{stats.sheets}</p>
+            <p className="text-[11px] text-muted-foreground">Based on label layout</p>
+          </div>
+          <div className="min-w-0">
+            <p className="text-[11px] uppercase tracking-wide text-muted-foreground">Last printed</p>
+            <p className="text-sm font-semibold truncate">
+              {stats.latest ? formatDateTime(stats.latest.time) : 'None'}
+            </p>
+            <p className="text-[11px] text-muted-foreground">
+              {stats.latest ? `${getStudentCount(stats.latest)} label(s)` : 'No print jobs yet'}
+            </p>
+          </div>
         </div>
 
         <Card className="print:hidden">
@@ -578,7 +553,6 @@ export default function PrintQueuePage() {
             )}
           </CardContent>
         </Card>
-      </div>
 
       {reprintJob && (
         <PrintView

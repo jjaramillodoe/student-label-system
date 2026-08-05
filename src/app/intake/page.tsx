@@ -221,12 +221,12 @@ function IntakeMemberGuide() {
           id="intake-member-guide-print"
           className={`pt-0 space-y-5 text-sm ${open ? '' : 'hidden print:block'}`}
         >
-          <div className="rounded-md border border-emerald-300/80 bg-emerald-50/80 dark:bg-emerald-950/30 dark:border-emerald-800/70 px-3 py-3 space-y-2">
-            <p className="font-semibold text-xs text-emerald-900 dark:text-emerald-100 flex items-center gap-1.5">
-              <Languages className="h-3.5 w-3.5" />
+          <div className="rounded-md border border-border bg-muted/40 px-3 py-3 space-y-2">
+            <p className="font-semibold text-xs text-foreground flex items-center gap-1.5">
+              <Languages className="h-3.5 w-3.5 text-muted-foreground" />
               Tip: use Translate when the student needs another language
             </p>
-            <ol className="list-decimal list-inside space-y-1 text-xs text-emerald-900/90 dark:text-emerald-100/90 leading-relaxed">
+            <ol className="list-decimal list-inside space-y-1 text-xs text-muted-foreground leading-relaxed">
               <li>
                 Look at the top-right of this page for the <strong>Translate</strong> dropdown
                 (language icon).
@@ -328,22 +328,6 @@ function IntakeMemberGuide() {
       `}</style>
     </Card>
   );
-}
-
-function addressMatchBadgeClass(match?: AddressMatchKind): string {
-  switch (match) {
-    case 'same_verified':
-      return 'bg-green-100 text-green-800 border-green-300';
-    case 'same':
-    case 'similar':
-      return 'bg-emerald-50 text-emerald-800 border-emerald-300';
-    case 'different':
-      return 'bg-sky-50 text-sky-800 border-sky-300';
-    case 'incoming_missing':
-      return 'bg-amber-50 text-amber-800 border-amber-300';
-    default:
-      return 'bg-slate-50 text-slate-600 border-slate-300';
-  }
 }
 
 function ReturningVisitHistory({ visits }: { visits: any[] }) {
@@ -1433,8 +1417,8 @@ export default function IntakePage() {
             )}
             <div className="flex flex-col items-end gap-0.5">
               <GoogleTranslate />
-              <p className="hidden lg:block text-[10px] text-emerald-700 dark:text-emerald-400 max-w-[14rem] text-right leading-tight">
-                Student needs another language? Pick it here, turn the screen toward them, then switch back to English.
+              <p className="hidden lg:block text-[10px] text-muted-foreground max-w-[14rem] text-right leading-tight">
+                Translate for the student, then switch back to English.
               </p>
             </div>
             <span className="text-sm text-muted-foreground hidden md:inline truncate max-w-[10rem]">
@@ -1472,23 +1456,6 @@ export default function IntakePage() {
 
           {/* ── REGISTER TAB ─────────────────────────────── */}
           <TabsContent value="register" className="space-y-6 mt-0">
-
-        <Alert className="border-emerald-300 bg-emerald-50/90 dark:bg-emerald-950/30 dark:border-emerald-800 print:hidden">
-          <Languages className="h-4 w-4 text-emerald-700 dark:text-emerald-400" />
-          <AlertTitle className="text-emerald-900 dark:text-emerald-100 text-sm">
-            Translate tip for multilingual students
-          </AlertTitle>
-          <AlertDescription className="text-emerald-900/90 dark:text-emerald-100/90 text-xs space-y-1">
-            <p>
-              Many students are more comfortable in another language. Use the <strong>Translate</strong> control
-              at the top right: pick their language, turn the screen toward them so they can follow the form,
-              then set it back to <strong>English</strong> when you are done.
-            </p>
-            <p className="text-emerald-800/80 dark:text-emerald-200/80">
-              Full steps are also in the Intake member guide below — use <strong>Print / PDF</strong> to keep a desk copy.
-            </p>
-          </AlertDescription>
-        </Alert>
 
         <IntakeMemberGuide />
 
@@ -1702,10 +1669,10 @@ export default function IntakePage() {
 
           {/* Optional school lookup for non-NEW statuses */}
           {form.intakeStudentStatus !== 'NEW' && (
-            <Card className="border-sky-200 dark:border-sky-900 bg-sky-50/40 dark:bg-sky-950/20">
+            <Card>
               <CardHeader className="pb-3">
-                <CardTitle className="text-sm flex items-center gap-2 text-sky-900 dark:text-sky-200">
-                  <Users className="h-4 w-4" />
+                <CardTitle className="text-sm flex items-center gap-2">
+                  <Users className="h-4 w-4 text-muted-foreground" />
                   Check school records
                 </CardTitle>
                 <CardDescription className="text-xs">
@@ -3362,27 +3329,19 @@ function HistoryPanel({
           <div className="flex items-center gap-1.5">
             <button
               onClick={() => onFilterChange('today')}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium border transition-colors ${
-                filter === 'today'
-                  ? 'bg-primary text-primary-foreground border-primary'
-                  : 'bg-background border-border text-muted-foreground hover:border-primary/50'
-              }`}
+              className={`ui-chip ${filter === 'today' ? 'ui-chip-active' : ''}`}
             >
               <Clock className="h-3.5 w-3.5" /> Today
-              <span className={`ml-1 text-xs rounded-full px-1.5 py-0.5 ${filter === 'today' ? 'bg-primary-foreground/20 text-primary-foreground' : 'bg-muted text-muted-foreground'}`}>
+              <span className={`text-[10px] tabular-nums px-1.5 py-0.5 rounded ${filter === 'today' ? 'bg-primary-foreground/20' : 'bg-muted'}`}>
                 {todayCount}
               </span>
             </button>
             <button
               onClick={() => onFilterChange('week')}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium border transition-colors ${
-                filter === 'week'
-                  ? 'bg-primary text-primary-foreground border-primary'
-                  : 'bg-background border-border text-muted-foreground hover:border-primary/50'
-              }`}
+              className={`ui-chip ${filter === 'week' ? 'ui-chip-active' : ''}`}
             >
               <CalendarDays className="h-3.5 w-3.5" /> This Week
-              <span className={`ml-1 text-xs rounded-full px-1.5 py-0.5 ${filter === 'week' ? 'bg-primary-foreground/20 text-primary-foreground' : 'bg-muted text-muted-foreground'}`}>
+              <span className={`text-[10px] tabular-nums px-1.5 py-0.5 rounded ${filter === 'week' ? 'bg-primary-foreground/20' : 'bg-muted'}`}>
                 {weekCount}
               </span>
             </button>
@@ -3390,24 +3349,16 @@ function HistoryPanel({
 
           {/* Scope filter — only Data Leads / Admins see the toggle */}
           {canViewAll && (
-            <div className="flex items-center gap-1 rounded-full border border-border bg-muted/40 p-0.5">
+            <div className="flex items-center gap-0.5 rounded-md border border-border bg-muted/40 p-0.5">
               <button
                 onClick={() => onScopeChange('mine')}
-                className={`flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium transition-colors ${
-                  scope === 'mine'
-                    ? 'bg-background shadow-sm text-foreground'
-                    : 'text-muted-foreground hover:text-foreground'
-                }`}
+                className={`ui-chip border-transparent ${scope === 'mine' ? 'bg-background text-foreground shadow-sm' : ''}`}
               >
                 <User className="h-3 w-3" /> My registrations
               </button>
               <button
                 onClick={() => onScopeChange('all')}
-                className={`flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium transition-colors ${
-                  scope === 'all'
-                    ? 'bg-background shadow-sm text-foreground'
-                    : 'text-muted-foreground hover:text-foreground'
-                }`}
+                className={`ui-chip border-transparent ${scope === 'all' ? 'bg-background text-foreground shadow-sm' : ''}`}
               >
                 <Users className="h-3 w-3" /> All staff
               </button>

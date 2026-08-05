@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
+import PageIntro from '@/components/PageIntro';
 import {
   Settings,
   FlaskConical,
@@ -14,7 +15,6 @@ import {
   Loader2,
   Eye,
   EyeOff,
-  ArrowLeft,
   Activity,
   RefreshCw,
   HardDrive,
@@ -64,7 +64,7 @@ const DEV_TOOLS: SettingToggle[] = [
     key: 'showSeedCabinets',
     label: 'Seed Smart Cabinets',
     description: 'Show the "Seed Smart Cabinets" button on the main Dashboard. Creates sample cabinet structures.',
-    icon: <FlaskConical className="h-5 w-5 text-violet-500" />,
+    icon: <FlaskConical className="h-5 w-5 text-primary" />,
   },
   {
     key: 'showClearAllData',
@@ -204,36 +204,23 @@ export default function SettingsPage() {
 
   if (authStatus === 'loading' || loading) {
     return (
-      <div className="min-h-screen bg-background">
-        <main className="w-full px-4 sm:px-6 py-6 flex items-center justify-center">
+      <div className="w-full flex items-center justify-center min-h-[50vh]">
           <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-        </main>
-      </div>
+        </div>
     );
   }
 
   const anyVisible = DEV_TOOLS.some(t => values[t.key]);
 
   return (
-    <div className="min-h-screen bg-background">
-      <main className="w-full p-6 space-y-6">
+    <div className="w-full space-y-6">
 
-        {/* Back button + header */}
-        <div className="space-y-4">
-          <Button variant="outline" onClick={() => router.back()}>
-            <ArrowLeft className="mr-2 h-4 w-4" /> Back to Dashboard
-          </Button>
-
-          <div>
-            <h1 className="text-2xl font-bold flex items-center gap-2">
-              <Settings className="h-6 w-6 text-primary" />
-              System Settings
-            </h1>
-            <p className="text-sm text-muted-foreground mt-1">
-              Admin-only configuration. Changes apply system-wide immediately.
-            </p>
-          </div>
-        </div>
+        <PageIntro
+          eyebrow="Admin"
+          title="System Settings"
+          description="Admin-only configuration. Changes apply system-wide immediately."
+          icon={<Settings className="h-5 w-5 text-primary" />}
+        />
 
         {error && (
           <Alert variant="destructive">
@@ -818,8 +805,8 @@ export default function SettingsPage() {
                 </CardDescription>
               </div>
               {anyVisible
-                ? <Badge className="gap-1 bg-amber-100 text-amber-700 border-amber-300"><Eye className="h-3 w-3" /> Some visible</Badge>
-                : <Badge className="gap-1 bg-green-100 text-green-700 border-green-300"><EyeOff className="h-3 w-3" /> All hidden</Badge>
+                ? <span className="ui-badge-warning"><Eye className="h-3 w-3" /> Some visible</span>
+                : <span className="ui-badge-success"><EyeOff className="h-3 w-3" /> All hidden</span>
               }
             </div>
           </CardHeader>
@@ -867,7 +854,6 @@ export default function SettingsPage() {
           </div>
         </div>
 
-      </main>
     </div>
   );
 }
@@ -879,16 +865,9 @@ function IntegrationRow({ item }: { item: { label: string; configured: boolean; 
         <p className="text-sm font-medium">{item.label}</p>
         {item.note && <p className="text-xs text-muted-foreground">{item.note}</p>}
       </div>
-      <Badge
-        variant="outline"
-        className={
-          item.configured
-            ? 'shrink-0 bg-green-50 text-green-800 border-green-300 dark:bg-green-950/20 dark:text-green-300'
-            : 'shrink-0 bg-muted text-muted-foreground'
-        }
-      >
+      <span className={item.configured ? 'ui-badge-success shrink-0' : 'ui-badge-muted shrink-0'}>
         {item.configured ? 'On' : 'Off'}
-      </Badge>
+      </span>
     </div>
   );
 }

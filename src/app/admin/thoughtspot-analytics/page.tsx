@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 import { ArrowLeft, BarChart3 } from 'lucide-react';
+import PageIntro from '@/components/PageIntro';
 import ThoughtSpotEnrollmentLiveboard from '@/components/ThoughtSpotEnrollmentLiveboard';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
@@ -30,26 +31,22 @@ export default function ThoughtSpotAnalyticsPage() {
   }
 
   return (
-    <div className="w-full space-y-6 p-6">
+    <div className="w-full space-y-6">
 
-      <div className="flex items-center justify-between">
-        <div>
-          <Link href="/admin/enrollment">
-            <Button variant="ghost" size="sm" className="mb-4">
+      <PageIntro
+        eyebrow="Admin"
+        title="District Enrollment Analytics"
+        description="ThoughtSpot Liveboard for enrollment trends, intake volume, and school comparisons. Admin-only district view."
+        icon={<BarChart3 className="h-5 w-5 text-primary" />}
+        back={
+          <Button variant="ghost" size="sm" asChild className="-ml-2 w-fit text-muted-foreground">
+            <Link href="/admin/enrollment">
               <ArrowLeft className="mr-2 h-4 w-4" />
               Back to Enrollment
-            </Button>
-          </Link>
-          <h1 className="flex items-center gap-2 text-3xl font-bold text-foreground">
-            <BarChart3 className="h-8 w-8" />
-            District Enrollment Analytics
-          </h1>
-          <p className="mt-2 text-muted-foreground">
-            ThoughtSpot Liveboard for enrollment trends, intake volume, and school comparisons.
-            Admin-only district view.
-          </p>
-        </div>
-      </div>
+            </Link>
+          </Button>
+        }
+      />
 
       <Separator />
 

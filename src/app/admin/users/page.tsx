@@ -3,7 +3,8 @@ import React, { useEffect, useState } from "react";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import Link from 'next/link';
-import { Plus, Edit2, Trash2, Search, Mail, Shield, Loader2, AlertCircle, Users as UsersIcon, ArrowRightLeft, Eye, EyeOff, KeyRound, ShieldOff, ArrowLeft } from 'lucide-react';
+import { Plus, Edit2, Trash2, Search, Mail, Shield, Loader2, AlertCircle, Users as UsersIcon, ArrowRightLeft, Eye, EyeOff, KeyRound, ShieldOff } from 'lucide-react';
+import PageIntro from '@/components/PageIntro';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
@@ -355,42 +356,38 @@ export default function UsersPage() {
   };
 
   return (
-    <div className="w-full p-6 space-y-6">
-      <div className="flex justify-between items-center">
-        <div>
-          <Button variant="ghost" size="sm" className="mb-4" asChild>
-            <Link href="/">
-              <ArrowLeft className="mr-2 h-4 w-4" />
-              Back to Dashboard
-            </Link>
-          </Button>
-          <h1 className="text-3xl font-bold text-foreground">User Management</h1>
-          <p className="text-muted-foreground mt-1">Manage system users and their permissions</p>
-        </div>
-        <div className="flex gap-3">
-          <Button variant="outline" asChild>
-            <Link href="/admin/users/migrate">
-              <ArrowRightLeft className="mr-2 h-4 w-4" />
-              Migrate Users
-            </Link>
-          </Button>
-          <Button onClick={() => {
-            setEditingUser(null);
-            setForm({
-              name: '',
-              email: '',
-              password: '',
-              role: 'Data Member',
-              school: '',
-              allowedIntakeSessions: [],
-            });
-            setIsModalOpen(true);
-          }}>
-            <Plus className="mr-2 h-4 w-4" />
-            Add User
-          </Button>
-        </div>
-      </div>
+    <div className="w-full space-y-6">
+      <PageIntro
+        eyebrow="Admin"
+        title="User Management"
+        description="Manage system users and their permissions"
+        icon={<UsersIcon className="h-5 w-5 text-primary" />}
+        actions={
+          <>
+            <Button variant="outline" asChild>
+              <Link href="/admin/users/migrate">
+                <ArrowRightLeft className="mr-2 h-4 w-4" />
+                Migrate Users
+              </Link>
+            </Button>
+            <Button onClick={() => {
+              setEditingUser(null);
+              setForm({
+                name: '',
+                email: '',
+                password: '',
+                role: 'Data Member',
+                school: '',
+                allowedIntakeSessions: [],
+              });
+              setIsModalOpen(true);
+            }}>
+              <Plus className="mr-2 h-4 w-4" />
+              Add User
+            </Button>
+          </>
+        }
+      />
 
       {error && (
         <Alert variant="destructive">

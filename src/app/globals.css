@@ -81,6 +81,45 @@
     @apply rounded-2xl border border-border/80 bg-card/90 shadow-sm backdrop-blur-sm;
   }
 
+  /* Semantic status chips (prefer over ad-hoc emerald/amber/violet) */
+  .ui-badge-success {
+    @apply inline-flex items-center gap-1 rounded-md border border-emerald-200 bg-emerald-50
+      px-2 py-0.5 text-xs font-medium text-emerald-800
+      dark:border-emerald-900 dark:bg-emerald-950/40 dark:text-emerald-200;
+  }
+
+  .ui-badge-warning {
+    @apply inline-flex items-center gap-1 rounded-md border border-amber-200 bg-amber-50
+      px-2 py-0.5 text-xs font-medium text-amber-900
+      dark:border-amber-900 dark:bg-amber-950/40 dark:text-amber-200;
+  }
+
+  .ui-badge-info {
+    @apply inline-flex items-center gap-1 rounded-md border border-sky-200 bg-sky-50
+      px-2 py-0.5 text-xs font-medium text-sky-900
+      dark:border-sky-900 dark:bg-sky-950/40 dark:text-sky-200;
+  }
+
+  .ui-badge-danger {
+    @apply inline-flex items-center gap-1 rounded-md border border-destructive/30 bg-destructive/10
+      px-2 py-0.5 text-xs font-medium text-destructive;
+  }
+
+  .ui-badge-muted {
+    @apply inline-flex items-center gap-1 rounded-md border border-border bg-muted
+      px-2 py-0.5 text-xs font-medium text-muted-foreground;
+  }
+
+  .ui-chip {
+    @apply inline-flex items-center gap-1.5 rounded-md border border-border bg-background
+      px-2.5 py-1 text-xs font-medium text-muted-foreground transition-colors
+      hover:bg-muted hover:text-foreground;
+  }
+
+  .ui-chip-active {
+    @apply border-primary/40 bg-primary text-primary-foreground hover:bg-primary hover:text-primary-foreground;
+  }
+
   .ui-auth-shell {
     @apply relative min-h-screen flex items-center justify-center overflow-hidden px-4 py-12 sm:px-6;
     background:

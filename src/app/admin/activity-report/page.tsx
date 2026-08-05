@@ -6,7 +6,6 @@ import { useRouter } from 'next/navigation';
 import {
   Activity,
   Archive,
-  ArrowLeft,
   BarChart3,
   Download,
   Edit,
@@ -18,6 +17,7 @@ import {
   Trash2,
   Users,
 } from 'lucide-react';
+import PageIntro from '@/components/PageIntro';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
@@ -55,12 +55,12 @@ interface AuditLog {
 type ActivityType = 'added' | 'edited' | 'printed' | 'archived' | 'deleted' | 'other';
 
 const ACTIVITY_META: Record<ActivityType, { label: string; icon: any; badge: string }> = {
-  added: { label: 'Added', icon: Plus, badge: 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200' },
-  edited: { label: 'Edited', icon: Edit, badge: 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200' },
-  printed: { label: 'Printed', icon: Printer, badge: 'bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200' },
-  archived: { label: 'Archived', icon: Archive, badge: 'bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200' },
-  deleted: { label: 'Deleted', icon: Trash2, badge: 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200' },
-  other: { label: 'Other', icon: Activity, badge: 'bg-muted text-muted-foreground' },
+  added: { label: 'Added', icon: Plus, badge: 'ui-badge-success' },
+  edited: { label: 'Edited', icon: Edit, badge: 'ui-badge-info' },
+  printed: { label: 'Printed', icon: Printer, badge: 'ui-badge-muted' },
+  archived: { label: 'Archived', icon: Archive, badge: 'ui-badge-warning' },
+  deleted: { label: 'Deleted', icon: Trash2, badge: 'ui-badge-danger' },
+  other: { label: 'Other', icon: Activity, badge: 'ui-badge-muted' },
 };
 
 function getActivityType(action: string): ActivityType {
@@ -246,54 +246,42 @@ export default function ActivityReportPage() {
 
   if (status === 'loading' || loading) {
     return (
-      <div className="min-h-screen bg-background">
-        <div className="w-full p-6 flex items-center justify-center min-h-[50vh]">
+      <div className="w-full flex items-center justify-center min-h-[50vh]">
           <Loader2 className="h-8 w-8 animate-spin text-primary" />
         </div>
-      </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-background">
-      <div className="w-full p-6 space-y-6">
-        {/* Back button */}
-        <Button variant="outline" onClick={() => router.back()}>
-          <ArrowLeft className="mr-2 h-4 w-4" /> Back to Dashboard
-        </Button>
-
-        {/* Page header */}
-        <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
-          <div>
-            <h1 className="text-3xl font-bold flex items-center gap-2">
-              <BarChart3 className="h-8 w-8" />
-              Activity Report
-            </h1>
-            <p className="text-muted-foreground mt-1">
-              See who added, edited, printed, archived, or deleted records.
-            </p>
-          </div>
-          <div className="flex flex-wrap gap-2">
-            <Select value={rangeDays} onValueChange={setRangeDays}>
-              <SelectTrigger className="w-[160px]">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="7">Last 7 days</SelectItem>
-                <SelectItem value="30">Last 30 days</SelectItem>
-                <SelectItem value="90">Last 90 days</SelectItem>
-              </SelectContent>
-            </Select>
-            <Button variant="outline" onClick={fetchLogs}>
-              <RefreshCw className="mr-2 h-4 w-4" />
-              Refresh
-            </Button>
-            <Button onClick={exportReport} disabled={report.usersByActivity.length === 0}>
-              <Download className="mr-2 h-4 w-4" />
-              Export CSV
-            </Button>
-          </div>
-        </div>
+    <div className="w-full space-y-6">
+        <PageIntro
+          eyebrow="Admin"
+          title="Activity Report"
+          description="See who added, edited, printed, archived, or deleted records."
+          icon={<BarChart3 className="h-5 w-5 text-primary" />}
+          actions={
+            <>
+              <Select value={rangeDays} onValueChange={setRangeDays}>
+                <SelectTrigger className="w-[160px]">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="7">Last 7 days</SelectItem>
+                  <SelectItem value="30">Last 30 days</SelectItem>
+                  <SelectItem value="90">Last 90 days</SelectItem>
+                </SelectContent>
+              </Select>
+              <Button variant="outline" onClick={fetchLogs}>
+                <RefreshCw className="mr-2 h-4 w-4" />
+                Refresh
+              </Button>
+              <Button onClick={exportReport} disabled={report.usersByActivity.length === 0}>
+                <Download className="mr-2 h-4 w-4" />
+                Export CSV
+              </Button>
+            </>
+          }
+        />
 
         {error && (
           <Alert variant="destructive">
@@ -301,62 +289,42 @@ export default function ActivityReportPage() {
           </Alert>
         )}
 
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">Activity Events</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-3xl font-bold">{report.totalEvents}</div>
-              <p className="text-xs text-muted-foreground">Last {rangeDays} days</p>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">Users Active</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-3xl font-bold">{report.uniqueUsers}</div>
-              <p className="text-xs text-muted-foreground">People with logged actions</p>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">Student Touches</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-3xl font-bold">{report.totalStudentTouches}</div>
-              <p className="text-xs text-muted-foreground">Single and bulk records affected</p>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">Top User</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-lg font-semibold truncate">{report.topUser?.name || 'None'}</div>
-              <p className="text-xs text-muted-foreground">
-                {report.topUser ? `${report.topUser.total} logged actions` : 'No activity yet'}
-              </p>
-            </CardContent>
-          </Card>
+        <div className="flex flex-wrap gap-x-8 gap-y-3 rounded-lg border border-border bg-muted/30 px-4 py-3">
+          <div>
+            <p className="text-[11px] uppercase tracking-wide text-muted-foreground">Activity events</p>
+            <p className="text-xl font-semibold tabular-nums tracking-tight">{report.totalEvents}</p>
+            <p className="text-[11px] text-muted-foreground">Last {rangeDays} days</p>
+          </div>
+          <div>
+            <p className="text-[11px] uppercase tracking-wide text-muted-foreground">Users active</p>
+            <p className="text-xl font-semibold tabular-nums tracking-tight">{report.uniqueUsers}</p>
+            <p className="text-[11px] text-muted-foreground">People with logged actions</p>
+          </div>
+          <div>
+            <p className="text-[11px] uppercase tracking-wide text-muted-foreground">Student touches</p>
+            <p className="text-xl font-semibold tabular-nums tracking-tight">{report.totalStudentTouches}</p>
+            <p className="text-[11px] text-muted-foreground">Single and bulk records</p>
+          </div>
+          <div className="min-w-0">
+            <p className="text-[11px] uppercase tracking-wide text-muted-foreground">Top user</p>
+            <p className="text-sm font-semibold truncate">{report.topUser?.name || 'None'}</p>
+            <p className="text-[11px] text-muted-foreground">
+              {report.topUser ? `${report.topUser.total} logged actions` : 'No activity yet'}
+            </p>
+          </div>
         </div>
 
-        <div className="grid gap-4 md:grid-cols-3 lg:grid-cols-6">
+        <div className="flex flex-wrap gap-x-6 gap-y-3 rounded-lg border border-border px-4 py-3">
           {(Object.keys(ACTIVITY_META) as ActivityType[]).map((type) => {
             const Icon = ACTIVITY_META[type].icon;
             return (
-              <Card key={type}>
-                <CardContent className="p-4">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-sm text-muted-foreground">{ACTIVITY_META[type].label}</p>
-                      <p className="text-2xl font-bold">{report.actionCounts[type]}</p>
-                    </div>
-                    <Icon className="h-5 w-5 text-muted-foreground" />
-                  </div>
-                </CardContent>
-              </Card>
+              <div key={type} className="flex items-center gap-2 min-w-[5.5rem]">
+                <Icon className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                <div>
+                  <p className="text-[11px] uppercase tracking-wide text-muted-foreground">{ACTIVITY_META[type].label}</p>
+                  <p className="text-lg font-semibold tabular-nums tracking-tight">{report.actionCounts[type]}</p>
+                </div>
+              </div>
             );
           })}
         </div>
@@ -450,7 +418,7 @@ export default function ActivityReportPage() {
                       </div>
                     </div>
                     <div className="text-right">
-                      <Badge className={ACTIVITY_META[type].badge}>{ACTIVITY_META[type].label}</Badge>
+                      <span className={ACTIVITY_META[type].badge}>{ACTIVITY_META[type].label}</span>
                       <div className="text-xs text-muted-foreground mt-1">{formatDateTime(log.time)}</div>
                     </div>
                   </div>
@@ -462,7 +430,6 @@ export default function ActivityReportPage() {
             </div>
           </CardContent>
         </Card>
-      </div>
     </div>
   );
 }

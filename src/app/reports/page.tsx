@@ -2,8 +2,8 @@
 
 import { useState, useEffect } from 'react';
 import { useSession } from 'next-auth/react';
-import Link from 'next/link';
-import { ArrowLeft, Download, FileText, TrendingUp, Users, Printer, Calendar } from 'lucide-react';
+import { Download, FileText, TrendingUp, Users, Printer, Calendar } from 'lucide-react';
+import PageIntro from '@/components/PageIntro';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -117,7 +117,7 @@ export default function ReportsPage() {
 
   if (status === 'loading') {
     return (
-      <div className="w-full p-6 space-y-6">
+      <div className="w-full space-y-6">
         <Skeleton className="h-10 w-64" />
         <Skeleton className="h-96 w-full" />
       </div>
@@ -125,35 +125,25 @@ export default function ReportsPage() {
   }
 
   return (
-    <div className="w-full p-6 space-y-6">
-      
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <Link href="/">
-            <Button variant="ghost" size="sm" className="mb-4">
-              <ArrowLeft className="mr-2 h-4 w-4" />
-              Back to Dashboard
+    <div className="w-full space-y-6">
+      <PageIntro
+        eyebrow="Print"
+        title="Print Reports & Analytics"
+        description="Analyze print activity, trends, and statistics"
+        icon={<TrendingUp className="h-5 w-5 text-primary" />}
+        actions={
+          <>
+            <Button onClick={exportToPDF} variant="outline" className="gap-2" disabled={!reportData}>
+              <Download className="h-4 w-4" />
+              Export PDF
             </Button>
-          </Link>
-          <h1 className="text-3xl font-bold text-foreground">Print Reports & Analytics</h1>
-          <p className="text-muted-foreground mt-2">
-            Analyze print activity, trends, and statistics
-          </p>
-        </div>
-        <div className="flex gap-2">
-          <Button onClick={exportToPDF} variant="outline" className="gap-2" disabled={!reportData}>
-            <Download className="h-4 w-4" />
-            Export PDF
-          </Button>
-          <Button onClick={exportToCsv} variant="outline" className="gap-2" disabled={!reportData}>
-            <Download className="h-4 w-4" />
-            Export CSV
-          </Button>
-        </div>
-      </div>
-
-      <Separator />
+            <Button onClick={exportToCsv} variant="outline" className="gap-2" disabled={!reportData}>
+              <Download className="h-4 w-4" />
+              Export CSV
+            </Button>
+          </>
+        }
+      />
 
       {/* Filters */}
       <Card>

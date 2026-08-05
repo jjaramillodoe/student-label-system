@@ -30,7 +30,6 @@ import {
   Plus, 
   Edit2, 
   Trash2, 
-  ArrowLeft, 
   Building2, 
   CheckCircle2, 
   AlertCircle, 
@@ -40,7 +39,6 @@ import {
   Sparkles,
   Archive,
   Boxes,
-  Gauge,
   ArrowDownUp,
   HelpCircle,
   PackageOpen,
@@ -58,7 +56,6 @@ import {
   Lock,
   LayoutGrid,
 } from 'lucide-react';
-import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
@@ -986,7 +983,7 @@ export default function CabinetsPage() {
 
   if (loading && cabinets.length === 0) {
     return (
-      <div className="w-full p-6 space-y-6">
+      <div className="w-full space-y-6">
         <Skeleton className="h-10 w-64" />
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {[1, 2, 3].map((i) => (
@@ -998,20 +995,12 @@ export default function CabinetsPage() {
   }
 
   return (
-    <div className="w-full p-4 sm:p-6 space-y-6">
+    <div className="w-full space-y-6">
       <PageIntro
         eyebrow="Storage"
         title="Cabinet Management"
         description="Manage cabinets, drawers, and storage assignments."
         icon={<LayoutGrid className="h-5 w-5 text-primary" />}
-        back={
-          <Button variant="ghost" size="sm" asChild className="-ml-2 w-fit text-muted-foreground">
-            <Link href="/">
-              <ArrowLeft className="mr-2 h-4 w-4" />
-              Back to Dashboard
-            </Link>
-          </Button>
-        }
         actions={
           <>
             <Button variant="outline" onClick={() => setHelpModalOpen(true)} className="gap-2">
@@ -1033,58 +1022,28 @@ export default function CabinetsPage() {
         }
       />
 
-      <Separator />
-
-      {/* Overview */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 ui-enter ui-enter-delay-1">
-        <Card className="rounded-2xl shadow-sm">
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-muted-foreground">Total Cabinets</p>
-                <p className="text-2xl font-semibold tracking-tight">{cabinets.length}</p>
-              </div>
-              <Archive className="h-8 w-8 text-muted-foreground/70" />
-            </div>
-          </CardContent>
-        </Card>
-        <Card className="rounded-2xl shadow-sm">
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-muted-foreground">Stored Files</p>
-                <p className="text-2xl font-semibold tracking-tight">{cabinetStats.currentCount}</p>
-              </div>
-              <Boxes className="h-8 w-8 text-muted-foreground/70" />
-            </div>
-          </CardContent>
-        </Card>
-        <Card className="rounded-2xl shadow-sm">
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-muted-foreground">Available Space</p>
-                <p className={`text-2xl font-semibold tracking-tight ${availableCapacity < 0 ? 'text-destructive' : ''}`}>
-                  {availableCapacity}
-                </p>
-              </div>
-              <Gauge className="h-8 w-8 text-muted-foreground/70" />
-            </div>
-          </CardContent>
-        </Card>
-        <Card className="rounded-2xl shadow-sm">
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-muted-foreground">Needs Attention</p>
-                <p className={`text-2xl font-semibold tracking-tight ${cabinetStats.overCapacity > 0 ? 'text-destructive' : ''}`}>
-                  {cabinetStats.needsAttention + cabinetStats.overCapacity}
-                </p>
-              </div>
-              <AlertCircle className="h-8 w-8 text-muted-foreground/70" />
-            </div>
-          </CardContent>
-        </Card>
+      {/* Overview — compact strip (no metric card farm) */}
+      <div className="flex flex-wrap gap-x-8 gap-y-3 rounded-lg border border-border bg-muted/30 px-4 py-3 ui-enter ui-enter-delay-1">
+        <div>
+          <p className="text-[11px] uppercase tracking-wide text-muted-foreground">Cabinets</p>
+          <p className="text-xl font-semibold tabular-nums tracking-tight">{cabinets.length}</p>
+        </div>
+        <div>
+          <p className="text-[11px] uppercase tracking-wide text-muted-foreground">Stored files</p>
+          <p className="text-xl font-semibold tabular-nums tracking-tight">{cabinetStats.currentCount}</p>
+        </div>
+        <div>
+          <p className="text-[11px] uppercase tracking-wide text-muted-foreground">Available</p>
+          <p className={`text-xl font-semibold tabular-nums tracking-tight ${availableCapacity < 0 ? 'text-destructive' : ''}`}>
+            {availableCapacity}
+          </p>
+        </div>
+        <div>
+          <p className="text-[11px] uppercase tracking-wide text-muted-foreground">Needs attention</p>
+          <p className={`text-xl font-semibold tabular-nums tracking-tight ${cabinetStats.overCapacity > 0 ? 'text-destructive' : ''}`}>
+            {cabinetStats.needsAttention + cabinetStats.overCapacity}
+          </p>
+        </div>
       </div>
 
       {peakWarnings.length > 0 && (
@@ -1370,8 +1329,8 @@ export default function CabinetsPage() {
               <Card
                 id={`cabinet-card-${cabinet._id}`}
                 key={cabinet._id}
-                className={`hover:shadow-lg transition-shadow ${
-                  isLocateHit ? 'ring-2 ring-primary shadow-lg' : ''
+                className={`border-border/80 shadow-none ${
+                  isLocateHit ? 'ring-2 ring-primary' : ''
                 }`}
               >
                 <CardHeader>
@@ -1397,9 +1356,9 @@ export default function CabinetsPage() {
                     </div>
                     <div className="flex gap-1 items-center">
                       {cabinet.status === 'Archived' ? (
-                        <Badge className="bg-amber-100 text-amber-800 border border-amber-300 dark:bg-amber-900/30 dark:text-amber-300 dark:border-amber-700 text-xs">
-                          <Archive className="h-3 w-3 mr-1" /> Archived
-                        </Badge>
+                        <span className="ui-badge-warning">
+                          <Archive className="h-3 w-3" /> Archived
+                        </span>
                       ) : (
                         <Button
                           variant={isFull ? 'default' : 'outline'}
