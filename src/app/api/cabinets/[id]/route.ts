@@ -3,6 +3,7 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/authOptions';
 import clientPromise from '@/lib/mongodb';
 import { ObjectId } from 'mongodb';
+import { clampDrawerCapacity, DRAWER_CAPACITY_MAX, DRAWER_CAPACITY_MIN } from '@/lib/drawerSections';
 
 export async function GET(
   request: Request,
@@ -84,7 +85,7 @@ function mergeDrawersPreserveIds(
     return {
       _id: id,
       name: drawer.name,
-      capacity: Number(drawer.capacity) || 0,
+      capacity: clampDrawerCapacity(Number(drawer.capacity) || 0),
       currentCount: Number(existing?.currentCount) || 0,
       locked: Boolean(
         (drawer as IncomingDrawer & { locked?: boolean }).locked ??
@@ -110,6 +111,15 @@ export async function PUT(
 
     if (!name || !drawers || !Array.isArray(drawers) || drawers.length === 0 || !school) {
       return NextResponse.json({ error: 'Invalid cabinet data' }, { status: 400 });
+    }
+
+    for (const drawer of drawers) {
+      const cap = Number(drawer?.capacity);
+      if (!Number.isFinite(cap) || cap < DRAWER_CAPACITY_MIN || cap > DRAWER_CAPACITY_MAX) {
+        return NextResponse.json({
+          error: `Each drawer capacity must be between ${DRAWER_CAPACITY_MIN} and ${DRAWER_CAPACITY_MAX} files`,
+        }, { status: 400 });
+      }
     }
 
     const client = await clientPromise;
@@ -145,10 +155,7 @@ export async function PUT(
       existingCabinet.drawers || [],
       drawers,
     );
-    const computedTotal =
-      typeof totalCapacity === 'number' && totalCapacity > 0
-        ? totalCapacity
-        : mergedDrawers.reduce((sum, d) => sum + (d.capacity || 0), 0);
+    const computedTotal = mergedDrawers.reduce((sum, d) => sum + (d.capacity || 0), 0);
 
     const updatedCabinet = {
       name,

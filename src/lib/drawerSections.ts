@@ -10,6 +10,18 @@
 
 export const DRAWER_CAPACITY_PRESETS = [100, 200, 400] as const;
 export const SECTIONS_PER_DRAWER = 8;
+/** Inclusive bounds for custom drawer capacity (files). */
+export const DRAWER_CAPACITY_MIN = 1;
+export const DRAWER_CAPACITY_MAX = 5000;
+
+export function isDrawerCapacityPreset(capacity: number): boolean {
+  return (DRAWER_CAPACITY_PRESETS as readonly number[]).includes(capacity);
+}
+
+export function clampDrawerCapacity(value: number): number {
+  const n = Math.floor(Number(value) || 0);
+  return Math.min(DRAWER_CAPACITY_MAX, Math.max(DRAWER_CAPACITY_MIN, n));
+}
 
 export type DrawerSectionBreakdown = {
   label: string;

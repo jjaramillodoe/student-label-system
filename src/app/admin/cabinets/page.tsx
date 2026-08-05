@@ -17,9 +17,13 @@ import { getBoxPublicUrl, type BoxLabelStudent } from '@/lib/boxLabel';
 import { buildCabinetStorageLabels, type StorageLabelItem } from '@/lib/cabinetLabel';
 import { Checkbox } from '@/components/ui/checkbox';
 import {
+  clampDrawerCapacity,
+  DRAWER_CAPACITY_MAX,
+  DRAWER_CAPACITY_MIN,
   DRAWER_CAPACITY_PRESETS,
   getDrawerSectionBreakdown,
   getDrawerSectionSize,
+  isDrawerCapacityPreset,
   SECTIONS_PER_DRAWER,
 } from '@/lib/drawerSections';
 import { 
@@ -117,20 +121,29 @@ export default function CabinetsPage() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [helpModalOpen, setHelpModalOpen] = useState(false);
   const [editingCabinet, setEditingCabinet] = useState<Cabinet | null>(null);
+  type CabinetFormDrawer = {
+    _id?: string;
+    name: string;
+    capacity: number;
+    locked?: boolean;
+    /** UI-only: show custom capacity number input */
+    useCustomCapacity?: boolean;
+  };
+
   const [form, setForm] = useState<{
     name: string;
     identifier: string;
     school: string;
     mapRow: string;
     mapCol: string;
-    drawers: Array<{ _id?: string; name: string; capacity: number; locked?: boolean }>;
+    drawers: CabinetFormDrawer[];
   }>({
     name: '',
     identifier: '',
     school: '',
     mapRow: '',
     mapCol: '',
-    drawers: [{ name: '', capacity: 400, locked: false }],
+    drawers: [{ name: '', capacity: 400, locked: false, useCustomCapacity: false }],
   });
   const [rosterOpen, setRosterOpen] = useState(false);
   const [rosterTarget, setRosterTarget] = useState<{
@@ -542,7 +555,7 @@ export default function CabinetsPage() {
     school,
     mapRow: '',
     mapCol: '',
-    drawers: [{ name: '', capacity: 400, locked: false }],
+    drawers: [{ name: '', capacity: 400, locked: false, useCustomCapacity: false }],
   });
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -551,7 +564,20 @@ export default function CabinetsPage() {
     setError('');
 
     try {
-      const totalCapacity = form.drawers.reduce((sum, drawer) => sum + drawer.capacity, 0);
+      for (const drawer of form.drawers) {
+        const cap = Number(drawer.capacity);
+        if (!Number.isFinite(cap) || cap < DRAWER_CAPACITY_MIN || cap > DRAWER_CAPACITY_MAX) {
+          throw new Error(
+            `Each drawer capacity must be between ${DRAWER_CAPACITY_MIN} and ${DRAWER_CAPACITY_MAX} files.`,
+          );
+        }
+      }
+
+      const drawers = form.drawers.map(({ useCustomCapacity: _ui, ...drawer }) => ({
+        ...drawer,
+        capacity: clampDrawerCapacity(drawer.capacity),
+      }));
+      const totalCapacity = drawers.reduce((sum, drawer) => sum + drawer.capacity, 0);
       const parseMap = (v: string) => {
         if (v.trim() === '') return null;
         const n = parseInt(v, 10);
@@ -561,7 +587,7 @@ export default function CabinetsPage() {
         name: form.name,
         identifier: form.identifier,
         school: form.school,
-        drawers: form.drawers,
+        drawers,
         totalCapacity,
         currentCount: 0,
         mapRow: parseMap(form.mapRow),
@@ -584,7 +610,7 @@ export default function CabinetsPage() {
       setForm(emptyCabinetForm());
       setEditingCabinet(null);
     } catch (err) {
-      setError('Failed to save cabinet');
+      setError(err instanceof Error ? err.message : 'Failed to save cabinet');
     } finally {
       setLoading(false);
     }
@@ -605,7 +631,7 @@ export default function CabinetsPage() {
   const addDrawer = () => {
     setForm(prev => ({
       ...prev,
-      drawers: [...prev.drawers, { name: '', capacity: 400, locked: false }],
+      drawers: [...prev.drawers, { name: '', capacity: 400, locked: false, useCustomCapacity: false }],
     }));
   };
 
@@ -618,7 +644,7 @@ export default function CabinetsPage() {
 
   const updateDrawer = (
     index: number,
-    field: 'name' | 'capacity' | 'locked',
+    field: 'name' | 'capacity' | 'locked' | 'useCustomCapacity',
     value: string | number | boolean,
   ) => {
     setForm(prev => ({
@@ -718,6 +744,7 @@ export default function CabinetsPage() {
       name: drawerNames[i] || `Drawer ${String.fromCharCode(65 + i)}`,
       capacity: defaultCapacity,
       locked: false,
+      useCustomCapacity: !isDrawerCapacityPreset(defaultCapacity),
     }));
     
     setForm({
@@ -1417,6 +1444,7 @@ export default function CabinetsPage() {
                               name: d.name,
                               capacity: d.capacity,
                               locked: Boolean(d.locked),
+                              useCustomCapacity: !isDrawerCapacityPreset(d.capacity),
                             })),
                           });
                           setIsModalOpen(true);
@@ -1890,15 +1918,40 @@ export default function CabinetsPage() {
                             <Label htmlFor={`drawer-capacity-${index}`}>Capacity</Label>
                             <Select
                               value={
-                                DRAWER_CAPACITY_PRESETS.includes(drawer.capacity as typeof DRAWER_CAPACITY_PRESETS[number])
-                                  ? String(drawer.capacity)
-                                  : drawer.capacity > 0
-                                    ? 'custom'
-                                    : '400'
+                                drawer.useCustomCapacity || !isDrawerCapacityPreset(drawer.capacity)
+                                  ? 'custom'
+                                  : String(drawer.capacity || 400)
                               }
                               onValueChange={(value) => {
-                                if (value === 'custom') return;
-                                updateDrawer(index, 'capacity', parseInt(value, 10));
+                                if (value === 'custom') {
+                                  setForm((prev) => ({
+                                    ...prev,
+                                    drawers: prev.drawers.map((d, i) =>
+                                      i === index
+                                        ? {
+                                            ...d,
+                                            useCustomCapacity: true,
+                                            capacity: isDrawerCapacityPreset(d.capacity)
+                                              ? d.capacity
+                                              : clampDrawerCapacity(d.capacity || 400),
+                                          }
+                                        : d,
+                                    ),
+                                  }));
+                                  return;
+                                }
+                                setForm((prev) => ({
+                                  ...prev,
+                                  drawers: prev.drawers.map((d, i) =>
+                                    i === index
+                                      ? {
+                                          ...d,
+                                          useCustomCapacity: false,
+                                          capacity: parseInt(value, 10),
+                                        }
+                                      : d,
+                                  ),
+                                }));
                               }}
                             >
                               <SelectTrigger id={`drawer-capacity-${index}`}>
@@ -1910,17 +1963,46 @@ export default function CabinetsPage() {
                                     {cap} files ({SECTIONS_PER_DRAWER} × {getDrawerSectionSize(cap)})
                                   </SelectItem>
                                 ))}
-                                {!DRAWER_CAPACITY_PRESETS.includes(drawer.capacity as typeof DRAWER_CAPACITY_PRESETS[number])
-                                  && drawer.capacity > 0 && (
-                                  <SelectItem value="custom">
-                                    Custom ({drawer.capacity})
-                                  </SelectItem>
-                                )}
+                                <SelectItem value="custom">
+                                  Custom…
+                                </SelectItem>
                               </SelectContent>
                             </Select>
-                            <p className="text-[11px] text-muted-foreground">
-                              Auto sections: Section 01–{String(SECTIONS_PER_DRAWER).padStart(2, '0')} (hidden from intake)
-                            </p>
+                            {(drawer.useCustomCapacity || !isDrawerCapacityPreset(drawer.capacity)) && (
+                              <div className="space-y-1">
+                                <Input
+                                  id={`drawer-capacity-custom-${index}`}
+                                  type="number"
+                                  min={DRAWER_CAPACITY_MIN}
+                                  max={DRAWER_CAPACITY_MAX}
+                                  step={1}
+                                  value={drawer.capacity || ''}
+                                  onChange={(e) => {
+                                    const raw = e.target.value;
+                                    if (raw === '') {
+                                      updateDrawer(index, 'capacity', 0);
+                                      return;
+                                    }
+                                    const n = parseInt(raw, 10);
+                                    if (!Number.isFinite(n)) return;
+                                    updateDrawer(index, 'capacity', n);
+                                  }}
+                                  placeholder={`e.g. 250 (${DRAWER_CAPACITY_MIN}–${DRAWER_CAPACITY_MAX})`}
+                                  required
+                                />
+                                <p className="text-[11px] text-muted-foreground">
+                                  Custom capacity: {DRAWER_CAPACITY_MIN}–{DRAWER_CAPACITY_MAX} files.
+                                  {drawer.capacity > 0
+                                    ? ` → ${SECTIONS_PER_DRAWER} sections × ~${getDrawerSectionSize(drawer.capacity)}`
+                                    : ''}
+                                </p>
+                              </div>
+                            )}
+                            {!(drawer.useCustomCapacity || !isDrawerCapacityPreset(drawer.capacity)) && (
+                              <p className="text-[11px] text-muted-foreground">
+                                Auto sections: Section 01–{String(SECTIONS_PER_DRAWER).padStart(2, '0')} (hidden from intake)
+                              </p>
+                            )}
                           </div>
                           {form.drawers.length > 1 && (
                             <Button
@@ -2055,7 +2137,7 @@ export default function CabinetsPage() {
                   </div>
                   <div>
                     <p className="font-medium text-foreground">Drawer Capacity</p>
-                    <p>Choose drawer capacity 100, 200, or 400. Each drawer is split into 8 automatic sections (Section 01–08) for filing — assigned when a student is stored, and not shown on intake.</p>
+                    <p>Choose drawer capacity 100, 200, 400, or Custom (1–5000 files). Cabinet total capacity is the sum of its drawers. Each drawer is split into 8 automatic sections (Section 01–08) for filing — assigned when a student is stored, and not shown on intake.</p>
                   </div>
                 </div>
               </div>

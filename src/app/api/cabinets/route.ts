@@ -4,6 +4,7 @@ import { authOptions } from '@/lib/authOptions';
 import clientPromise from '@/lib/mongodb';
 import { ObjectId } from 'mongodb';
 import { computeCabinetFillForecast } from '@/lib/cabinetCapacity';
+import { clampDrawerCapacity, DRAWER_CAPACITY_MAX, DRAWER_CAPACITY_MIN } from '@/lib/drawerSections';
 
 export async function GET(req: NextRequest) {
   try {
@@ -65,6 +66,15 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Invalid cabinet data' }, { status: 400 });
     }
 
+    for (const drawer of drawers) {
+      const cap = Number(drawer?.capacity);
+      if (!Number.isFinite(cap) || cap < DRAWER_CAPACITY_MIN || cap > DRAWER_CAPACITY_MAX) {
+        return NextResponse.json({
+          error: `Each drawer capacity must be between ${DRAWER_CAPACITY_MIN} and ${DRAWER_CAPACITY_MAX} files`,
+        }, { status: 400 });
+      }
+    }
+
     const client = await clientPromise;
     const db = client.db("student-label");
 
@@ -81,18 +91,21 @@ export async function POST(request: Request) {
       }
     }
 
+    const normalizedDrawers = drawers.map((drawer: any) => ({
+      _id: new ObjectId().toString(),
+      name: drawer.name,
+      capacity: clampDrawerCapacity(drawer.capacity),
+      currentCount: 0,
+      locked: Boolean(drawer.locked),
+    }));
+    const computedTotal = normalizedDrawers.reduce((sum, d) => sum + d.capacity, 0);
+
     const cabinet = {
       name,
       identifier: identifier || null,
       school,
-      drawers: drawers.map((drawer: any) => ({
-        _id: new ObjectId().toString(),
-        name: drawer.name,
-        capacity: drawer.capacity,
-        currentCount: 0,
-        locked: Boolean(drawer.locked),
-      })),
-      totalCapacity,
+      drawers: normalizedDrawers,
+      totalCapacity: computedTotal,
       currentCount: 0,
       mapRow: typeof mapRow === 'number' ? mapRow : null,
       mapCol: typeof mapCol === 'number' ? mapCol : null,
