@@ -10,6 +10,7 @@ import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Separator } from '@/components/ui/separator';
 import { MINTLIFY_DOCS_URL } from '@/lib/docsUrl';
+import { developerCreditShort } from '@/lib/credits';
 
 type TenantInfo = {
   mode: string;
@@ -343,6 +344,9 @@ export default function SignIn() {
             </a>
             <span className="mx-1.5 text-border">·</span>
             © {new Date().getFullYear()} NYC DOE Adult Education
+          </p>
+          <p className="text-center text-[11px] text-muted-foreground/90">
+            {developerCreditShort()}
           </p>
         </div>
       </main>

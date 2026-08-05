@@ -5,6 +5,7 @@ import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import {
   Archive,
+  BarChart3,
   BookOpen,
   Boxes,
   CalendarRange,
@@ -13,6 +14,7 @@ import {
   FileText,
   HeartPulse,
   Inbox,
+  Info,
   LayoutGrid,
   LineChart,
   List,
@@ -131,9 +133,11 @@ export default function CommandPalette() {
       { id: 'schoolyear', label: 'School Year', group: 'Admin', href: '/admin/school-year', icon: CalendarRange, show: isAdminOrDataLead },
       { id: 'cleanup', label: 'Data Cleanup', group: 'Admin', href: '/admin/data-cleanup', icon: Sparkles, show: isAdminOrDataLead },
       { id: 'audit', label: 'Audit Log', group: 'Admin', href: '/audit', icon: List, show: isAdminOrDataLead },
+      { id: 'analytics', label: 'Analytics', group: 'Admin', href: '/admin/analytics', icon: BarChart3, show: isAdminOrDataLead, keywords: 'metrics dashboard enrollment' },
       { id: 'thoughtspot', label: 'ThoughtSpot Analytics', group: 'Admin', href: '/admin/thoughtspot-analytics', icon: LineChart, show: isAdmin },
       { id: 'validation', label: 'Email Validation', group: 'Admin', href: '/admin/validation', icon: ShieldCheck, show: isAdmin },
       { id: 'docs', label: 'In-app guide', group: 'Help', href: '/docs', icon: BookOpen, show: true },
+      { id: 'about', label: 'About', group: 'Help', href: '/about', icon: Info, show: true, keywords: 'credits javier jaramillo district 79' },
       {
         id: 'mintlify',
         label: 'Full docs (Mintlify)',

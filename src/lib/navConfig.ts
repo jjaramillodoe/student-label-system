@@ -22,6 +22,7 @@ import {
   FileText,
   BookOpen,
   ExternalLink,
+  Info,
   type LucideIcon,
 } from 'lucide-react';
 import { MINTLIFY_DOCS_URL } from '@/lib/docsUrl';
@@ -98,7 +99,8 @@ export const NAV_GROUPS: NavGroup[] = [
     items: [
       { href: '/admin/users', label: 'User Management', icon: Users, roles: ['Admin'] },
       { href: '/admin/schools', label: 'Schools', icon: Settings, roles: ['Admin', 'Data Lead'] },
-      { href: '/admin/activity-report', label: 'Activity Report', icon: BarChart3, roles: ['Admin', 'Data Lead'] },
+      { href: '/admin/analytics', label: 'Analytics', icon: BarChart3, roles: ['Admin', 'Data Lead'] },
+      { href: '/admin/activity-report', label: 'Activity Report', icon: TrendingUp, roles: ['Admin', 'Data Lead'] },
       { href: '/audit', label: 'Audit Log', icon: List, roles: ['Admin', 'Data Lead'] },
       { href: '/admin/data-cleanup', label: 'Data Cleanup', icon: Sparkles, roles: ['Admin', 'Data Lead'] },
       { href: '/admin/thoughtspot-analytics', label: 'ThoughtSpot', icon: LineChart, roles: ['Admin'] },
@@ -118,6 +120,7 @@ export const NAV_GROUPS: NavGroup[] = [
     items: [
       { href: '/docs', label: 'In-app guide', icon: BookOpen },
       { href: MINTLIFY_DOCS_URL, label: 'Full docs', icon: ExternalLink, external: true },
+      { href: '/about', label: 'About', icon: Info },
     ],
   },
 ];
