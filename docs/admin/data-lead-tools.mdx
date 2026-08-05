@@ -46,15 +46,16 @@ Staff pages (Admin, Data Lead, Data Member) use a **left sidebar**. Grouped link
 
 ## Reporting and configuration
 
-| Tool | Path | Purpose |
-| --- | --- | --- |
-| Activity Report | `/admin/activity-report` | Student record event log |
-| Enrollment | `/admin/enrollment` | Registration metrics and intake time issues |
-| Email Validation | `/admin/validation` | EmailAwesome verification |
-| Schools / School Settings | `/admin/schools` | School names, Agency IDs, **subdomain slug**, fiscal year, intake sessions |
-| School Year Rollover | `/admin/school-year` | End-of-year checklist |
-| Label Stock | `/admin/label-stock` | Avery inventory, burn rate, restock |
-| Users | `/admin/users` | Roles, schools, MFA recovery |
+| Tool | Path | Purpose | Who |
+| --- | --- | --- | --- |
+| Activity Report | `/admin/activity-report` | Student record event log | Admin, Data Lead |
+| Enrollment | `/admin/enrollment` | Registration metrics and intake time issues | Admin, Data Lead, Data Member |
+| Schools / School Settings | `/admin/schools` | School names, Agency IDs, **subdomain slug**, fiscal year, intake sessions | Admin, Data Lead |
+| School Year Rollover | `/admin/school-year` | End-of-year checklist | Admin, Data Lead |
+| Label Stock | `/admin/label-stock` | Avery inventory, burn rate, restock | Admin, Data Lead |
+| Users | `/admin/users` | Roles, schools, MFA recovery | Admin |
+| Email Validation | `/admin/validation` | EmailAwesome verification | **Admin only** |
+| ThoughtSpot Analytics | `/admin/thoughtspot-analytics` | District enrollment Liveboard | **Admin only** |
 
 <Frame caption="School Settings — fiscal year and intake sessions/activities">
   <img src="/images/screenshots/admin-school-settings.png" alt="Edit School form with intake form settings" />

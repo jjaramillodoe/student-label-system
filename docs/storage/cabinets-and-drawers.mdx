@@ -8,7 +8,8 @@ description: Active file storage — drawers, sections, labels, moves, capacity 
 **Storage → Cabinets** (`/admin/cabinets`) manages where student files live.
 
 - Create cabinets with multiple drawers
-- Drawer capacity presets: **100**, **200**, or **400** files
+- Drawer capacity: presets **100**, **200**, **400**, or **Custom** (1–5000 files)
+- Cabinet total capacity is the **sum** of its drawer capacities
 - Filter by school, capacity status, usage, and name
 - **Smart Fill** creates standard cabinet structures quickly (default **400** per drawer)
 - **Sync Counts** recalculates drawer counts and refreshes automatic **sections**
@@ -16,6 +17,10 @@ description: Active file storage — drawers, sections, labels, moves, capacity 
 
 <Frame caption="Cabinet Management — capacity, drawers, sections, and tools">
   <img src="/images/screenshots/cabinets-page.png" alt="Cabinet Management with Main Cabinet A and B cards" />
+</Frame>
+
+<Frame caption="Add Cabinet — Custom drawer capacity (1–5000 files)">
+  <img src="/images/screenshots/cabinets-add-custom-capacity.png" alt="Add New Cabinet dialog with Custom capacity selected and 250 files entered" />
 </Frame>
 
 ## Automatic sections
@@ -27,6 +32,7 @@ Each drawer is split into **8 sections** (about **1/8** of capacity) for physica
 | 400 | 50 | Section 01–08 |
 | 200 | 25 | Section 01–08 |
 | 100 | ~13 | Section 01–08 |
+| Custom (e.g. 250) | ceil(capacity ÷ 8) | Section 01–08 |
 
 Sections are assigned **automatically** when a student is stored (intake, create, bulk upload, or move). They are **not** shown on the Intake form.
 

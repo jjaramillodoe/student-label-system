@@ -42,7 +42,8 @@ Install Mintlify skill: `npm run docs:skill`
 - Archived returning students keep archive box location + QR — do **not** auto-assign a new drawer
 - Intake success shows a **summary** (not single-label print); batch Avery 5163 / 94205 via **Download Word Doc** (Letter, 100%) from Dashboard
 - Avery labels show **Last, First**, DOB, **5-digit print sequence**, Label ID barcode, and QR
-- Drawers use capacity **100 / 200 / 400** with automatic **Section 01–08** (hidden from Intake; shown on Dashboard location and Cabinets)
+- Drawers use capacity **100 / 200 / 400** or **Custom** (1–5000) with automatic **Section 01–08** (hidden from Intake; shown on Dashboard location and Cabinets)
+- **Email Validation** and **ThoughtSpot Analytics** are Admin-only
 - Bulk upload preview validates duplicates/dates and supports per-row **Remove**; successful clean uploads redirect to Dashboard
 - Real screenshots live in `docs/images/screenshots/`; see `contributors/screenshot-checklist.mdx`
 - **Platform architecture** (stack, AWS deployment, Docker) belongs under **Contributors** — see `contributors/system-architecture.mdx` and `contributors/aws-deployment.mdx`. The long-form export for AWS lives in `docs/aws-deployment-architecture.md` (repo markdown, not staff-facing).

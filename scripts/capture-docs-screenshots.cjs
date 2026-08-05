@@ -172,6 +172,48 @@ async function main() {
       }
     }
 
+    // Add Cabinet modal — Custom capacity (docs: cabinets-and-drawers)
+    try {
+      await page.goto(`${BASE}/admin/cabinets`, { waitUntil: 'networkidle', timeout: 60000 });
+      await page.waitForTimeout(1200);
+      if (!page.url().includes('/auth/signin')) {
+        const addBtn = page.getByRole('button', { name: /Add Cabinet/i }).first();
+        if (await addBtn.count()) {
+          await addBtn.click();
+          await page.waitForTimeout(600);
+          const dialog = page.getByRole('dialog');
+          await dialog.waitFor({ state: 'visible', timeout: 8000 }).catch(() => null);
+          // Open capacity select and choose Custom…
+          const capacityTrigger = dialog.locator('#drawer-capacity-0').first();
+          if (await capacityTrigger.count()) {
+            await capacityTrigger.click();
+            await page.waitForTimeout(300);
+            const customOpt = page.getByRole('option', { name: /Custom/i }).first();
+            if (await customOpt.count()) {
+              await customOpt.click();
+              await page.waitForTimeout(400);
+              const customInput = dialog.locator('#drawer-capacity-custom-0');
+              if (await customInput.count()) {
+                await customInput.fill('250');
+                await page.waitForTimeout(300);
+              }
+            }
+          }
+          await page.screenshot({
+            path: path.join(OUT, 'cabinets-add-custom-capacity.png'),
+            type: 'png',
+            fullPage: false,
+          });
+          console.log('saved', path.join(OUT, 'cabinets-add-custom-capacity.png'));
+          await page.keyboard.press('Escape').catch(() => null);
+        } else {
+          console.warn('Add Cabinet button not found — skipping custom capacity shot');
+        }
+      }
+    } catch (err) {
+      console.warn('cabinets custom capacity capture skipped:', err.message);
+    }
+
     // School portal sign-in badge (optional)
     try {
       await context.clearCookies();

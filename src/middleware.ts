@@ -13,13 +13,15 @@ function isPublicPath(pathname: string): boolean {
     pathname.startsWith('/auth') ||
     pathname.startsWith('/student') ||
     pathname.startsWith('/archive') ||
+    pathname.startsWith('/docs') ||
     pathname.startsWith('/api/auth') ||
     pathname.startsWith('/api/students/lookup') ||
     pathname.startsWith('/api/archive') ||
     pathname.startsWith('/api/health') ||
     pathname.startsWith('/api/sync') ||
     pathname.startsWith('/api/cron/') ||
-    pathname.startsWith('/api/tenant')
+    pathname.startsWith('/api/tenant') ||
+    pathname.startsWith('/api/openapi.json')
   );
 }
 

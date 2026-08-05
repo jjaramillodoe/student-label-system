@@ -44,12 +44,12 @@ export default function ApiDocsPage() {
 
       <div className="mx-auto max-w-7xl px-2 py-2 sm:px-4">
         <p className="mb-2 text-sm text-muted-foreground">
-          Use <strong>Authorize</strong> with Bearer <code>SYNC_API_KEY</code> to try sync endpoints.
-          Session routes require signing in at{' '}
+          This page is public. Use <strong>Authorize</strong> with Bearer <code>SYNC_API_KEY</code> for
+          sync endpoints, or sign in at{' '}
           <Link href="/auth/signin" className="underline">
             /auth/signin
           </Link>{' '}
-          in the same browser.
+          in this browser for session routes. Email Validation and ThoughtSpot are <strong>Admin-only</strong>.
         </p>
         <ApiDocsSwagger />
       </div>

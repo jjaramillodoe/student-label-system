@@ -11,7 +11,7 @@ import { useAppSettings } from '@/lib/useAppSettings';
 import { canUseAppShell } from '@/lib/navConfig';
 import { cn } from '@/lib/utils';
 
-const NO_SHELL_PREFIXES = ['/auth', '/intake', '/student', '/archive'];
+const NO_SHELL_PREFIXES = ['/auth', '/intake', '/student', '/archive', '/docs'];
 
 function shouldUseShell(pathname: string): boolean {
   return !NO_SHELL_PREFIXES.some((prefix) => pathname.startsWith(prefix));
