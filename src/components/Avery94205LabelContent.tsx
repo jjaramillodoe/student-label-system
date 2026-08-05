@@ -10,6 +10,7 @@ import {
   LABEL_FONT_FAMILY,
   LABEL_NAME_TO_DOB_GAP,
   LABEL_QR_SIZE_IN,
+  LABEL_SEQ_FONT_SIZE_PT,
   labelNameFontSizePt,
 } from '@/lib/avery94205LabelStyle';
 import { formatLabelName, formatLabelSequence } from '@/lib/personName';
@@ -26,7 +27,7 @@ function getLabelId(student: Avery94205LabelStudent) {
   return student.labelId || student.studentId || '';
 }
 
-/** Inner content for one Avery 94205 label: name/DOB/seq/barcode left, QR right. */
+/** Inner content for one Avery 94205 label: same layout as 5163, scaled for 1.5"×3.75". */
 export default function Avery94205LabelContent({
   student,
   sequence,
@@ -58,7 +59,7 @@ export default function Avery94205LabelContent({
     >
       <div
         style={{
-          flex: '1 1 58%',
+          flex: '1 1 52%',
           minWidth: 0,
           display: 'flex',
           flexDirection: 'column',
@@ -69,7 +70,7 @@ export default function Avery94205LabelContent({
           style={{
             fontWeight: 700,
             fontSize: `${nameSizePt}pt`,
-            lineHeight: 1.2,
+            lineHeight: 1.25,
             wordBreak: 'break-word',
             overflowWrap: 'anywhere',
             marginBottom: LABEL_NAME_TO_DOB_GAP,
@@ -81,9 +82,9 @@ export default function Avery94205LabelContent({
         <div
           style={{
             fontSize: `${LABEL_DOB_FONT_SIZE_PT}pt`,
-            lineHeight: 1.2,
+            lineHeight: 1.3,
             fontWeight: 400,
-            marginBottom: seqText ? '0.03in' : LABEL_DOB_TO_BARCODE_GAP,
+            marginBottom: seqText ? '0.035in' : LABEL_DOB_TO_BARCODE_GAP,
           }}
         >
           DOB: {student.dob}
@@ -92,10 +93,10 @@ export default function Avery94205LabelContent({
         {seqText ? (
           <div
             style={{
-              fontSize: '9pt',
+              fontSize: `${LABEL_SEQ_FONT_SIZE_PT}pt`,
               fontWeight: 700,
-              letterSpacing: '0.05em',
-              lineHeight: 1.15,
+              letterSpacing: '0.06em',
+              lineHeight: 1.2,
               marginBottom: LABEL_DOB_TO_BARCODE_GAP,
               fontVariantNumeric: 'tabular-nums',
             }}
@@ -106,7 +107,7 @@ export default function Avery94205LabelContent({
 
         {labelId && (
           <div style={{ display: 'flex', justifyContent: 'flex-start' }}>
-            <Barcode value={labelId} width={1.0} height={18} fontSize={6} margin={0} />
+            <Barcode value={labelId} width={1.15} height={26} fontSize={7} margin={0} />
           </div>
         )}
       </div>
@@ -116,13 +117,14 @@ export default function Avery94205LabelContent({
           style={{
             flex: '0 0 auto',
             display: 'flex',
-            alignItems: 'center',
+            alignItems: 'flex-start',
             justifyContent: 'center',
+            paddingTop: '0.02in',
           }}
         >
           <QRCode
             value={qrPayload}
-            size={220}
+            size={280}
             level="M"
             containerStyle={{ width: LABEL_QR_SIZE_IN, height: LABEL_QR_SIZE_IN, flexShrink: 0 }}
           />

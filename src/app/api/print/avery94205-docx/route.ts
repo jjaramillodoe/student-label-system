@@ -33,17 +33,22 @@ import QRCode   from 'qrcode';
 // @ts-ignore
 import bwipjs   from 'bwip-js';
 import {
+  LABEL_BARCODE_HEIGHT_PX,
+  LABEL_BARCODE_WIDTH_PX,
   LABEL_DOCX_CELL_MARGIN_BOTTOM,
   LABEL_DOCX_CELL_MARGIN_LEFT,
   LABEL_DOCX_CELL_MARGIN_RIGHT,
   LABEL_DOCX_CELL_MARGIN_TOP,
   LABEL_DOCX_DOB_AFTER,
+  LABEL_DOCX_DOB_LINE,
   LABEL_DOCX_NAME_AFTER,
+  LABEL_DOCX_NAME_LINE,
   LABEL_DOCX_TEXT_MARGIN_LEFT,
   LABEL_DOCX_TEXT_MARGIN_RIGHT,
   LABEL_DOCX_TEXT_MARGIN_TOP,
   LABEL_DOB_FONT_SIZE_HALF_PT,
   LABEL_QR_SIZE_PX,
+  LABEL_SEQ_FONT_SIZE_HALF_PT,
   LABEL_TEXT_COLUMN_RATIO,
   labelNameFontSizeHalfPt,
 } from '@/lib/avery94205LabelStyle';
@@ -69,7 +74,7 @@ const NBA = { ...NBR, insideH: N, insideV: N };
 async function makeQR(text: string): Promise<Buffer> {
   return QRCode.toBuffer(text, {
     type: 'png',
-    width: 220,
+    width: 300,               // oversampled for crispness at ~88 px display size
     margin: 1,
     errorCorrectionLevel: 'M',
   });
@@ -81,11 +86,11 @@ function makeBarcode(text: string): Promise<Buffer> {
       {
         bcid:        'code128',
         text,
-        scale:       2,
-        height:      4,
+        scale:       3,
+        height:      5,
         includetext: true,
         textxalign:  'center',
-        textsize:    4,
+        textsize:    5,
       },
       (e: Error | null, buf: Buffer) => (e ? rej(e) : res(buf)),
     ),
@@ -190,22 +195,26 @@ async function buildLabelCell(s: StudentData | null, sequence?: number): Promise
   const LEFT_COL  = Math.round(INNER_W * LABEL_TEXT_COLUMN_RATIO);
   const RIGHT_COL = INNER_W - LEFT_COL;
 
+  // Same layout as Avery 5163: name / DOB / seq / barcode | QR
+  // Top-align so content stays in the physical 1.5" label (row slot is 1.95").
   const leftParas: Paragraph[] = [
     textPara(
       [new TextRun({ text: fullName, bold: true, size: nameSize, font: 'Times New Roman' })],
-      220, LABEL_DOCX_NAME_AFTER, AlignmentType.LEFT,
+      LABEL_DOCX_NAME_LINE, LABEL_DOCX_NAME_AFTER, AlignmentType.LEFT,
     ),
     textPara(
       [new TextRun({ text: `DOB: ${s.dob ?? ''}`, size: LABEL_DOB_FONT_SIZE_HALF_PT, font: 'Times New Roman' })],
-      180, seqText ? 6 : LABEL_DOCX_DOB_AFTER, AlignmentType.LEFT,
+      LABEL_DOCX_DOB_LINE, seqText ? 8 : LABEL_DOCX_DOB_AFTER, AlignmentType.LEFT,
     ),
     ...(seqText
       ? [textPara(
-          [new TextRun({ text: seqText, bold: true, size: 18, font: 'Times New Roman' })],
-          180, LABEL_DOCX_DOB_AFTER, AlignmentType.LEFT,
+          [new TextRun({ text: seqText, bold: true, size: LABEL_SEQ_FONT_SIZE_HALF_PT, font: 'Times New Roman' })],
+          LABEL_DOCX_DOB_LINE, LABEL_DOCX_DOB_AFTER, AlignmentType.LEFT,
         )]
       : []),
-    ...(barBuf ? [imagePara(barBuf, 180, 16, 0, AlignmentType.LEFT)] : []),
+    ...(barBuf
+      ? [imagePara(barBuf, LABEL_BARCODE_WIDTH_PX, LABEL_BARCODE_HEIGHT_PX, 0, AlignmentType.LEFT)]
+      : []),
   ];
 
   const rightParas: Paragraph[] = [
@@ -239,8 +248,8 @@ async function buildLabelCell(s: StudentData | null, sequence?: number): Promise
               new TableCell({
                 borders:       NBR,
                 width:         { size: RIGHT_COL, type: WidthType.DXA },
-                margins:       { top: 0, bottom: 0, left: 10, right: 10 },
-                verticalAlign: VerticalAlign.CENTER,
+                margins:       { top: 20, bottom: 0, left: 20, right: 20 },
+                verticalAlign: VerticalAlign.TOP,
                 children:      rightParas,
               }),
             ],

@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Download, GripVertical, Loader2, Printer, Users } from 'lucide-react';
+import { Download, FileDown, GripVertical, Loader2, Users } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -21,6 +21,7 @@ import {
 } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { formatDrawerSectionLabel, SECTIONS_PER_DRAWER } from '@/lib/drawerSections';
+import { downloadDrawerRosterPdf } from '@/lib/drawerRosterPdf';
 
 export type RosterStudent = {
   index: number;
@@ -69,6 +70,7 @@ export default function DrawerRosterDialog({
   const [draggingId, setDraggingId] = useState<string | null>(null);
   const [dropTarget, setDropTarget] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [pdfBusy, setPdfBusy] = useState(false);
 
   const canSectionBoard = Boolean(drawerId);
 
@@ -121,6 +123,21 @@ export default function DrawerRosterDialog({
     window.open(`/api/cabinets/${cabinetId}/roster?${params}`, '_blank');
   }
 
+  function exportPdf() {
+    if (students.length === 0 || pdfBusy) return;
+    setPdfBusy(true);
+    try {
+      downloadDrawerRosterPdf({
+        cabinetName,
+        drawerName,
+        section: section && view === 'list' ? section : undefined,
+        students,
+      });
+    } finally {
+      setPdfBusy(false);
+    }
+  }
+
   async function moveToSection(studentId: string, targetSection: string) {
     if (!drawerId || !cabinetId) return;
     const student = students.find((s) => s._id === studentId);
@@ -165,7 +182,7 @@ export default function DrawerRosterDialog({
         </DialogHeader>
 
         {canSectionBoard && (
-          <div className="flex flex-wrap gap-2 print:hidden">
+          <div className="flex flex-wrap gap-2">
             <Button
               size="sm"
               variant={view === 'sections' ? 'default' : 'outline'}
@@ -193,7 +210,7 @@ export default function DrawerRosterDialog({
         ) : error ? (
           <p className="text-sm text-destructive py-6">{error}</p>
         ) : view === 'sections' && canSectionBoard ? (
-          <div id="drawer-roster-print" className="space-y-3">
+          <div className="space-y-3">
             <p className="text-sm text-muted-foreground">
               {metaCount} student file{metaCount === 1 ? '' : 's'}
               {busy ? ' · saving…' : ''}
@@ -273,12 +290,12 @@ export default function DrawerRosterDialog({
             </div>
           </div>
         ) : (
-          <div id="drawer-roster-print" className="space-y-3">
-            <div className="flex items-center justify-between gap-2 print:block">
+          <div className="space-y-3">
+            <div className="flex items-center justify-between gap-2">
               <p className="text-sm text-muted-foreground">
                 {metaCount} student file{metaCount === 1 ? '' : 's'}
               </p>
-              <Badge variant="outline" className="print:hidden">
+              <Badge variant="outline">
                 Sorted A–Z by name
               </Badge>
             </div>
@@ -297,7 +314,7 @@ export default function DrawerRosterDialog({
                       <TableHead>Section</TableHead>
                       <TableHead>Status</TableHead>
                       {onReassign ? (
-                        <TableHead className="text-right print:hidden">Move</TableHead>
+                        <TableHead className="text-right">Move</TableHead>
                       ) : null}
                     </TableRow>
                   </TableHeader>
@@ -316,7 +333,7 @@ export default function DrawerRosterDialog({
                           <Badge variant="outline">{s.status || '—'}</Badge>
                         </TableCell>
                         {onReassign ? (
-                          <TableCell className="text-right print:hidden">
+                          <TableCell className="text-right">
                             <Button
                               size="sm"
                               variant="outline"
@@ -335,7 +352,7 @@ export default function DrawerRosterDialog({
           </div>
         )}
 
-        <DialogFooter className="gap-2 sm:gap-0 print:hidden">
+        <DialogFooter className="gap-2 sm:gap-0">
           <Button variant="outline" onClick={() => onOpenChange(false)}>
             Close
           </Button>
@@ -344,24 +361,13 @@ export default function DrawerRosterDialog({
           </Button>
           <Button
             className="gap-2"
-            onClick={() => window.print()}
-            disabled={loading || students.length === 0}
+            onClick={exportPdf}
+            disabled={loading || pdfBusy || students.length === 0}
           >
-            <Printer className="h-4 w-4" /> Print
+            {pdfBusy ? <Loader2 className="h-4 w-4 animate-spin" /> : <FileDown className="h-4 w-4" />}
+            PDF
           </Button>
         </DialogFooter>
-
-        <style>{`
-          @media print {
-            body * { visibility: hidden !important; }
-            #drawer-roster-print, #drawer-roster-print * { visibility: visible !important; }
-            #drawer-roster-print {
-              position: absolute !important;
-              left: 0; top: 0; width: 100%;
-              padding: 0.5in;
-            }
-          }
-        `}</style>
       </DialogContent>
     </Dialog>
   );
@@ -387,12 +393,12 @@ function StudentChip({
         onDragStart();
       }}
       onDragEnd={onDragEnd}
-      className={`flex items-start gap-1 rounded border bg-background px-1.5 py-1 text-[11px] cursor-grab active:cursor-grabbing print:cursor-default ${
+      className={`flex items-start gap-1 rounded border bg-background px-1.5 py-1 text-[11px] cursor-grab active:cursor-grabbing ${
         dragging ? 'opacity-50' : ''
       }`}
       title={student.labelId || student.studentId || student.name}
     >
-      <GripVertical className="h-3 w-3 shrink-0 mt-0.5 text-muted-foreground print:hidden" />
+      <GripVertical className="h-3 w-3 shrink-0 mt-0.5 text-muted-foreground" />
       <span className="leading-tight">
         <span className="font-medium">{student.name}</span>
         {(student.labelId || student.studentId) && (
