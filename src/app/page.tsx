@@ -1,13 +1,10 @@
 "use client";
 import React, { Suspense, useEffect, useRef, useState } from "react";
-import { Dialog as HeadlessDialog } from '@headlessui/react';
-import Barcode from 'react-barcode';
 import { FileDown, FileUp, Printer, Trash2, Edit, Eye, Moon, Sun, RotateCcw, List, Archive, X, Upload, History, Filter, TrendingUp, Package } from 'lucide-react';
 import { useSession } from 'next-auth/react';
 import StudentTable, { Student } from "../components/StudentTable";
 import DashboardStats from '@/components/DashboardStats';
 import PrintHistory from '@/components/PrintHistory';
-import QRCode from '@/components/QRCode';
 import ReprintButton from '@/components/ReprintButton';
 import SavedSearches from '@/components/SavedSearches';
 import BarcodeScanner from '@/components/BarcodeScanner';
@@ -24,23 +21,11 @@ import IntakePrintQueue from '@/components/IntakePrintQueue';
 import SelectionPrintTray from '@/components/SelectionPrintTray';
 import PrintView from '@/components/PrintView';
 import UndoSnackbar from '@/components/UndoSnackbar';
+import StudentDetailsDialog from '@/components/StudentDetailsDialog';
 import { Cabinet } from '../types/cabinet';
 import { useRouter, useSearchParams } from 'next/navigation';
-import Link from 'next/link';
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import { Separator } from '@/components/ui/separator';
-import { User, Calendar, Mail, MapPin, FileText, Hash, ScanLine, Boxes } from 'lucide-react';
-import { buildStudentQrPayload, extractStudentIdFromQrPayload } from '@/lib/qrPayload';
-import { getStudentStorageDisplay } from '@/lib/studentLocation';
+import { extractStudentIdFromQrPayload } from '@/lib/qrPayload';
 import { downloadCsvFile, objectsToCsv } from '@/lib/csv';
 import { getStoredPrintLayout, setStoredPrintLayout } from '@/lib/printLayoutStorage';
 import { formatFullName, formatFullNameLower } from '@/lib/personName';
@@ -206,10 +191,6 @@ function Dashboard() {
     cabinets.forEach(cab => cab.drawers.forEach(drawer => { map[drawer._id] = drawer.name; }));
     return map;
   }, [cabinets]);
-  const getQrPayload = React.useCallback((student: Student) => buildStudentQrPayload({
-    studentId: student.studentId,
-  }), []);
-
   // Fetch audit logs from API
   async function fetchAuditLogs() {
     if (status !== 'authenticated') return;
@@ -1086,226 +1067,18 @@ function Dashboard() {
           />
         )}
 
-        {/* Student Details Modal */}
-        <Dialog open={!!detailsStudent} onOpenChange={(open) => !open && setDetailsStudent(null)}>
-          <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
-            {detailsStudent && (
-              <>
-                <DialogHeader>
-                  <DialogTitle className="flex items-center gap-2 text-2xl">
-                    <User className="h-6 w-6" />
-                    Student Details
-                  </DialogTitle>
-                  <DialogDescription>
-                    Complete information for {formatFullName(detailsStudent)}
-                  </DialogDescription>
-                </DialogHeader>
-
-                <div className="space-y-6">
-                  {/* Personal Information */}
-                  <Card>
-                    <CardHeader>
-                      <CardTitle className="text-lg flex items-center gap-2">
-                        <User className="h-5 w-5" />
-                        Personal Information
-                      </CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div className="space-y-1">
-                          <div className="text-sm font-medium text-muted-foreground">First Name</div>
-                          <div className="text-lg font-semibold">{detailsStudent.firstName}</div>
-                        </div>
-                        <div className="space-y-1">
-                          <div className="text-sm font-medium text-muted-foreground">Last Name</div>
-                          <div className="text-lg font-semibold">{detailsStudent.lastName}</div>
-                        </div>
-                        <div className="space-y-1">
-                          <div className="text-sm font-medium text-muted-foreground flex items-center gap-2">
-                            <Calendar className="h-4 w-4" />
-                            Date of Birth
-                          </div>
-                          <div className="text-lg">{detailsStudent.dob}</div>
-                        </div>
-                        <div className="space-y-1">
-                          <div className="text-sm font-medium text-muted-foreground flex items-center gap-2">
-                            <Mail className="h-4 w-4" />
-                            Email
-                          </div>
-                          <div className="text-lg">{detailsStudent.email || <span className="text-muted-foreground">Not provided</span>}</div>
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-
-                  {/* Enrollment Information */}
-                  <Card>
-                    <CardHeader>
-                      <CardTitle className="text-lg flex items-center gap-2">
-                        <Calendar className="h-5 w-5" />
-                        Enrollment Information
-                      </CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div className="space-y-1">
-                          <div className="text-sm font-medium text-muted-foreground">Start Date</div>
-                          <div className="text-lg">{detailsStudent.startDate || <span className="text-muted-foreground">Not set</span>}</div>
-                        </div>
-                        <div className="space-y-1">
-                          <div className="text-sm font-medium text-muted-foreground">End Date</div>
-                          <div className="text-lg">{detailsStudent.endDate || <span className="text-muted-foreground">Not set</span>}</div>
-                        </div>
-                        <div className="space-y-1">
-                          <div className="text-sm font-medium text-muted-foreground">Fiscal Year</div>
-                          <div className="text-lg">{detailsStudent.fiscalYear}</div>
-                        </div>
-                        <div className="space-y-1">
-                          <div className="text-sm font-medium text-muted-foreground">Status</div>
-                          <div>
-                            <Badge 
-                              variant={detailsStudent.status === 'Active' ? 'default' : detailsStudent.status === 'Inactive' ? 'secondary' : 'outline'}
-                              className="text-sm"
-                            >
-                              {detailsStudent.status}
-                            </Badge>
-                          </div>
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-
-                  {/* Storage Information */}
-                  <Card>
-                    <CardHeader>
-                      <CardTitle className="text-lg flex items-center gap-2">
-                        {detailsStudent.archived || detailsStudent.status === 'Archived' ? (
-                          <Boxes className="h-5 w-5" />
-                        ) : (
-                          <MapPin className="h-5 w-5" />
-                        )}
-                        {detailsStudent.archived || detailsStudent.status === 'Archived'
-                          ? 'Archive Location'
-                          : 'Storage Location'}
-                      </CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                      {(() => {
-                        const storage = getStudentStorageDisplay(detailsStudent, cabinetMap, drawerMap);
-                        if (storage.isArchived && (detailsStudent.archiveBoxLabel || detailsStudent.archiveLocation)) {
-                          return (
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                              <div className="space-y-1">
-                                <div className="text-sm font-medium text-muted-foreground">Archive Box</div>
-                                <div className="text-lg font-semibold">{detailsStudent.archiveBoxLabel}</div>
-                                {detailsStudent.archiveSchoolYear && (
-                                  <div className="text-sm text-muted-foreground">{detailsStudent.archiveSchoolYear}</div>
-                                )}
-                              </div>
-                              <div className="space-y-1">
-                                <div className="text-sm font-medium text-muted-foreground">Storage Location</div>
-                                <div className="text-lg font-semibold">{detailsStudent.archiveLocation || '—'}</div>
-                                {detailsStudent.archiveBoxId && (
-                                  <Link
-                                    href={`/archive/box/${detailsStudent.archiveBoxId}`}
-                                    className="text-sm text-primary hover:underline inline-block"
-                                  >
-                                    View archive box →
-                                  </Link>
-                                )}
-                              </div>
-                            </div>
-                          );
-                        }
-                        if (storage.isArchived) {
-                          return (
-                            <div className="rounded-lg border border-amber-200 bg-amber-50 dark:bg-amber-950/20 dark:border-amber-800 p-4 text-sm text-amber-800 dark:text-amber-300">
-                              <p className="font-medium">No archive box assigned yet</p>
-                              <p className="mt-1 text-amber-700 dark:text-amber-400">
-                                Go to Admin → Cabinets, open the archived cabinet, and click
-                                &quot;Move Students to Boxes&quot; to assign a box and storage location.
-                              </p>
-                            </div>
-                          );
-                        }
-                        return (
-                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <div className="space-y-1">
-                              <div className="text-sm font-medium text-muted-foreground">Cabinet</div>
-                              <div className="text-lg font-semibold">
-                                {cabinetMap[detailsStudent.cabinet] || detailsStudent.cabinet || <span className="text-muted-foreground">Not assigned</span>}
-                              </div>
-                            </div>
-                            <div className="space-y-1">
-                              <div className="text-sm font-medium text-muted-foreground">Drawer</div>
-                              <div className="text-lg font-semibold">
-                                {drawerMap[detailsStudent.drawer] || detailsStudent.drawer || <span className="text-muted-foreground">Not assigned</span>}
-                              </div>
-                            </div>
-                          </div>
-                        );
-                      })()}
-                    </CardContent>
-                  </Card>
-
-                  {/* Student ID & Barcode */}
-                  {detailsStudent._id && detailsStudent.studentId && (
-                    <Card>
-                      <CardHeader>
-                        <CardTitle className="text-lg flex items-center gap-2">
-                          <Hash className="h-5 w-5" />
-                          Student ID & Barcode
-                        </CardTitle>
-                        <CardDescription>
-                          Student identifier and scannable barcode
-                        </CardDescription>
-                      </CardHeader>
-                      <CardContent className="space-y-4">
-                        <div className="space-y-1">
-                          <div className="text-sm font-medium text-muted-foreground">Student ID</div>
-                          <div className="text-xl font-mono font-semibold">{detailsStudent.studentId}</div>
-                        </div>
-                        <Separator />
-                        <div className="flex flex-col items-center justify-center w-full bg-muted/50 rounded-lg p-6 space-y-4">
-                          <div className="text-sm font-medium text-muted-foreground flex items-center gap-2">
-                            <ScanLine className="h-4 w-4" />
-                            Barcode
-                          </div>
-                          <div className="bg-white dark:bg-gray-900 rounded-lg p-4 w-full flex flex-col items-center">
-                            <Barcode 
-                              value={detailsStudent.studentId} 
-                              width={2} 
-                              height={80} 
-                              fontSize={18} 
-                              margin={0} 
-                            />
-                            <div className="mt-3 break-all text-center text-sm font-mono text-muted-foreground">
-                              {detailsStudent.studentId}
-                            </div>
-                          </div>
-                          {showQRCode && (
-                            <>
-                              <Separator className="w-32" />
-                              <div className="flex flex-col items-center space-y-2">
-                                <div className="text-sm font-medium text-muted-foreground">QR Code</div>
-                                <div className="text-xs text-muted-foreground text-center">
-                                  Scans student ID, name, DOB, cabinet, drawer, and school.
-                                </div>
-                                <div className="bg-white dark:bg-gray-900 rounded-lg p-3">
-                                  <QRCode value={getQrPayload(detailsStudent)} size={120} level="L" />
-                                </div>
-                              </div>
-                            </>
-                          )}
-                        </div>
-                      </CardContent>
-                    </Card>
-                  )}
-                </div>
-              </>
-            )}
-          </DialogContent>
-        </Dialog>
+        <StudentDetailsDialog
+          student={detailsStudent}
+          open={!!detailsStudent}
+          onOpenChange={(open) => !open && setDetailsStudent(null)}
+          cabinetMap={cabinetMap}
+          drawerMap={drawerMap}
+          showQRCode={showQRCode}
+          onEdit={(student) => {
+            setDetailsStudent(null);
+            openEditModal(student);
+          }}
+        />
 
         {/* Bulk Update Modal */}
         <BulkUpdateModal

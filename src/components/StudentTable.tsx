@@ -45,6 +45,7 @@ export type Student = {
   drawer: string;
   drawerSection?: string;
   email?: string | null;
+  phone?: string | null;
   address?: string | null;
   apt?: string | null;
   city?: string | null;
@@ -57,6 +58,11 @@ export type Student = {
     state: string;
     zip: string;
   } | null;
+  addressGeoclient?: {
+    latitude?: number;
+    longitude?: number;
+  } | null;
+  addressStatus?: string | null;
   /** Barcode printed on the physical label: {year}-{initials}-{counter} */
   labelId?: string;
   /** Demographic ID: {LASTNAME}{FIRSTNAME}{AGENCYID}{DOBDIGITS} */
