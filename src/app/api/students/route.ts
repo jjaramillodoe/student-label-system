@@ -15,6 +15,7 @@ import { verifyAddressWithGeoclient } from '@/lib/addressGeoclient';
 import { getSchoolIntakeSessions, validateIntakeSessionTimes } from '@/lib/intakeSession';
 import { assignDrawerSection } from '@/lib/drawerSections';
 import { usaNameError } from '@/lib/usaName';
+import { enrichStudentsWithCabinetNames, loadCabinetDrawerLookup } from '@/lib/cabinetNames';
 
 // Helper function to validate ObjectId
 function isValidObjectId(id: string): boolean {
@@ -62,7 +63,8 @@ export async function GET(req: NextRequest) {
     const cursor = db.collection('students').find(query).sort({ createdAt: -1 });
     if (search && search.trim()) cursor.limit(20);
     const students = await cursor.toArray();
-    return NextResponse.json(students);
+    const { byCabinetId } = await loadCabinetDrawerLookup(db);
+    return NextResponse.json(enrichStudentsWithCabinetNames(students, byCabinetId));
   } catch (error) {
     console.error('Error fetching students:', error);
     return NextResponse.json({ error: 'Failed to fetch students' }, { status: 500 });

@@ -578,6 +578,21 @@ export default function IntakePage() {
       .finally(() => setCabinetsLoading(false));
   }, [authStatus]);
 
+  const { cabinetMap, drawerMap } = useMemo(() => {
+    const nextCabinet: Record<string, string> = {};
+    const nextDrawer: Record<string, string> = {};
+    for (const c of cabinets) {
+      const cabId = normalizeMongoId(c._id) ?? String(c._id);
+      const cabName = c.name || c.identifier || cabId;
+      if (cabId) nextCabinet[cabId] = cabName;
+      for (const d of c.drawers || []) {
+        const drawerId = normalizeMongoId(d._id) ?? String(d._id);
+        if (drawerId) nextDrawer[drawerId] = d.name || drawerId;
+      }
+    }
+    return { cabinetMap: nextCabinet, drawerMap: nextDrawer };
+  }, [cabinets]);
+
   // Load Data Lead contact for this school (shown when a duplicate is found)
   useEffect(() => {
     if (authStatus !== 'authenticated') return;
@@ -1599,6 +1614,8 @@ export default function IntakePage() {
                           <IntakeMatchCard
                             key={s._id || i}
                             student={s}
+                            cabinetMap={cabinetMap}
+                            drawerMap={drawerMap}
                             onUseAsReturning={selectAsReturning}
                           />
                         ))}
@@ -1612,6 +1629,8 @@ export default function IntakePage() {
                           <IntakeMatchCard
                             key={s._id || `legacy-${i}`}
                             student={s}
+                            cabinetMap={cabinetMap}
+                            drawerMap={drawerMap}
                             showUseButton={false}
                             onConfirmSameLegacy={confirmLegacySamePerson}
                           />
@@ -1711,6 +1730,8 @@ export default function IntakePage() {
                       <IntakeMatchCard
                         key={s._id}
                         student={s}
+                        cabinetMap={cabinetMap}
+                        drawerMap={drawerMap}
                         onUseAsReturning={s._legacy ? undefined : selectAsReturning}
                         showUseButton={!s._legacy}
                       />
@@ -1773,6 +1794,8 @@ export default function IntakePage() {
                   <IntakeMatchCard
                     key={s._id || i}
                     student={s}
+                    cabinetMap={cabinetMap}
+                    drawerMap={drawerMap}
                     onUseAsReturning={selectAsReturning}
                   />
                 ))}
@@ -1787,6 +1810,8 @@ export default function IntakePage() {
                   <IntakeMatchCard
                     key={s._id || `legacy-${i}`}
                     student={s}
+                    cabinetMap={cabinetMap}
+                    drawerMap={drawerMap}
                     showUseButton={false}
                   />
                 ))}
@@ -1899,6 +1924,8 @@ export default function IntakePage() {
                       <IntakeMatchCard
                         key={s._id}
                         student={s}
+                        cabinetMap={cabinetMap}
+                        drawerMap={drawerMap}
                         onSelect={selectAsReturning}
                         showUseButton={false}
                       />
@@ -3034,7 +3061,9 @@ function IntakeSuccessSummary({
   const drawerMap = Object.fromEntries(
     cabinets.flatMap(c => c.drawers.map(d => [d._id, d.name])),
   );
-  const storage = getStudentStorageDisplay(student, cabinetMap, drawerMap);
+  const storage = getStudentStorageDisplay(student, cabinetMap, drawerMap, {
+    showSection: true,
+  });
   const sessionConfig = findIntakeSession(intakeSessions, form.intakeSession);
   const address = formatStudentAddressStacked({
     address: student.address,
@@ -3136,6 +3165,9 @@ function IntakeSuccessSummary({
             label={storage.secondaryLabel}
             value={storage.secondary}
           />
+          {storage.section && (
+            <SummaryRow label="Sec" value={storage.section} />
+          )}
           {student.archiveBoxId && (
             <div className="pt-2 pb-1">
               <Button variant="link" size="sm" className="h-auto p-0 text-xs" asChild>

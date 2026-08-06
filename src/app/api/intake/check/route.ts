@@ -11,6 +11,7 @@ import {
   type StudentAddressRecord,
 } from '@/lib/addressDuplicate';
 import { LEGACY_ROSTER_COLLECTION, matchLegacyRoster, schoolNameFilter } from '@/lib/legacyRoster';
+import { enrichStudentsWithCabinetNames, loadCabinetDrawerLookup } from '@/lib/cabinetNames';
 
 const STUDENT_PROJECTION = {
   firstName: 1,
@@ -24,6 +25,7 @@ const STUDENT_PROJECTION = {
   email: 1,
   cabinet: 1,
   drawer: 1,
+  drawerSection: 1,
   archiveBoxId: 1,
   archiveBoxLabel: 1,
   archiveLocation: 1,
@@ -184,7 +186,13 @@ export async function POST(request: Request) {
       legacyFuzzy = matched.fuzzy;
     }
 
-    return NextResponse.json({ exact, fuzzy, legacyExact, legacyFuzzy });
+    const { byCabinetId } = await loadCabinetDrawerLookup(db);
+    return NextResponse.json({
+      exact: enrichStudentsWithCabinetNames(exact, byCabinetId),
+      fuzzy: enrichStudentsWithCabinetNames(fuzzy, byCabinetId),
+      legacyExact,
+      legacyFuzzy,
+    });
   } catch (error) {
     console.error('Intake check error:', error);
     return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });

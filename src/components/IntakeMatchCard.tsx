@@ -38,6 +38,9 @@ export type IntakeMatchStudent = {
   archived?: boolean;
   cabinet?: string;
   drawer?: string;
+  drawerSection?: string;
+  cabinetName?: string;
+  drawerName?: string;
   archiveBoxId?: string;
   archiveBoxLabel?: string;
   archiveLocation?: string;
@@ -55,6 +58,9 @@ export type IntakeMatchStudent = {
 
 interface IntakeMatchCardProps {
   student: IntakeMatchStudent;
+  /** Resolve Mongo cabinet/drawer IDs to display names */
+  cabinetMap?: Record<string, string>;
+  drawerMap?: Record<string, string>;
   onUseAsReturning?: (student: IntakeMatchStudent) => void;
   /** ASISTS/legacy only: confirm the person at the desk is this roster row, then continue as NEW */
   onConfirmSameLegacy?: (student: IntakeMatchStudent) => void;
@@ -89,6 +95,8 @@ export function IntakeArchivedBadge({ student }: { student: IntakeMatchStudent }
 
 export default function IntakeMatchCard({
   student,
+  cabinetMap = {},
+  drawerMap = {},
   onUseAsReturning,
   onConfirmSameLegacy,
   onSelect,
@@ -96,7 +104,9 @@ export default function IntakeMatchCard({
 }: IntakeMatchCardProps) {
   const archived = studentIsArchived(student);
   const legacy = Boolean(student._legacy);
-  const storage = getStudentStorageDisplay(student);
+  const storage = getStudentStorageDisplay(student, cabinetMap, drawerMap, {
+    showSection: true,
+  });
   const hasBox = studentHasArchiveBoxLocation(student);
 
   const body = (
@@ -149,6 +159,7 @@ export default function IntakeMatchCard({
               <span className="text-muted-foreground">
                 {storage.primaryLabel}: {storage.primary}
                 {storage.secondary !== '—' && ` · ${storage.secondaryLabel}: ${storage.secondary}`}
+                {storage.section && ` · Sec: ${storage.section}`}
               </span>
             )}
           </span>

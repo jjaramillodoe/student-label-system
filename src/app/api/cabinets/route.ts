@@ -27,21 +27,31 @@ export async function GET(req: NextRequest) {
 
     const cabinets = await db.collection('cabinets').find(query).toArray();
 
+    const serializeCabinet = (cabinet: Record<string, any>, fillForecast: unknown = undefined) => ({
+      ...cabinet,
+      _id: String(cabinet._id),
+      drawers: (cabinet.drawers || []).map((d: Record<string, any>) => ({
+        ...d,
+        _id: String(d._id ?? ''),
+      })),
+      ...(fillForecast !== undefined ? { fillForecast } : {}),
+    });
+
     if (!withForecast) {
-      return NextResponse.json(cabinets);
+      return NextResponse.json(cabinets.map((c) => serializeCabinet(c)));
     }
 
     const enriched = await Promise.all(
       cabinets.map(async (cabinet) => {
         if ((cabinet.status ?? 'Active') === 'Archived') {
-          return { ...cabinet, fillForecast: null };
+          return serializeCabinet(cabinet, null);
         }
         const fillForecast = await computeCabinetFillForecast(db, {
           _id: String(cabinet._id),
           currentCount: cabinet.currentCount,
           totalCapacity: cabinet.totalCapacity,
         });
-        return { ...cabinet, fillForecast };
+        return serializeCabinet(cabinet, fillForecast);
       }),
     );
 

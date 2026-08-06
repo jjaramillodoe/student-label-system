@@ -1,3 +1,5 @@
+import { normalizeMongoId } from '@/lib/utils';
+
 /** Fields used to resolve where a student file is stored. */
 export type StorageStudent = {
   archived?: boolean;
@@ -29,6 +31,25 @@ export type StudentStorageDisplay = {
   secondaryLabel: 'Location' | 'Draw';
 };
 
+function mapLookup(map: Record<string, string>, raw: unknown): string | undefined {
+  const key = normalizeMongoId(raw) ?? (raw != null && raw !== '' ? String(raw) : '');
+  if (!key) return undefined;
+  const hit = map[key];
+  return hit || undefined;
+}
+
+function resolveStorageName(
+  map: Record<string, string>,
+  raw: unknown,
+  enrichedName?: string | null,
+): string {
+  const fromMap = mapLookup(map, raw);
+  if (fromMap) return fromMap;
+  if (enrichedName?.trim()) return enrichedName.trim();
+  const key = normalizeMongoId(raw) ?? (raw != null && raw !== '' ? String(raw) : '');
+  return key || '—';
+}
+
 export function getStudentStorageDisplay(
   student: StorageStudent,
   cabinetMap: Record<string, string> = {},
@@ -53,13 +74,13 @@ export function getStudentStorageDisplay(
       };
     }
 
-    const cabinetName = cabinetMap[student.cabinet || ''] || student.cabinet || '';
-    const drawerName = drawerMap[student.drawer || ''] || student.drawer || '';
-    if (cabinetName || drawerName) {
+    const cabinetName = resolveStorageName(cabinetMap, student.cabinet, student.cabinetName);
+    const drawerName = resolveStorageName(drawerMap, student.drawer, student.drawerName);
+    if ((cabinetName && cabinetName !== '—') || (drawerName && drawerName !== '—')) {
       return {
         isArchived: true,
-        primary: cabinetName || '—',
-        secondary: drawerName || '—',
+        primary: cabinetName !== '—' ? cabinetName : '—',
+        secondary: drawerName !== '—' ? drawerName : '—',
         section: null,
         primaryLabel: 'Cab',
         secondaryLabel: 'Draw',
@@ -76,21 +97,10 @@ export function getStudentStorageDisplay(
     };
   }
 
-  const cabinetDisplay =
-    cabinetMap[student.cabinet || '']
-    || student.cabinetName
-    || student.cabinet
-    || '—';
-  const drawerDisplay =
-    drawerMap[student.drawer || '']
-    || student.drawerName
-    || student.drawer
-    || '—';
-
   return {
     isArchived: false,
-    primary: cabinetDisplay,
-    secondary: drawerDisplay,
+    primary: resolveStorageName(cabinetMap, student.cabinet, student.cabinetName),
+    secondary: resolveStorageName(drawerMap, student.drawer, student.drawerName),
     section,
     primaryLabel: 'Cab',
     secondaryLabel: 'Draw',
