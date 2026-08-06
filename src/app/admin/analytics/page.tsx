@@ -80,6 +80,7 @@ type AnalyticsPayload = {
     databaseConnected: boolean;
     syncReadyPercent: number;
     thoughtspotConfigured: boolean;
+    motherduckConfigured: boolean;
   } | null;
 };
 
@@ -477,14 +478,14 @@ export default function AnalyticsPage() {
                 </Button>
                 {isAdmin && (
                   <Button variant="outline" className="justify-start gap-2 h-auto py-3 sm:col-span-2" asChild>
-                    <Link href="/admin/thoughtspot-analytics">
+                    <Link href="/admin/motherduck-analytics">
                       <LineChartIcon className="h-4 w-4" />
                       <span className="text-left">
-                        <span className="block text-sm font-medium">ThoughtSpot Analytics</span>
+                        <span className="block text-sm font-medium">MotherDuck Analytics</span>
                         <span className="block text-[11px] text-muted-foreground font-normal">
-                          {data.system?.thoughtspotConfigured
-                            ? 'Liveboard for district enrollment trends'
-                            : 'Configure ThoughtSpot in environment to enable'}
+                          {data.system?.motherduckConfigured
+                            ? 'Warehouse analytics synced from MongoDB'
+                            : 'Configure MOTHERDUCK_TOKEN to enable'}
                         </span>
                       </span>
                     </Link>

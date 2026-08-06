@@ -1,6 +1,7 @@
 import clientPromise from '@/lib/mongodb';
 import {
   checkMongoDb,
+  checkMotherDuckEnv,
   checkSyncApiEnv,
   checkThoughtSpotEnv,
 } from '@/lib/healthChecks';
@@ -137,6 +138,7 @@ export async function getSystemStats(): Promise<SystemStats> {
 
   const syncApi = checkSyncApiEnv();
   const thoughtspot = checkThoughtSpotEnv();
+  const motherduck = checkMotherDuckEnv();
 
   const devToolKeys = [
     'showSeedTestData',
@@ -164,6 +166,12 @@ export async function getSystemStats(): Promise<SystemStats> {
       label: 'ThoughtSpot',
       configured: thoughtspot.ok,
       note: thoughtspot.ok ? 'Configured' : 'Not configured',
+    },
+    {
+      id: 'motherduck',
+      label: 'MotherDuck',
+      configured: motherduck.ok,
+      note: motherduck.ok ? 'Configured' : 'Not configured',
     },
     {
       id: 'email-validation',

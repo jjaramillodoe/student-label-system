@@ -134,6 +134,7 @@ export default function CommandPalette() {
       { id: 'cleanup', label: 'Data Cleanup', group: 'Admin', href: '/admin/data-cleanup', icon: Sparkles, show: isAdminOrDataLead },
       { id: 'audit', label: 'Audit Log', group: 'Admin', href: '/audit', icon: List, show: isAdminOrDataLead },
       { id: 'analytics', label: 'Analytics', group: 'Admin', href: '/admin/analytics', icon: BarChart3, show: isAdminOrDataLead, keywords: 'metrics dashboard enrollment' },
+      { id: 'motherduck', label: 'MotherDuck Analytics', group: 'Admin', href: '/admin/motherduck-analytics', icon: LineChart, show: isAdmin, keywords: 'warehouse duckdb analytics' },
       { id: 'thoughtspot', label: 'ThoughtSpot Analytics', group: 'Admin', href: '/admin/thoughtspot-analytics', icon: LineChart, show: isAdmin },
       { id: 'validation', label: 'Email Validation', group: 'Admin', href: '/admin/validation', icon: ShieldCheck, show: isAdmin },
       { id: 'docs', label: 'In-app guide', group: 'Help', href: '/docs', icon: BookOpen, show: true },

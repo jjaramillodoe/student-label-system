@@ -3,6 +3,7 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/authOptions';
 import clientPromise from '@/lib/mongodb';
 import { getSystemStats } from '@/lib/systemStats';
+import { isMotherDuckConfigured } from '@/lib/motherduck';
 
 export const dynamic = 'force-dynamic';
 
@@ -245,6 +246,9 @@ export async function GET() {
             thoughtspotConfigured: system.integrations.some(
               (i) => i.id === 'thoughtspot' && i.configured,
             ),
+            motherduckConfigured:
+              system.integrations.some((i) => i.id === 'motherduck' && i.configured)
+              || isMotherDuckConfigured(),
           }
         : null,
     });

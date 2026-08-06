@@ -77,6 +77,22 @@ export const MONITORED_ENDPOINTS: EndpointInfo[] = [
     auth: 'session',
     status: 'unknown',
   },
+  {
+    id: 'motherduck-status',
+    method: 'GET',
+    path: '/api/admin/motherduck/status',
+    purpose: 'MotherDuck warehouse status',
+    auth: 'admin',
+    status: 'unknown',
+  },
+  {
+    id: 'motherduck-sync',
+    method: 'POST',
+    path: '/api/admin/motherduck/sync',
+    purpose: 'Sync MongoDB students → MotherDuck',
+    auth: 'admin',
+    status: 'unknown',
+  },
 ];
 
 function envConfigured(name: string): boolean {
@@ -140,6 +156,21 @@ export function checkThoughtSpotEnv(): HealthCheckResult {
   };
 }
 
+export function checkMotherDuckEnv(): HealthCheckResult {
+  const token = envConfigured('MOTHERDUCK_TOKEN');
+  const database = process.env.MOTHERDUCK_DATABASE?.trim() || 'student_label_analytics';
+  return {
+    ok: token,
+    details: {
+      token,
+      database,
+      host: process.env.MOTHERDUCK_HOST?.trim() || 'pg.us-east-1-aws.motherduck.com',
+      configured: token,
+    },
+    message: token ? undefined : 'MOTHERDUCK_TOKEN is not set',
+  };
+}
+
 export async function checkSyncStudentsSample(): Promise<HealthCheckResult> {
   if (!envConfigured('SYNC_API_KEY')) {
     return { ok: false, message: 'SYNC_API_KEY not configured' };
@@ -188,6 +219,15 @@ export function resolveEndpointStatuses(
       };
     }
 
+    if (endpoint.id === 'motherduck-status' || endpoint.id === 'motherduck-sync') {
+      const md = checks.motherduckEnv;
+      return {
+        ...endpoint,
+        status: md?.ok ? 'ready' : 'misconfigured',
+        statusNote: md?.ok ? 'Admin session required' : md?.message,
+      };
+    }
+
     if (endpoint.auth === 'session' || endpoint.auth === 'admin') {
       const coreOk = checks.coreEnv?.ok && checks.mongodb?.ok;
       return {
@@ -206,7 +246,8 @@ export function aggregateStatus(checks: {
   coreEnv: HealthCheckResult;
   syncApiEnv: HealthCheckResult;
   syncData: HealthCheckResult;
-  thoughtspotEnv: HealthCheckResult;
+  thoughtspotEnv?: HealthCheckResult;
+  motherduckEnv?: HealthCheckResult;
 }): HealthStatus {
   const required = [checks.mongodb, checks.coreEnv, checks.syncApiEnv, checks.syncData];
   const requiredFailed = required.filter((c) => !c.ok).length;
@@ -214,7 +255,7 @@ export function aggregateStatus(checks: {
   if (requiredFailed > 0) {
     return requiredFailed === required.length ? 'unhealthy' : 'degraded';
   }
-  if (!checks.thoughtspotEnv.ok) return 'degraded';
+  // Optional analytics warehouses (ThoughtSpot / MotherDuck) do not fail readiness
   return 'healthy';
 }
 

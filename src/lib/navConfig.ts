@@ -103,7 +103,7 @@ export const NAV_GROUPS: NavGroup[] = [
       { href: '/admin/activity-report', label: 'Activity Report', icon: TrendingUp, roles: ['Admin', 'Data Lead'] },
       { href: '/audit', label: 'Audit Log', icon: List, roles: ['Admin', 'Data Lead'] },
       { href: '/admin/data-cleanup', label: 'Data Cleanup', icon: Sparkles, roles: ['Admin', 'Data Lead'] },
-      { href: '/admin/thoughtspot-analytics', label: 'ThoughtSpot', icon: LineChart, roles: ['Admin'] },
+      { href: '/admin/motherduck-analytics', label: 'MotherDuck', icon: LineChart, roles: ['Admin'] },
       {
         href: '/admin/migrate/drawers',
         label: 'Migrate Drawers',

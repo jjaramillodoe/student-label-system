@@ -5,6 +5,7 @@ import {
   checkMongoDb,
   checkSyncApiEnv,
   checkSyncStudentsSample,
+  checkMotherDuckEnv,
   checkThoughtSpotEnv,
   resolveEndpointStatuses,
   statusToHttpCode,
@@ -18,6 +19,7 @@ export async function GET() {
   const coreEnv = checkCoreEnv();
   const syncApiEnv = checkSyncApiEnv();
   const thoughtspotEnv = checkThoughtSpotEnv();
+  const motherduckEnv = checkMotherDuckEnv();
 
   const checks = {
     mongodb,
@@ -25,6 +27,7 @@ export async function GET() {
     syncApiEnv,
     syncData,
     thoughtspotEnv,
+    motherduckEnv,
   };
 
   const endpoints = resolveEndpointStatuses(checks);
@@ -54,6 +57,7 @@ export async function GET() {
         syncTest:
           'GET /api/sync/v1/students?limit=1 with header Authorization: Bearer <SYNC_API_KEY>',
         powerAutomate: '/docs/power-automate-first-manual-test.md',
+        motherduck: 'Admin → MotherDuck · set MOTHERDUCK_TOKEN then Sync from MongoDB',
       },
     },
     { status: httpStatus }

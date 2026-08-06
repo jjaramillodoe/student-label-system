@@ -497,9 +497,9 @@ export default function EnrollmentPage() {
             <>
               {isAdmin && (
                 <Button variant="outline" size="sm" asChild>
-                  <Link href="/admin/thoughtspot-analytics" className="gap-2">
+                  <Link href="/admin/motherduck-analytics" className="gap-2">
                     <TrendingUp className="h-4 w-4" />
-                    ThoughtSpot Analytics
+                    MotherDuck Analytics
                   </Link>
                 </Button>
               )}
