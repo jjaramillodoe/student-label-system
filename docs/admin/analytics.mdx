@@ -1,0 +1,58 @@
+---
+title: Analytics
+description: In-app analytics charts and MotherDuck warehouse analytics for district enrollment.
+---
+
+The app has two analytics surfaces:
+
+| Surface | Path | Who | Data source |
+| --- | --- | --- | --- |
+| **Analytics** | `/admin/analytics` | Admin, Data Lead | Live MongoDB aggregates |
+| **MotherDuck** | `/admin/motherduck-analytics` | **Admin only** | MotherDuck warehouse (synced from MongoDB) |
+
+## In-app Analytics
+
+**Admin → Analytics** shows enrollment, cabinet fill, print activity, and school breakdowns from MongoDB. Data Leads see school-scoped metrics; Admins see district-wide totals.
+
+Use **Refresh** to reload the snapshot. Deeper tools (Enrollment, Activity Report, Print Reports, Cabinets) are linked from the same page.
+
+## MotherDuck Analytics (Admin only)
+
+**Admin → MotherDuck** queries a [MotherDuck](https://motherduck.com) DuckDB warehouse over the [Postgres endpoint](https://motherduck.com/docs/key-tasks/authenticating-and-connecting-to-motherduck/postgres-endpoint/).
+
+### Setup
+
+1. Create an account and access token at [app.motherduck.com](https://app.motherduck.com) (Settings → Access tokens).
+2. Set environment variables on the server:
+
+| Variable | Required | Default |
+| --- | --- | --- |
+| `MOTHERDUCK_TOKEN` | Yes | — |
+| `MOTHERDUCK_DATABASE` | No | `student_label_analytics` |
+| `MOTHERDUCK_HOST` | No | `pg.us-east-1-aws.motherduck.com` |
+
+3. Open **Admin → MotherDuck** and click **Sync from MongoDB**.
+
+Sync creates the database (if needed), `students` and `sync_meta` tables, then loads a full student snapshot. Charts (14-day enrollments, status, schools) read from MotherDuck after sync.
+
+<Tip>
+  Re-run **Sync from MongoDB** after large imports or end-of-day so warehouse charts stay current. In-app Analytics always reflects live MongoDB without sync.
+</Tip>
+
+### APIs (Admin)
+
+| Method | Path | Purpose |
+| --- | --- | --- |
+| `GET` | `/api/admin/motherduck/status` | Connection, row count, last sync |
+| `POST` | `/api/admin/motherduck/sync` | Full MongoDB → MotherDuck snapshot |
+| `GET` | `/api/admin/motherduck/analytics` | Warehouse metrics for the UI |
+
+## ThoughtSpot (optional legacy)
+
+The ThoughtSpot Liveboard embed may still be available at `/admin/thoughtspot-analytics` if `THOUGHTSPOT_*` env vars are set. MotherDuck is the primary warehouse path in navigation.
+
+## Related pages
+
+- [Enrollment dashboard](/admin/enrollment-dashboard)
+- [Data Lead tools](/admin/data-lead-tools)
+- [System architecture](/contributors/system-architecture)

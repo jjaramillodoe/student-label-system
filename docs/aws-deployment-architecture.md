@@ -12,7 +12,7 @@
 
 The Student Label System is a **web application for managing adult-education student records**, physical file placement (cabinets/drawers/archive boxes), label printing, intake workflows, and admin reporting. It is built as a **single Next.js 16 application** with **API routes** (no separate backend service). All persistent data lives in **MongoDB** (database name: `student-label`).
 
-The app is **stateless at the application layer** — session state is stored in **HTTP cookies** (NextAuth JWT). The only hard dependency is **MongoDB**. Optional integrations include **Microsoft Power Automate** (student sync to Dynamics/Dataverse), **ThoughtSpot** (embedded analytics), and a third-party **email validation API**.
+The app is **stateless at the application layer** — session state is stored in **HTTP cookies** (NextAuth JWT). The only hard dependency is **MongoDB**. Optional integrations include **Microsoft Power Automate** (student sync to Dynamics/Dataverse), **MotherDuck** (analytics warehouse), **ThoughtSpot** (legacy embedded analytics), and a third-party **email validation API**.
 
 For AWS EC2 deployment, we recommend:
 
@@ -50,6 +50,7 @@ flowchart TB
     Mongo[(MongoDB<br/>database: student-label)]
     PA[Microsoft Power Automate]
     DV[Microsoft Dataverse / Dynamics]
+    MD[MotherDuck]
     TS[ThoughtSpot Cloud]
     EmailVal[Email Validation API]
   end
@@ -62,6 +63,7 @@ flowchart TB
   PA -->|Bearer SYNC_API_KEY| App
   App -->|GET /api/sync/v1/students| PA
   PA --> DV
+  App -->|pg wire| MD
   App --> TS
   App --> EmailVal
 ```
@@ -98,7 +100,9 @@ There is **no Redis**, **no message queue**, and **no separate worker process** 
 | User management | `/admin/users`, `/api/users/*` | Roles: Admin, Data Lead, Data Member |
 | Sync export | `/api/sync/v1/students` | Machine-to-machine delta export for Power Automate |
 | Health & ops | `/api/health`, `/api/health/deep`, `/admin/settings` | Liveness, readiness, system stats |
-| Analytics (optional) | `/admin/thoughtspot-analytics` | ThoughtSpot liveboard embed |
+| Analytics | `/admin/analytics` | Live MongoDB metrics (Admin / Data Lead) |
+| MotherDuck analytics (optional) | `/admin/motherduck-analytics` | Warehouse sync + DuckDB SQL via Postgres wire |
+| ThoughtSpot (optional legacy) | `/admin/thoughtspot-analytics` | ThoughtSpot liveboard embed |
 
 ### 3.3 API surface (59 route handlers)
 
@@ -161,6 +165,7 @@ The sync API relies on `updatedAt` for delta queries. Recommended indexes (see `
 |-------------|-----------|----------|-----------------|
 | **MongoDB** | App → DB | MongoDB wire protocol | `MONGODB_URI` |
 | **Power Automate → App** | Inbound HTTP | REST JSON | `SYNC_API_KEY` |
+| **MotherDuck warehouse** | App → MotherDuck | Postgres wire (`pg`) | `MOTHERDUCK_TOKEN`, `MOTHERDUCK_DATABASE`, `MOTHERDUCK_HOST` |
 | **ThoughtSpot embed** | App → ThoughtSpot | REST + browser embed SDK | `THOUGHTSPOT_HOST`, `THOUGHTSPOT_SECRET_KEY`, `THOUGHTSPOT_ENROLLMENT_LIVEBOARD_ID`, `NEXT_PUBLIC_*` |
 | **Email validation** | App → external API | HTTPS + API key header | `EMAIL_VALIDATION_API_KEY` |
 | **SMTP (optional)** | App → mail server | SMTP | `EMAIL_SERVER`, `EMAIL_FROM` |
@@ -200,6 +205,9 @@ Response: paginated student DTOs with `nextCursor` for continuation.
 |----------|-------------|
 | `EMAIL_VALIDATION_API_KEY` | Third-party email validation |
 | `EMAIL_SERVER` / `EMAIL_FROM` | SMTP for transactional email |
+| `MOTHERDUCK_TOKEN` | MotherDuck access token |
+| `MOTHERDUCK_DATABASE` | MotherDuck database name (default `student_label_analytics`) |
+| `MOTHERDUCK_HOST` | MotherDuck Postgres endpoint host |
 | `THOUGHTSPOT_HOST` | ThoughtSpot instance hostname |
 | `THOUGHTSPOT_SECRET_KEY` | ThoughtSpot trusted auth secret |
 | `THOUGHTSPOT_ENROLLMENT_LIVEBOARD_ID` | Liveboard GUID |
@@ -229,7 +237,8 @@ These appear in health/settings UI but are **optional** on EC2:
 | Destination | Port | Purpose |
 |-------------|------|---------|
 | MongoDB (Atlas or internal) | 27017 | Database |
-| ThoughtSpot cloud | 443 | Analytics token + embed |
+| MotherDuck Postgres endpoint | 5432 | Warehouse sync + analytics queries |
+| ThoughtSpot cloud | 443 | Legacy analytics token + embed |
 | Email validation API | 443 | Email checks |
 | SMTP server | 587/465 | Optional mail |
 | Microsoft Power Platform | 443 | Power Automate initiates **inbound** to your app; app does not call Power Automate |
@@ -424,7 +433,7 @@ Current data footprint is **~2–3 MB** MongoDB storage — compute, not storage
 1. Update Power Automate env var `stlabel_SyncApiBaseUrl` to new AWS URL.
 2. Rotate `SYNC_API_KEY` if needed; update both AWS secret and Power Automate.
 3. Test sync: `GET /api/sync/v1/students?limit=1` with Bearer token.
-4. Reconfigure ThoughtSpot / email validation if IP allowlists apply.
+4. Reconfigure MotherDuck / ThoughtSpot / email validation if IP allowlists apply.
 
 ### Phase 5 — Operations
 

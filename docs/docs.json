@@ -66,6 +66,7 @@
         "group": "Admin tools",
         "pages": [
           "admin/enrollment-dashboard",
+          "admin/analytics",
           "admin/data-lead-tools",
           "admin/label-stock"
         ]
@@ -82,7 +83,6 @@
       {
         "group": "Contributors",
         "pages": [
-          "contributors/cursor-and-mcp",
           "contributors/local-preview",
           "contributors/screenshot-checklist",
           "contributors/system-architecture",
