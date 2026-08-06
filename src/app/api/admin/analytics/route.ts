@@ -24,6 +24,36 @@ function startOf(period: 'today' | 'week' | 'month'): Date {
   return d;
 }
 
+function dayKey(d: Date): string {
+  return d.toISOString().slice(0, 10);
+}
+
+function buildEmptyTrend(days: number): Array<{ date: string; label: string; count: number }> {
+  const out: Array<{ date: string; label: string; count: number }> = [];
+  for (let i = days - 1; i >= 0; i--) {
+    const d = new Date();
+    d.setHours(12, 0, 0, 0);
+    d.setDate(d.getDate() - i);
+    out.push({
+      date: dayKey(d),
+      label: d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+      count: 0,
+    });
+  }
+  return out;
+}
+
+function mergeTrend(
+  empty: Array<{ date: string; label: string; count: number }>,
+  rows: Array<{ _id: string; count: number }>,
+) {
+  const map = new Map(rows.map((r) => [String(r._id).slice(0, 10), r.count]));
+  return empty.map((row) => ({
+    ...row,
+    count: map.get(row.date) || 0,
+  }));
+}
+
 /** Analytics snapshot for Admin (district) and Data Lead (assigned school). */
 export async function GET() {
   const session = await getServerSession(authOptions);
@@ -43,6 +73,15 @@ export async function GET() {
         ? { school: { $regex: `^${userSchool.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, $options: 'i' } }
         : {};
 
+    const trendDays = 14;
+    const trendStart = new Date();
+    trendStart.setHours(0, 0, 0, 0);
+    trendStart.setDate(trendStart.getDate() - (trendDays - 1));
+    const trendStartIso = trendStart.toISOString();
+
+    const printSchoolFilter =
+      isAdmin ? {} : userSchool ? { 'user.school': userSchool } : {};
+
     const [
       studentsTotal,
       studentsActive,
@@ -54,6 +93,9 @@ export async function GET() {
       auditLast7Days,
       cabinets,
       unassigned,
+      byStatusRows,
+      enrollmentTrendRows,
+      printsTrendRows,
     ] = await Promise.all([
       db.collection('students').countDocuments(schoolFilter),
       db.collection('students').countDocuments({ ...schoolFilter, archived: { $ne: true } }),
@@ -71,7 +113,7 @@ export async function GET() {
         createdAt: { $gte: startOf('month').toISOString() },
       }),
       db.collection('print_history').countDocuments({
-        ...(isAdmin ? {} : userSchool ? { 'user.school': userSchool } : {}),
+        ...printSchoolFilter,
         time: { $gte: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString() },
       }),
       db.collection('audit_logs').countDocuments({
@@ -89,6 +131,50 @@ export async function GET() {
         archived: { $ne: true },
         $or: [{ cabinet: { $exists: false } }, { cabinet: null }, { cabinet: '' }],
       }),
+      db.collection('students').aggregate<{ _id: string; count: number }>([
+        { $match: schoolFilter },
+        {
+          $group: {
+            _id: {
+              $cond: [
+                { $eq: ['$archived', true] },
+                'Archived',
+                { $ifNull: ['$status', 'Active'] },
+              ],
+            },
+            count: { $sum: 1 },
+          },
+        },
+        { $sort: { count: -1 } },
+      ]).toArray(),
+      db.collection('students').aggregate<{ _id: string; count: number }>([
+        {
+          $match: {
+            ...schoolFilter,
+            createdAt: { $gte: trendStartIso },
+          },
+        },
+        {
+          $group: {
+            _id: { $substr: [{ $ifNull: ['$createdAt', ''] }, 0, 10] },
+            count: { $sum: 1 },
+          },
+        },
+      ]).toArray(),
+      db.collection('print_history').aggregate<{ _id: string; count: number }>([
+        {
+          $match: {
+            ...printSchoolFilter,
+            time: { $gte: trendStartIso },
+          },
+        },
+        {
+          $group: {
+            _id: { $substr: [{ $ifNull: ['$time', ''] }, 0, 10] },
+            count: { $sum: 1 },
+          },
+        },
+      ]).toArray(),
     ]);
 
     const totalCapacity = cabinets.reduce((sum, c) => sum + (c.totalCapacity || 0), 0);
@@ -116,6 +202,8 @@ export async function GET() {
       }
     }
 
+    const emptyTrend = buildEmptyTrend(trendDays);
+
     return NextResponse.json({
       timestamp: new Date().toISOString(),
       scope: isAdmin ? 'district' : 'school',
@@ -126,22 +214,29 @@ export async function GET() {
         archived: studentsArchived,
         unassigned,
         bySchool,
+        byStatus: byStatusRows.map((r) => ({
+          status: r._id || 'Unknown',
+          count: r.count,
+        })),
       },
       enrollment: {
         today: enrollToday,
         week: enrollWeek,
         month: enrollMonth,
+        trend: mergeTrend(emptyTrend, enrollmentTrendRows),
       },
       cabinets: {
         total: cabinets.length,
         totalCapacity,
         totalUsed,
+        available: Math.max(0, totalCapacity - totalUsed),
         utilizationPercent:
           totalCapacity > 0 ? Math.round((totalUsed / totalCapacity) * 100) : 0,
       },
       activity: {
         printsLast30Days,
         auditLogsLast7Days: auditLast7Days,
+        printsTrend: mergeTrend(emptyTrend, printsTrendRows),
       },
       system: system
         ? {

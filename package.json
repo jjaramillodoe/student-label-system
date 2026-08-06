@@ -53,7 +53,7 @@
     "react": "^19.2.0",
     "react-barcode": "^1.6.1",
     "react-dom": "^19.2.0",
-    "recharts": "^3.4.1",
+    "recharts": "^2.15.4",
     "swagger-ui-react": "^5.32.6",
     "tailwind-merge": "^3.4.0"
   },

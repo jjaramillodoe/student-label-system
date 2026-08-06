@@ -1,18 +1,50 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import {
-  Activity, AlertCircle, BarChart3, LayoutGrid, LineChart, Loader2,
-  Printer, RefreshCw, TrendingUp, UserPlus, Users,
+  Activity,
+  AlertCircle,
+  Archive,
+  BarChart3,
+  LayoutGrid,
+  LineChart as LineChartIcon,
+  Loader2,
+  Printer,
+  RefreshCw,
+  TrendingUp,
+  UserPlus,
+  Users,
 } from 'lucide-react';
+import {
+  Area,
+  AreaChart,
+  Bar,
+  BarChart,
+  CartesianGrid,
+  Cell,
+  Pie,
+  PieChart,
+  XAxis,
+  YAxis,
+} from 'recharts';
 import PageIntro from '@/components/PageIntro';
+import AnalyticsMetricCard from '@/components/AnalyticsMetricCard';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
+import {
+  ChartContainer,
+  ChartTooltip,
+  ChartTooltipContent,
+  type ChartConfig,
+} from '@/components/ui/chart';
+import { Progress } from '@/components/ui/progress';
+
+type TrendPoint = { date: string; label: string; count: number };
 
 type AnalyticsPayload = {
   timestamp: string;
@@ -24,21 +56,58 @@ type AnalyticsPayload = {
     archived: number;
     unassigned: number;
     bySchool: Array<{ school: string; count: number }>;
+    byStatus: Array<{ status: string; count: number }>;
   };
-  enrollment: { today: number; week: number; month: number };
+  enrollment: {
+    today: number;
+    week: number;
+    month: number;
+    trend: TrendPoint[];
+  };
   cabinets: {
     total: number;
     totalCapacity: number;
     totalUsed: number;
+    available: number;
     utilizationPercent: number;
   };
-  activity: { printsLast30Days: number; auditLogsLast7Days: number };
+  activity: {
+    printsLast30Days: number;
+    auditLogsLast7Days: number;
+    printsTrend: TrendPoint[];
+  };
   system: {
     databaseConnected: boolean;
     syncReadyPercent: number;
     thoughtspotConfigured: boolean;
   } | null;
 };
+
+const enrollmentChartConfig = {
+  count: { label: 'Enrollments', color: 'hsl(var(--chart-1))' },
+} satisfies ChartConfig;
+
+const printsChartConfig = {
+  count: { label: 'Print jobs', color: 'hsl(var(--chart-2))' },
+} satisfies ChartConfig;
+
+const schoolChartConfig = {
+  count: { label: 'Students', color: 'hsl(var(--chart-1))' },
+} satisfies ChartConfig;
+
+const STATUS_COLORS = [
+  'hsl(var(--chart-1))',
+  'hsl(var(--chart-2))',
+  'hsl(var(--chart-3))',
+  'hsl(var(--chart-4))',
+  'hsl(var(--chart-5))',
+];
+
+function utilizationTone(pct: number): 'default' | 'success' | 'warning' {
+  if (pct >= 90) return 'warning';
+  if (pct >= 60) return 'default';
+  return 'success';
+}
 
 export default function AnalyticsPage() {
   const { data: session, status } = useSession();
@@ -77,7 +146,36 @@ export default function AnalyticsPage() {
     void load();
   }, [session, status, role, router, load]);
 
-  const maxSchool = Math.max(...(data?.students.bySchool.map((s) => s.count) || [1]), 1);
+  const statusChartConfig = useMemo(() => {
+    const cfg: ChartConfig = {};
+    (data?.students.byStatus || []).forEach((row, i) => {
+      cfg[row.status] = {
+        label: row.status,
+        color: STATUS_COLORS[i % STATUS_COLORS.length],
+      };
+    });
+    return cfg;
+  }, [data?.students.byStatus]);
+
+  const statusPieData = useMemo(
+    () =>
+      (data?.students.byStatus || []).map((row, i) => ({
+        name: row.status,
+        value: row.count,
+        fill: STATUS_COLORS[i % STATUS_COLORS.length],
+      })),
+    [data?.students.byStatus],
+  );
+
+  const schoolBarData = useMemo(
+    () =>
+      (data?.students.bySchool || []).map((row) => ({
+        school: row.school.replace(/^School\s+/i, 'S'),
+        fullSchool: row.school,
+        count: row.count,
+      })),
+    [data?.students.bySchool],
+  );
 
   return (
     <div className="w-full space-y-6">
@@ -106,55 +204,191 @@ export default function AnalyticsPage() {
       )}
 
       {loading && !data ? (
-        <div className="flex flex-wrap gap-x-8 gap-y-3 rounded-lg border border-border bg-muted/30 px-4 py-3">
+        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
           {Array.from({ length: 4 }).map((_, i) => (
-            <Skeleton key={i} className="h-12 w-24" />
+            <Card key={i} className="border-border/80 shadow-none">
+              <CardHeader className="pb-2">
+                <Skeleton className="h-3 w-20" />
+              </CardHeader>
+              <CardContent className="space-y-2">
+                <Skeleton className="h-8 w-16" />
+                <Skeleton className="h-3 w-28" />
+              </CardContent>
+            </Card>
           ))}
         </div>
       ) : data ? (
         <>
-          <div className="flex flex-wrap gap-x-8 gap-y-3 rounded-lg border border-border bg-muted/30 px-4 py-3">
-            <div>
-              <p className="text-[11px] uppercase tracking-wide text-muted-foreground">Students</p>
-              <p className="text-xl font-semibold tabular-nums tracking-tight">{data.students.total.toLocaleString()}</p>
-              <p className="text-[11px] text-muted-foreground">
-                {data.students.active.toLocaleString()} active · {data.students.archived.toLocaleString()} archived
-              </p>
-            </div>
-            <div>
-              <p className="text-[11px] uppercase tracking-wide text-muted-foreground">Enrolled today</p>
-              <p className="text-xl font-semibold tabular-nums tracking-tight">{data.enrollment.today.toLocaleString()}</p>
-              <p className="text-[11px] text-muted-foreground">
-                Week {data.enrollment.week.toLocaleString()} · Month {data.enrollment.month.toLocaleString()}
-              </p>
-            </div>
-            <div>
-              <p className="text-[11px] uppercase tracking-wide text-muted-foreground">Cabinet fill</p>
-              <p className="text-xl font-semibold tabular-nums tracking-tight">{data.cabinets.utilizationPercent}%</p>
-              <p className="text-[11px] text-muted-foreground">
-                {data.cabinets.totalUsed.toLocaleString()} / {data.cabinets.totalCapacity.toLocaleString()} slots
-              </p>
-            </div>
-            <div>
-              <p className="text-[11px] uppercase tracking-wide text-muted-foreground">Prints (30d)</p>
-              <p className="text-xl font-semibold tabular-nums tracking-tight">{data.activity.printsLast30Days.toLocaleString()}</p>
-              <p className="text-[11px] text-muted-foreground">
-                {data.activity.auditLogsLast7Days.toLocaleString()} audit events (7d)
-              </p>
-            </div>
-            {data.students.unassigned > 0 && (
-              <div>
-                <p className="text-[11px] uppercase tracking-wide text-muted-foreground">Unassigned</p>
-                <p className="text-xl font-semibold tabular-nums tracking-tight text-amber-700 dark:text-amber-300">
-                  {data.students.unassigned.toLocaleString()}
-                </p>
-                <p className="text-[11px] text-muted-foreground">Active without cabinet</p>
-              </div>
-            )}
+          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+            <AnalyticsMetricCard
+              label="Students"
+              value={data.students.total}
+              description={`${data.students.active.toLocaleString()} active · ${data.students.archived.toLocaleString()} archived`}
+              icon={Users}
+            />
+            <AnalyticsMetricCard
+              label="Enrolled today"
+              value={data.enrollment.today}
+              description={`Week ${data.enrollment.week.toLocaleString()} · Month ${data.enrollment.month.toLocaleString()}`}
+              icon={UserPlus}
+              tone="info"
+            />
+            <AnalyticsMetricCard
+              label="Cabinet fill"
+              value={`${data.cabinets.utilizationPercent}%`}
+              description={`${data.cabinets.totalUsed.toLocaleString()} / ${data.cabinets.totalCapacity.toLocaleString()} slots · ${data.cabinets.available.toLocaleString()} free`}
+              icon={LayoutGrid}
+              tone={utilizationTone(data.cabinets.utilizationPercent)}
+              footer={
+                <Progress
+                  value={Math.min(100, data.cabinets.utilizationPercent)}
+                  className="mt-3 h-1.5"
+                />
+              }
+            />
+            <AnalyticsMetricCard
+              label="Prints (30d)"
+              value={data.activity.printsLast30Days}
+              description={`${data.activity.auditLogsLast7Days.toLocaleString()} audit events (7d)`}
+              icon={Printer}
+            />
+          </div>
+
+          {data.students.unassigned > 0 && (
+            <AnalyticsMetricCard
+              label="Unassigned students"
+              value={data.students.unassigned}
+              description="Active records without a cabinet assignment"
+              icon={Archive}
+              tone="warning"
+              className="sm:max-w-sm"
+            />
+          )}
+
+          <div className="grid gap-4 xl:grid-cols-2">
+            <Card className="border-border/80 shadow-none">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-base flex items-center gap-2">
+                  <TrendingUp className="h-4 w-4 text-muted-foreground" />
+                  Enrollments · 14 days
+                </CardTitle>
+                <CardDescription>New student records created per day</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <ChartContainer config={enrollmentChartConfig} className="aspect-[2/1] w-full">
+                  <AreaChart data={data.enrollment.trend} margin={{ left: 0, right: 8, top: 8, bottom: 0 }}>
+                    <CartesianGrid vertical={false} strokeDasharray="3 3" />
+                    <XAxis
+                      dataKey="label"
+                      tickLine={false}
+                      axisLine={false}
+                      tickMargin={8}
+                      minTickGap={24}
+                    />
+                    <YAxis
+                      allowDecimals={false}
+                      tickLine={false}
+                      axisLine={false}
+                      width={28}
+                    />
+                    <ChartTooltip content={<ChartTooltipContent indicator="line" />} />
+                    <Area
+                      type="monotone"
+                      dataKey="count"
+                      stroke="var(--color-count)"
+                      fill="var(--color-count)"
+                      fillOpacity={0.15}
+                      strokeWidth={2}
+                    />
+                  </AreaChart>
+                </ChartContainer>
+              </CardContent>
+            </Card>
+
+            <Card className="border-border/80 shadow-none">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-base flex items-center gap-2">
+                  <Printer className="h-4 w-4 text-muted-foreground" />
+                  Print activity · 14 days
+                </CardTitle>
+                <CardDescription>Label print jobs logged per day</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <ChartContainer config={printsChartConfig} className="aspect-[2/1] w-full">
+                  <BarChart data={data.activity.printsTrend} margin={{ left: 0, right: 8, top: 8, bottom: 0 }}>
+                    <CartesianGrid vertical={false} strokeDasharray="3 3" />
+                    <XAxis
+                      dataKey="label"
+                      tickLine={false}
+                      axisLine={false}
+                      tickMargin={8}
+                      minTickGap={24}
+                    />
+                    <YAxis
+                      allowDecimals={false}
+                      tickLine={false}
+                      axisLine={false}
+                      width={28}
+                    />
+                    <ChartTooltip content={<ChartTooltipContent />} />
+                    <Bar
+                      dataKey="count"
+                      fill="var(--color-count)"
+                      radius={[4, 4, 0, 0]}
+                    />
+                  </BarChart>
+                </ChartContainer>
+              </CardContent>
+            </Card>
           </div>
 
           <div className="grid gap-4 lg:grid-cols-2">
-            {isAdmin && data.students.bySchool.length > 0 && (
+            {statusPieData.length > 0 && (
+              <Card className="border-border/80 shadow-none">
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-base flex items-center gap-2">
+                    <Activity className="h-4 w-4 text-muted-foreground" />
+                    Students by status
+                  </CardTitle>
+                  <CardDescription>Active filing vs archived and other statuses</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <ChartContainer config={statusChartConfig} className="mx-auto aspect-square max-h-[260px]">
+                    <PieChart>
+                      <ChartTooltip content={<ChartTooltipContent hideLabel />} />
+                      <Pie
+                        data={statusPieData}
+                        dataKey="value"
+                        nameKey="name"
+                        innerRadius={58}
+                        outerRadius={90}
+                        strokeWidth={2}
+                      >
+                        {statusPieData.map((entry) => (
+                          <Cell key={entry.name} fill={entry.fill} />
+                        ))}
+                      </Pie>
+                    </PieChart>
+                  </ChartContainer>
+                  <div className="mt-2 flex flex-wrap justify-center gap-x-4 gap-y-1 text-xs text-muted-foreground">
+                    {statusPieData.map((row) => (
+                      <span key={row.name} className="inline-flex items-center gap-1.5">
+                        <span
+                          className="h-2 w-2 rounded-[2px]"
+                          style={{ backgroundColor: row.fill }}
+                        />
+                        {row.name}
+                        <span className="tabular-nums font-medium text-foreground">
+                          {row.value.toLocaleString()}
+                        </span>
+                      </span>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
+            {isAdmin && schoolBarData.length > 0 && (
               <Card className="border-border/80 shadow-none">
                 <CardHeader className="pb-2">
                   <CardTitle className="text-base flex items-center gap-2">
@@ -163,28 +397,40 @@ export default function AnalyticsPage() {
                   </CardTitle>
                   <CardDescription>Top schools by record count</CardDescription>
                 </CardHeader>
-                <CardContent className="space-y-2">
-                  {data.students.bySchool.map((row) => (
-                    <div key={row.school} className="space-y-1">
-                      <div className="flex items-center justify-between text-sm gap-2">
-                        <span className="truncate font-medium">{row.school}</span>
-                        <span className="tabular-nums text-muted-foreground shrink-0">
-                          {row.count.toLocaleString()}
-                        </span>
-                      </div>
-                      <div className="h-1.5 rounded-full bg-muted overflow-hidden">
-                        <div
-                          className="h-full rounded-full bg-primary/80"
-                          style={{ width: `${Math.max(4, (row.count / maxSchool) * 100)}%` }}
-                        />
-                      </div>
-                    </div>
-                  ))}
+                <CardContent>
+                  <ChartContainer config={schoolChartConfig} className="aspect-[4/3] w-full min-h-[260px]">
+                    <BarChart
+                      data={schoolBarData}
+                      layout="vertical"
+                      margin={{ left: 8, right: 12, top: 4, bottom: 4 }}
+                    >
+                      <CartesianGrid horizontal={false} strokeDasharray="3 3" />
+                      <XAxis type="number" allowDecimals={false} tickLine={false} axisLine={false} />
+                      <YAxis
+                        type="category"
+                        dataKey="school"
+                        width={56}
+                        tickLine={false}
+                        axisLine={false}
+                      />
+                      <ChartTooltip
+                        content={
+                          <ChartTooltipContent
+                            labelFormatter={(_, payload) => {
+                              const row = payload?.[0]?.payload as { fullSchool?: string } | undefined;
+                              return row?.fullSchool || '';
+                            }}
+                          />
+                        }
+                      />
+                      <Bar dataKey="count" fill="var(--color-count)" radius={[0, 4, 4, 0]} />
+                    </BarChart>
+                  </ChartContainer>
                 </CardContent>
               </Card>
             )}
 
-            <Card className="border-border/80 shadow-none">
+            <Card className={`border-border/80 shadow-none ${isAdmin && schoolBarData.length > 0 ? '' : 'lg:col-span-1'}`}>
               <CardHeader className="pb-2">
                 <CardTitle className="text-base flex items-center gap-2">
                   <Activity className="h-4 w-4 text-muted-foreground" />
@@ -232,7 +478,7 @@ export default function AnalyticsPage() {
                 {isAdmin && (
                   <Button variant="outline" className="justify-start gap-2 h-auto py-3 sm:col-span-2" asChild>
                     <Link href="/admin/thoughtspot-analytics">
-                      <LineChart className="h-4 w-4" />
+                      <LineChartIcon className="h-4 w-4" />
                       <span className="text-left">
                         <span className="block text-sm font-medium">ThoughtSpot Analytics</span>
                         <span className="block text-[11px] text-muted-foreground font-normal">
