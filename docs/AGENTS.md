@@ -37,7 +37,7 @@ Install Mintlify skill: `npm run docs:skill`
 
 - Document staff-facing workflows, not internal MongoDB schema
 - Do not document secrets, `.env` values, or production credentials
-- Age rule for intake: **21 years old** (on birthday) for BE/ESL — under-21 → Pathways to Graduation ([p2g.nyc/contact](https://p2g.nyc/contact/))
+- Age rules for intake: **16+** overall; BE/ESL **21** on birthday, or **near-eligible within 6 weeks** (submit allowed + eligibility notice). Birth year before **1920** needs admin confirmation. Farther under 21 → Pathways to Graduation ([p2g.nyc/contact](https://p2g.nyc/contact/))
 - Intake enforces **session start/end times**; Enrollment flags outside-session and handoff issues
 - Archived returning students keep archive box location + QR — do **not** auto-assign a new drawer
 - Intake success shows a **summary** (not single-label print); batch Avery 5163 / 94205 via **Download Word Doc** (Letter, 100%) from Dashboard

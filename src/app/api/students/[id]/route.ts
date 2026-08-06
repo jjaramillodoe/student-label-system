@@ -5,7 +5,8 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/authOptions';
 import {
   beEslAgeErrorMessage,
-  checkBeEslAgeEligibility,
+  evaluateIntakeDob,
+  isBeEslAgeAllowed,
   requiresBeEslAgeCheck,
 } from '@/lib/beEslEligibility';
 import { getSchoolIntakeSessions, validateIntakeSessionTimes } from '@/lib/intakeSession';
@@ -79,16 +80,18 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
     }
 
     const dobToCheck = body.dob || oldStudent.dob;
-    if (
-      requiresBeEslAgeCheck({
-        intakeStudentStatus: body.intakeStudentStatus ?? oldStudent.intakeStudentStatus,
-        educationStatus: body.educationStatus ?? oldStudent.educationStatus,
-      })
-      && dobToCheck
-    ) {
-      const ageCheck = checkBeEslAgeEligibility(String(dobToCheck));
-      if (!ageCheck.eligible) {
-        return NextResponse.json({ error: beEslAgeErrorMessage(ageCheck) }, { status: 400 });
+    if (dobToCheck) {
+      const dobEval = evaluateIntakeDob(String(dobToCheck), {
+        requiresBeEsl: requiresBeEslAgeCheck({
+          intakeStudentStatus: body.intakeStudentStatus ?? oldStudent.intakeStudentStatus,
+          educationStatus: body.educationStatus ?? oldStudent.educationStatus,
+        }),
+      });
+      if (dobEval.boundaryError) {
+        return NextResponse.json({ error: dobEval.boundaryError }, { status: 400 });
+      }
+      if (dobEval.beEsl.applicable && !isBeEslAgeAllowed(dobEval.beEsl)) {
+        return NextResponse.json({ error: beEslAgeErrorMessage(dobEval.beEsl) }, { status: 400 });
       }
     }
 

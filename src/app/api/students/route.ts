@@ -7,7 +7,8 @@ import { ObjectId } from 'mongodb';
 import { generateLabelId, generateStudentId, resolveAgencyId } from '@/lib/studentId';
 import {
   beEslAgeErrorMessage,
-  checkBeEslAgeEligibility,
+  evaluateIntakeDob,
+  isBeEslAgeAllowed,
   requiresBeEslAgeCheck,
 } from '@/lib/beEslEligibility';
 import { normalizeStudentAddress, validateStudentAddress } from '@/lib/addressValidation';
@@ -129,10 +130,15 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    if (requiresBeEslAgeCheck({ intakeStudentStatus, educationStatus }) && dob) {
-      const ageCheck = checkBeEslAgeEligibility(String(dob));
-      if (!ageCheck.eligible) {
-        return NextResponse.json({ error: beEslAgeErrorMessage(ageCheck) }, { status: 400 });
+    if (dob) {
+      const dobEval = evaluateIntakeDob(String(dob), {
+        requiresBeEsl: requiresBeEslAgeCheck({ intakeStudentStatus, educationStatus }),
+      });
+      if (dobEval.boundaryError) {
+        return NextResponse.json({ error: dobEval.boundaryError }, { status: 400 });
+      }
+      if (dobEval.beEsl.applicable && !isBeEslAgeAllowed(dobEval.beEsl)) {
+        return NextResponse.json({ error: beEslAgeErrorMessage(dobEval.beEsl) }, { status: 400 });
       }
     }
 

@@ -25,7 +25,12 @@ import { cn, formatHumanDate, normalizeMongoId } from '@/lib/utils';
 import {
   beEslAgeErrorMessage,
   beEslAgeHintMessage,
+  buildEligibilityNoticeTicket,
   checkBeEslAgeEligibility,
+  downloadEligibilityNoticeTicket,
+  evaluateIntakeDob,
+  intakeDobMaxIso,
+  intakeDobMinIso,
   requiresBeEslAgeCheck,
 } from '@/lib/beEslEligibility';
 import { Cabinet } from '@/types/cabinet';
@@ -50,7 +55,7 @@ import {
   Loader2, User, Calendar, Phone, Mail, ClipboardList, LogOut, Building2,
   FolderOpen, ChevronRight, List, RefreshCw, Clock, CalendarDays,
   Users, ShieldAlert, Copy, Check, MapPin, ExternalLink, Lock, ChevronDown, BookOpen,
-  Boxes, QrCode, Archive, Database, Printer, Languages,
+  Boxes, QrCode, Archive, Database, Printer, Languages, FileDown, Info,
 } from 'lucide-react';
 import QRCode from '@/components/QRCode';
 import IntakeIssuesBanner from '@/components/IntakeIssuesBanner';
@@ -290,7 +295,7 @@ function IntakeMemberGuide() {
             </p>
             <ul className="grid sm:grid-cols-2 gap-x-4 gap-y-1 text-xs text-amber-800/90 dark:text-amber-200/90">
               <li>✓ Duplicate alert reviewed (name + DOB + address)</li>
-              <li>✓ BE/ESL age rule met (21 years old for BE/ESL)</li>
+              <li>✓ DOB validated (16+; BE/ESL age 21 or within 6 weeks)</li>
               <li>✓ Address verified with Geoclient (new students)</li>
               <li>✓ Time In correct; Time Out if student is leaving</li>
               <li>✓ Handoff visits marked <strong>Staying</strong> — only final staff clocks out</li>
@@ -519,15 +524,15 @@ export default function IntakePage() {
   const checkTimeout = useRef<NodeJS.Timeout | null>(null);
   const schoolLookupTimeout = useRef<NodeJS.Timeout | null>(null);
 
-  const beEslAgeCheck = useMemo(
-    () => (form.dob ? checkBeEslAgeEligibility(form.dob) : null),
-    [form.dob],
+  const intakeDobEval = useMemo(
+    () =>
+      evaluateIntakeDob(form.dob || '', {
+        requiresBeEsl: requiresBeEslAgeCheck(form),
+      }),
+    [form.dob, form.intakeStudentStatus, form.educationStatus],
   );
-  const beEslAgeBlocked = Boolean(
-    beEslAgeCheck
-    && requiresBeEslAgeCheck(form)
-    && !beEslAgeCheck.eligible,
-  );
+  const dobBlocksForm = Boolean(form.dob && intakeDobEval.blocksForm);
+  const beEslAgeCheck = form.dob ? intakeDobEval.beEsl : null;
 
   const sessionTimeOut = form.isLeaving === 'Leaving' ? form.timeOut : '';
   const sessionTimeFieldErrors = useMemo(() => {
@@ -984,8 +989,12 @@ export default function IntakePage() {
     try {
       const status = form.intakeStudentStatus;
 
-      if (beEslAgeBlocked && beEslAgeCheck) {
-        setSubmitError(beEslAgeErrorMessage(beEslAgeCheck));
+      if (form.dob && intakeDobEval.blocksForm) {
+        setSubmitError(
+          intakeDobEval.boundaryError
+          || intakeDobEval.beEsl.ineligibleMessage
+          || (beEslAgeCheck ? beEslAgeErrorMessage(beEslAgeCheck) : 'Date of birth is not eligible for intake.'),
+        );
         return;
       }
 
@@ -1235,7 +1244,9 @@ export default function IntakePage() {
   // ── SUCCESS SUMMARY ─────────────────────────────────────────────────────────
   if (savedStudent) {
     const ageCheck = savedStudent.dob ? checkBeEslAgeEligibility(String(savedStudent.dob)) : null;
-    const showP2gReferral = Boolean(ageCheck?.validDob && !ageCheck.eligible);
+    const showP2gReferral = Boolean(
+      ageCheck?.validDob && !ageCheck.eligible && !ageCheck.nearEligible,
+    );
 
     async function handleCopyP2gMessage() {
       try {
@@ -1974,6 +1985,44 @@ export default function IntakePage() {
 
           {showMainIntakeFields && (
           <>
+          {intakeDobEval.nearEligible && intakeDobEval.beEsl.bannerMessage && (
+            <Alert className="border-amber-300 bg-amber-50/90 dark:border-amber-800 dark:bg-amber-950/30">
+              <Info className="h-4 w-4 text-amber-700 dark:text-amber-400" />
+              <AlertTitle className="text-sm text-amber-950 dark:text-amber-100">
+                Near-eligible for BE / ESL
+              </AlertTitle>
+              <AlertDescription className="text-xs text-amber-900/90 dark:text-amber-100/90 space-y-3">
+                <p>{intakeDobEval.beEsl.bannerMessage}</p>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  className="gap-1.5 border-amber-400 bg-white/80 hover:bg-white dark:bg-background"
+                  onClick={() => {
+                    const content = buildEligibilityNoticeTicket({
+                      firstName: form.firstName,
+                      lastName: form.lastName,
+                      dobIso: form.dob,
+                      eligibleOnIso: intakeDobEval.beEsl.eligibleOnIso,
+                      daysUntilEligible: intakeDobEval.beEsl.daysUntilEligible,
+                      staffName: session?.user?.name ?? null,
+                      school: session?.user?.school ?? null,
+                    });
+                    const safeLast = (form.lastName || 'student').replace(/[^\w-]+/g, '_');
+                    const datePart = intakeDobEval.beEsl.eligibleOnIso || 'eligibility';
+                    downloadEligibilityNoticeTicket(
+                      `eligibility-notice-${safeLast}-${datePart}.txt`,
+                      content,
+                    );
+                  }}
+                >
+                  <FileDown className="h-3.5 w-3.5" />
+                  Export Eligibility Notice
+                </Button>
+              </AlertDescription>
+            </Alert>
+          )}
+
           {/* ── 2. PERSONAL INFORMATION ──────────────────────── */}
           <Card>
             <CardHeader className="pb-3">
@@ -2030,7 +2079,7 @@ export default function IntakePage() {
                   {USA_NAME_HINT}
                 </p>
               )}
-              <div className="space-y-2">
+              <div className="space-y-2 sm:col-span-2">
                 <Label htmlFor="dob" className="flex items-center gap-1.5">
                   <Calendar className="h-3.5 w-3.5" /> Date of Birth <span className="text-destructive">*</span>
                 </Label>
@@ -2040,22 +2089,65 @@ export default function IntakePage() {
                     type="date"
                     value={form.dob}
                     onChange={e => setField('dob', e.target.value)}
-                    className={`sm:max-w-[220px] ${lockedFieldClass ?? ''}`}
+                    min={intakeDobMinIso()}
+                    max={intakeDobMaxIso()}
+                    className={`sm:max-w-[220px] ${lockedFieldClass ?? ''} ${
+                      form.dob && intakeDobEval.boundaryError
+                        ? 'border-destructive focus-visible:ring-destructive'
+                        : ''
+                    }`}
                     required
                     readOnly={profileLocked}
                   />
                   {form.dob && <DateHumanHint value={form.dob} />}
                 </div>
-                {beEslAgeCheck && requiresBeEslAgeCheck(form) && (
+                {form.dob && intakeDobEval.boundaryError && (
+                  <p className="text-xs font-medium text-destructive" role="alert">
+                    {intakeDobEval.boundaryError}
+                  </p>
+                )}
+                {form.dob
+                  && !intakeDobEval.boundaryError
+                  && beEslAgeCheck
+                  && requiresBeEslAgeCheck(form) && (
                   <BeEslAgeHint check={beEslAgeCheck} />
                 )}
                 {!form.dob && form.intakeStudentStatus !== 'Other' && (
                   <p className="text-xs text-muted-foreground">
-                    Students must be at least 21 years old to enroll in BE (Basic Education) or ESL.
+                    Must be at least 16 to enroll in adult education. BE/ESL requires age 21
+                    (or within 6 weeks of turning 21).
                   </p>
                 )}
               </div>
 
+              {dobBlocksForm && (
+                <div className="sm:col-span-2">
+                  <Alert variant="destructive">
+                    <ShieldAlert className="h-4 w-4" />
+                    <AlertTitle className="text-sm">Cannot continue intake</AlertTitle>
+                    <AlertDescription className="text-xs space-y-2">
+                      <p>
+                        {intakeDobEval.boundaryError
+                          || intakeDobEval.beEsl.ineligibleMessage
+                          || (beEslAgeCheck ? beEslAgeErrorMessage(beEslAgeCheck) : 'Update the date of birth to continue.')}
+                      </p>
+                      {intakeDobEval.beEsl.applicable
+                        && !intakeDobEval.boundaryError
+                        && intakeDobEval.beEsl.ineligibleMessage && (
+                        <Button type="button" variant="outline" size="sm" className="gap-1.5" asChild>
+                          <a href="https://p2g.nyc/contact/" target="_blank" rel="noopener noreferrer">
+                            <ExternalLink className="h-3.5 w-3.5" />
+                            Pathways to Graduation (P2G)
+                          </a>
+                        </Button>
+                      )}
+                    </AlertDescription>
+                  </Alert>
+                </div>
+              )}
+
+              {!dobBlocksForm && (
+              <>
               {/* Gender — NEW students only */}
               {form.intakeStudentStatus === 'NEW' && (
                 <div className="space-y-2">
@@ -2109,11 +2201,13 @@ export default function IntakePage() {
                   </p>
                 </div>
               )}
+              </>
+              )}
             </CardContent>
           </Card>
 
           {/* ── 2b. CONTACT & ADDRESS ─────────────────────────── */}
-          {(form.intakeStudentStatus === 'NEW' || profileLocked) && (
+          {!dobBlocksForm && (form.intakeStudentStatus === 'NEW' || profileLocked) && (
             <Card>
               <CardHeader className="pb-3">
                 <CardTitle className="flex items-center gap-2 text-base">
@@ -2173,6 +2267,8 @@ export default function IntakePage() {
             </Card>
           )}
 
+          {!dobBlocksForm && (
+          <>
           {/* ── 3. INTAKE DETAILS (all except Other) ─────────── */}
           {form.intakeStudentStatus !== 'Other' && (
             <>
@@ -2556,6 +2652,8 @@ export default function IntakePage() {
           </Card>
           </>
           )}
+          </>
+          )}
 
           {submitError && (
             <Alert variant="destructive">
@@ -2564,7 +2662,7 @@ export default function IntakePage() {
             </Alert>
           )}
 
-          {showMainIntakeFields && (
+          {showMainIntakeFields && !dobBlocksForm && (
           <div className="flex justify-end gap-3 pb-8">
             <Button type="button" variant="outline" onClick={resetForm} disabled={submitting || cabinetsLoading}>
               <RotateCcw className="mr-2 h-4 w-4" /> Clear
@@ -2574,7 +2672,8 @@ export default function IntakePage() {
               disabled={
                 submitting ||
                 cabinetsLoading ||
-                beEslAgeBlocked ||
+                dobBlocksForm ||
+                Boolean(form.dob && intakeDobEval.boundaryError) ||
                 (form.intakeStudentStatus !== 'Other' && hasSessionTimeError) ||
                 (form.intakeStudentStatus === 'RETURNING' && !selectedExistingStudent) ||
                 (form.intakeStudentStatus !== 'Other' &&
@@ -3291,14 +3390,13 @@ function DateHumanHint({ value }: { value: string }) {
 
 function BeEslAgeHint({ check }: { check: ReturnType<typeof checkBeEslAgeEligibility> }) {
   const message = beEslAgeHintMessage(check);
+  const tone = check.eligible
+    ? 'text-xs text-green-700 dark:text-green-400'
+    : check.nearEligible
+      ? 'text-xs font-medium text-amber-800 dark:text-amber-300'
+      : 'text-xs font-medium text-destructive';
   return (
-    <p
-      className={
-        check.eligible
-          ? 'text-xs text-green-700 dark:text-green-400'
-          : 'text-xs font-medium text-amber-700 dark:text-amber-400'
-      }
-    >
+    <p className={tone} role={check.eligible ? undefined : 'status'}>
       {message}
     </p>
   );
