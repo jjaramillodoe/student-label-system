@@ -132,6 +132,8 @@ async function main() {
       { path: '/admin/school-year', name: 'school-year-rollover', fullPage: false },
       { path: '/admin/duplicates', name: 'duplicates-page', fullPage: false },
       { path: '/admin/enrollment', name: 'enrollment-dashboard', fullPage: false },
+      { path: '/admin/analytics', name: 'analytics-dashboard', fullPage: true },
+      { path: '/admin/motherduck-analytics', name: 'motherduck-analytics', fullPage: true },
       { path: '/admin/validation', name: 'email-validation', fullPage: false },
       { path: '/admin/students/bulk-upload', name: 'bulk-upload', fullPage: false },
       { path: '/admin/students/all', name: 'admin-all-students', fullPage: false },

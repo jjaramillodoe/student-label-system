@@ -33,6 +33,8 @@ Use PNG or WebP for final screenshots (recommended width **1200–1400px**). Sto
 | `admin-all-students.png` | [Address verification](/reference/address-and-verification), [Data Lead tools](/admin/data-lead-tools), [Quickstart](/quickstart) |
 | `duplicates-page.png` | [Duplicates](/workflows/duplicates-and-siblings) |
 | `enrollment-dashboard.png` | [Enrollment](/admin/enrollment-dashboard) |
+| `analytics-dashboard.png` | [Analytics](/admin/analytics) |
+| `motherduck-analytics.png` | [Analytics](/admin/analytics) |
 | `email-validation.png` | [Email validation](/workflows/email-validation) (Admin only) |
 | `bulk-upload.png` | [Bulk upload](/reference/bulk-upload) |
 | `bulk-upload-preview.png` | [Bulk upload](/reference/bulk-upload) |
@@ -53,14 +55,13 @@ Optional older captures still in the folder:
 | Cabinets floor map dialog | `cabinets-floor-map.png` | [Cabinets](/storage/cabinets-and-drawers) |
 | Archive packing preview | `archive-packing-preview.png` | [Archive](/storage/archive-and-school-year) |
 | Drawer roster by-section drag | `drawer-roster-sections.png` | [Cabinets](/storage/cabinets-and-drawers) |
-| MotherDuck Analytics (Admin) | `motherduck-analytics.png` | [Analytics](/admin/analytics) |
-| In-app Analytics | `analytics-dashboard.png` | [Analytics](/admin/analytics) |
-
 ## Capture from production
 
 ```bash
-# Load DOCS_SCREENSHOT_* from .env, then:
-set -a && source .env && set +a
+# Analytics + MotherDuck only (reads DOCS_SCREENSHOT_* from .env safely):
+NODE_PATH=./tmp-playwright/node_modules node scripts/capture-analytics-screenshots.cjs
+
+# Full docs set (avoid shell-sourcing .env if passwords contain & or #):
 export BASE_URL=https://nycadultedlabels.nyc
 # Optional if the account requires MFA:
 # export DOCS_SCREENSHOT_MFA=123456

@@ -1,12 +1,18 @@
 'use client';
 
 import Link from 'next/link';
-import { Building2, Code2, ExternalLink, Mail } from 'lucide-react';
+import { Building2, Code2, ExternalLink, Heart, Mail, Sparkles } from 'lucide-react';
 import PageIntro from '@/components/PageIntro';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Separator } from '@/components/ui/separator';
 import { MINTLIFY_DOCS_URL } from '@/lib/docsUrl';
-import { PRODUCT_DEVELOPER, developerCreditLine } from '@/lib/credits';
+import {
+  PRODUCT_ACKNOWLEDGEMENTS,
+  PRODUCT_DEDICATION,
+  PRODUCT_DEVELOPER,
+  developerCreditLine,
+} from '@/lib/credits';
 
 export default function AboutPage() {
   return (
@@ -55,6 +61,64 @@ export default function AboutPage() {
               <Link href="/docs">In-app guide</Link>
             </Button>
           </div>
+        </CardContent>
+      </Card>
+
+      <Card className="border-border/80 shadow-none overflow-hidden">
+        <CardHeader className="pb-3">
+          <CardTitle className="text-lg flex items-center gap-2">
+            <Heart className="h-4 w-4 text-rose-600/80 dark:text-rose-400/90" />
+            {PRODUCT_DEDICATION.headline}
+          </CardTitle>
+          <CardDescription>For family — the foundation behind every late night and every build.</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <ul className="space-y-2">
+            {PRODUCT_DEDICATION.to.map((person) => (
+              <li
+                key={person.name}
+                className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5 text-sm"
+              >
+                <span className="font-semibold tracking-tight text-foreground">{person.name}</span>
+                <span className="text-muted-foreground">— {person.relation}</span>
+              </li>
+            ))}
+          </ul>
+          <p className="text-sm text-muted-foreground leading-relaxed border-l-2 border-rose-200/80 dark:border-rose-900/60 pl-3">
+            {PRODUCT_DEDICATION.note}
+          </p>
+        </CardContent>
+      </Card>
+
+      <Card className="border-border/80 shadow-none">
+        <CardHeader className="pb-3">
+          <CardTitle className="text-lg flex items-center gap-2">
+            <Sparkles className="h-4 w-4 text-amber-600/80 dark:text-amber-400/90" />
+            {PRODUCT_ACKNOWLEDGEMENTS.headline}
+          </CardTitle>
+          <CardDescription>
+            Leadership who trusted the idea and made space for this tool to serve staff.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="grid gap-2 sm:grid-cols-2">
+            {PRODUCT_ACKNOWLEDGEMENTS.leaders.map((leader) => (
+              <div
+                key={leader.name}
+                className="rounded-lg border border-border bg-muted/20 px-3 py-3"
+              >
+                <p className="text-sm font-semibold tracking-tight">{leader.name}</p>
+                <p className="text-xs text-muted-foreground mt-0.5">{leader.note}</p>
+              </div>
+            ))}
+          </div>
+          <p className="text-sm text-muted-foreground leading-relaxed">
+            {PRODUCT_ACKNOWLEDGEMENTS.body}
+          </p>
+          <Separator />
+          <p className="text-sm text-foreground/90 leading-relaxed">
+            {PRODUCT_ACKNOWLEDGEMENTS.staffNote}
+          </p>
         </CardContent>
       </Card>
 
