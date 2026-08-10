@@ -6,7 +6,8 @@ import Barcode from 'react-barcode';
 import QRCode from './QRCode';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
-import { Check, FileText, Loader2, Printer, X } from 'lucide-react';
+import { FileText, Loader2, Printer, X } from 'lucide-react';
+import PrintConfirmBar from '@/components/PrintConfirmBar';
 import { buildStudentQrPayload } from '@/lib/qrPayload';
 import Avery5163LabelContent from '@/components/Avery5163LabelContent';
 import Avery94205LabelContent from '@/components/Avery94205LabelContent';
@@ -192,33 +193,11 @@ export default function PrintView({
     const banner =
       mounted && awaitingConfirm
         ? createPortal(
-            <div className="fixed bottom-6 left-1/2 z-[100] w-[min(36rem,calc(100vw-2rem))] -translate-x-1/2 print:hidden rounded-lg border border-amber-300 bg-amber-50 px-4 py-3 shadow-lg dark:border-amber-700 dark:bg-amber-950/90">
-              <p className="text-sm font-medium text-amber-950 dark:text-amber-100">
-                Did the labels print successfully?
-              </p>
-              <p className="mt-1 text-xs text-amber-800 dark:text-amber-200">
-                Choose Yes only after labels come out correctly. Until then, these students stay on Needs label.
-              </p>
-              <div className="mt-3 flex flex-wrap gap-2">
-                <Button
-                  size="sm"
-                  className="gap-1.5"
-                  disabled={confirming}
-                  onClick={() => void handleConfirmPrinted()}
-                >
-                  {confirming ? <Loader2 size={14} className="animate-spin" /> : <Check size={14} />}
-                  Yes — mark as printed
-                </Button>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  disabled={confirming}
-                  onClick={() => setAwaitingConfirm(false)}
-                >
-                  No — keep on Needs label
-                </Button>
-              </div>
-            </div>,
+            <PrintConfirmBar
+              confirming={confirming}
+              onConfirm={() => void handleConfirmPrinted()}
+              onDecline={() => setAwaitingConfirm(false)}
+            />,
             document.body,
           )
         : null;

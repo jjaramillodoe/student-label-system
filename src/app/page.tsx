@@ -1,6 +1,6 @@
 "use client";
 import React, { Suspense, useEffect, useRef, useState } from "react";
-import { FileDown, FileUp, Printer, Trash2, Edit, Eye, Moon, Sun, RotateCcw, List, Archive, X, Upload, History, Filter, TrendingUp, Package } from 'lucide-react';
+import { FileDown, FileUp, Printer, Trash2, Edit, Eye, Moon, Sun, List, Archive, X, Upload, History, Filter, TrendingUp, Package } from 'lucide-react';
 import { useSession } from 'next-auth/react';
 import StudentTable, { Student } from "../components/StudentTable";
 import DashboardStats from '@/components/DashboardStats';
@@ -1010,13 +1010,11 @@ function Dashboard() {
           })() : undefined}
         />
 
-        {/* Undo Delete Snackbar */}
-        {showUndo && (
-          <div className="fixed bottom-6 left-1/2 -translate-x-1/2 bg-yellow-200 dark:bg-yellow-700 text-yellow-900 dark:text-yellow-100 px-6 py-3 rounded shadow-lg flex items-center gap-4 z-50 animate-bounce-in">
-            <span>Student(s) deleted.</span>
-            <button onClick={handleUndoDelete} className="flex items-center gap-1 px-3 py-1 bg-yellow-400 hover:bg-yellow-500 rounded font-semibold"><RotateCcw size={16} /> Undo</button>
-          </div>
-        )}
+        <UndoSnackbar
+          open={showUndo}
+          onUndo={handleUndoDelete}
+          message="Student(s) deleted."
+        />
 
         {/* Audit Log Modal */}
         <AuditLogModal

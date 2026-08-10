@@ -42,10 +42,10 @@ Install Mintlify skill: `npm run docs:skill`
 - Duplicate notify: **Copy alert message** / **Email with alert** use a structured Data Lead note (subject, school, reporter, NEW student, matches, `/admin/duplicates` link) — blank fields show as —
 - Intake enforces **session start/end times**; Enrollment flags outside-session and handoff issues
 - Archived returning students keep archive box location + QR — do **not** auto-assign a new drawer
-- Intake success shows a **summary** (not single-label print); batch Avery 5163 / 94205 via **Download Word Doc** (Letter, 100%) from Dashboard
+- Intake success shows a **summary** (not single-label print); batch Avery 5163 / 94205 via **Download Word Doc** (Letter, 100%) from Dashboard, then **Yes — mark as printed**
 - Dashboard **Needs label** = never printed (full print history for the school), not “created in last 7 days”
 - Print history / stock consume only after staff confirm **Yes — mark as printed** (Word download alone does not clear Needs label)
-- Duplicate **Merge** offers ~10s Undo that restores the deleted secondary
+- Duplicate **Merge** offers ~10s Undo that restores the deleted secondary (document in duplicates + data-lead tools)
 - Idle session prompt is configurable in Admin System Settings (default 15 min idle + grace); client-side only
 - Avery labels show **Last, First**, DOB, **5-digit print sequence**, Label ID barcode, and QR
 - Drawers use capacity **100 / 200 / 400** or **Custom** (1–5000) with automatic **Section 01–08** (hidden from Intake; shown on Dashboard location and Cabinets)

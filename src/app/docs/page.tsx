@@ -11,6 +11,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
 import { MINTLIFY_DOCS_URL } from '@/lib/docsUrl';
+import { roleBadgeClass } from '@/lib/roleBadge';
 
 // ── Role guides ────────────────────────────────────────────────────────────────
 const roleGuides = [
@@ -316,10 +317,10 @@ export default function DocsPage() {
               <Card key={r.role}>
                 <CardHeader className="pb-2">
                   <CardTitle className="flex items-center justify-between gap-2 text-base">
-                    {r.role}
+                    <span className={roleBadgeClass(r.role)}>{r.role}</span>
                     <div className="flex items-center gap-1">
                       {r.isNew && <span className="ui-badge-success text-[10px]">New</span>}
-                      <Badge variant="outline" className="text-xs">{r.scope}</Badge>
+                      <span className="ui-badge-muted text-xs">{r.scope}</span>
                     </div>
                   </CardTitle>
                 </CardHeader>

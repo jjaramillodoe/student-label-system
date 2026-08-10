@@ -17,17 +17,11 @@ export default function UndoSnackbar({
   if (!open) return null;
 
   return (
-    <div className="fixed bottom-6 left-1/2 -translate-x-1/2 bg-yellow-200 dark:bg-yellow-700 text-yellow-900 dark:text-yellow-100 px-6 py-3 rounded shadow-lg flex items-center gap-4 z-50 animate-bounce-in">
-      <span>{message}</span>
-      <Button
-        onClick={onUndo}
-        variant="default"
-        size="sm"
-        className="gap-1 bg-yellow-400 hover:bg-yellow-500"
-      >
-        <RotateCcw size={16} /> Undo
+    <div className="fixed bottom-6 left-1/2 z-50 flex w-[min(28rem,calc(100vw-2rem))] -translate-x-1/2 items-center justify-between gap-3 rounded-xl border border-border bg-card px-4 py-3 shadow-lg">
+      <span className="text-sm text-foreground">{message}</span>
+      <Button onClick={onUndo} variant="outline" size="sm" className="gap-1.5 shrink-0">
+        <RotateCcw size={14} /> Undo
       </Button>
     </div>
   );
 }
-

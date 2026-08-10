@@ -8,12 +8,12 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Separator } from '@/components/ui/separator';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import PageIntro from '@/components/PageIntro';
+import { roleBadgeClass } from '@/lib/roleBadge';
 import { QRCodeSVG } from 'qrcode.react';
 
 export default function ProfilePage() {
@@ -207,19 +207,6 @@ export default function ProfilePage() {
     return name.substring(0, 2).toUpperCase();
   };
 
-  const getRoleBadgeVariant = (role?: string | null) => {
-    switch (role) {
-      case 'Admin':
-        return 'destructive';
-      case 'Data Lead':
-        return 'default';
-      case 'Data Member':
-        return 'secondary';
-      default:
-        return 'outline';
-    }
-  };
-
   if (status === 'loading' || loading) {
     return (
       <div className="w-full max-w-4xl space-y-6">
@@ -262,14 +249,14 @@ export default function ProfilePage() {
           </Alert>
         )}
 
-        <Alert className="border-sky-300 bg-sky-50/80 dark:border-sky-800 dark:bg-sky-950/30">
-          <Shield className="h-4 w-4 text-sky-700 dark:text-sky-300" />
-          <AlertDescription className="text-sm text-sky-950 dark:text-sky-100 space-y-1">
+        <Alert>
+          <Shield className="h-4 w-4 text-muted-foreground" />
+          <AlertDescription className="text-sm space-y-1">
             <p>
               <strong>MFA is required</strong> until DOE SSO is available. Keep your authenticator app
               available; if you lose access, ask an Admin to temporarily disable MFA so you can re-enroll.
             </p>
-            <p className="text-xs text-sky-900/80 dark:text-sky-200/80">
+            <p className="text-xs text-muted-foreground">
               Shared desks may show a “Still using the app?” prompt after idle time (configured in
               Admin → System Settings). On Intake, a draft is saved in this browser if you are signed out.
             </p>
@@ -305,10 +292,10 @@ export default function ProfilePage() {
                 <div className="space-y-2">
                   <Label className="text-xs text-muted-foreground">Role</Label>
                   <div>
-                    <Badge variant={getRoleBadgeVariant(session?.user?.role)}>
-                      <Shield className="mr-1 h-3 w-3" />
+                    <span className={roleBadgeClass(session.user.role)}>
+                      <Shield className="h-3 w-3" />
                       {session.user.role}
-                    </Badge>
+                    </span>
                   </div>
                 </div>
               )}
@@ -525,9 +512,9 @@ export default function ProfilePage() {
                       {userData?.mfaEnabled ? 'Enabled' : 'Disabled'}
                     </p>
                   </div>
-                  <Badge variant={userData?.mfaEnabled ? 'default' : 'outline'}>
+                  <span className={userData?.mfaEnabled ? 'ui-badge-success' : 'ui-badge-muted'}>
                     {userData?.mfaEnabled ? 'On' : 'Off'}
-                  </Badge>
+                  </span>
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="mfaPassword">Current Password</Label>

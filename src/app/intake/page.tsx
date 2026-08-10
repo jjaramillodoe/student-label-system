@@ -26,9 +26,9 @@ import IntakeAssistsGate from '@/components/IntakeAssistsGate';
 import IntakePersonalInfoCard from '@/components/IntakePersonalInfoCard';
 import IntakeProgramDetails from '@/components/IntakeProgramDetails';
 import IntakeFileAssignment from '@/components/IntakeFileAssignment';
+import IntakeReturningFinder from '@/components/IntakeReturningFinder';
 import { Cabinet } from '@/types/cabinet';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -44,7 +44,7 @@ import {
   UserPlus, AlertCircle, CheckCircle2, RotateCcw,
   Loader2, ClipboardList, LogOut,
   Clock, Users, Copy, Check, ExternalLink,
-  Info, List, Archive,
+  Info, List,
 } from 'lucide-react';
 import IntakeIssuesBanner from '@/components/IntakeIssuesBanner';
 import IntakeHandoffFixDialog from '@/components/IntakeHandoffFixDialog';
@@ -52,9 +52,8 @@ import {
   type IntakeAddressVerification,
   type IntakeAddressValues,
 } from '@/components/IntakeAddressFields';
-import IntakeMatchCard, { type IntakeMatchStudent } from '@/components/IntakeMatchCard';
+import { type IntakeMatchStudent } from '@/components/IntakeMatchCard';
 import IntakeMemberGuide from '@/components/IntakeMemberGuide';
-import ReturningVisitHistory from '@/components/ReturningVisitHistory';
 import HistoryPanel from '@/components/IntakeHistoryPanel';
 import {
   IntakeSuccessSummary,
@@ -141,9 +140,6 @@ export default function IntakePage() {
   const [currentFiscalYear, setCurrentFiscalYear] = useState('2025-2026');
 
   // Returning student search
-  const [studentSearch, setStudentSearch] = useState('');
-  const [studentSearchResults, setStudentSearchResults] = useState<any[]>([]);
-  const [studentSearchLoading, setStudentSearchLoading] = useState(false);
   const [selectedExistingStudent, setSelectedExistingStudent] = useState<any>(null);
   const [issuesRefresh, setIssuesRefresh] = useState(0);
   const [fixTarget, setFixTarget] = useState<{ id: string; name: string } | null>(null);
@@ -553,8 +549,6 @@ export default function IntakePage() {
       setCheckResult(emptyCheckResult());
       setSiblingAcknowledged(false);
       setSelectedExistingStudent(null);
-      setStudentSearch('');
-      setStudentSearchResults([]);
       setAssistsQuery('');
       resetAssistsGate(false);
     }
@@ -650,17 +644,6 @@ export default function IntakePage() {
     }));
   }
 
-  async function searchStudents(query: string) {
-    if (!isStudentSearchQueryValid(query)) { setStudentSearchResults([]); return; }
-    setStudentSearchLoading(true);
-    try {
-      const res = await fetch(`/api/students?search=${encodeURIComponent(query)}`);
-      const data = await res.json();
-      setStudentSearchResults(Array.isArray(data) ? data.slice(0, 10) : []);
-    } catch { setStudentSearchResults([]); }
-    finally { setStudentSearchLoading(false); }
-  }
-
   async function runSchoolLookup(query: string) {
     const q = query.trim();
     setSchoolLookup(q);
@@ -736,8 +719,6 @@ export default function IntakePage() {
       ...emptyReturningVisitFields(),
     }));
     setSelectedExistingStudent(s);
-    setStudentSearch(formatFullName(s));
-    setStudentSearchResults([]);
     setSchoolLookupResults([]);
     setSchoolLookupDone(false);
     setSchoolLookup('');
@@ -996,8 +977,6 @@ export default function IntakePage() {
     setSavedAsVisit(false);
     setSubmitError('');
     setSelectedExistingStudent(null);
-    setStudentSearch('');
-    setStudentSearchResults([]);
     setIntakeAddress({ address: '', apt: '', city: '', state: 'NY', zip: '' });
     setAddressVerification(null);
   }
@@ -1346,92 +1325,17 @@ export default function IntakePage() {
             </Alert>
           )}
 
-          {form.intakeStudentStatus === 'RETURNING' && !selectedExistingStudent && (
-            <Alert className="border-blue-200 bg-blue-50/60 dark:bg-blue-950/20 dark:border-blue-800">
-              <Clock className="h-4 w-4 text-blue-700" />
-              <AlertTitle className="text-blue-900 dark:text-blue-100 text-sm">Log a returning visit</AlertTitle>
-              <AlertDescription className="text-xs text-blue-800 dark:text-blue-200">
-                Search for the student below, complete today&apos;s intake details on this screen, then submit to add the visit to their record.
-              </AlertDescription>
-            </Alert>
-          )}
-
-          {/* ── Returning: find student & log visit on same screen ───────── */}
           {form.intakeStudentStatus === 'RETURNING' && (
-            <Card className="border-blue-200 dark:border-blue-800 bg-blue-50/50 dark:bg-blue-950/20">
-              <CardHeader className="pb-3">
-                <CardTitle className="text-sm flex items-center gap-2 text-blue-800 dark:text-blue-300">
-                  <Users className="h-4 w-4" /> Find Existing Student
-                </CardTitle>
-                <CardDescription className="text-xs">
-                  Search active and archived students. Archived matches show their archive box so you do not create a second file.
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                <div className="flex gap-2">
-                  <Input
-                    placeholder="Search by name, label ID, or DOB…"
-                    value={studentSearch}
-                    onChange={e => {
-                      setStudentSearch(e.target.value);
-                      searchStudents(e.target.value);
-                    }}
-                    className="flex-1"
-                  />
-                  {studentSearchLoading && <Loader2 className="h-4 w-4 animate-spin self-center text-muted-foreground" />}
-                </div>
-                {studentSearchResults.length > 0 && !selectedExistingStudent && (
-                  <div className="space-y-1.5 max-h-56 overflow-y-auto">
-                    {studentSearchResults.map(s => (
-                      <IntakeMatchCard
-                        key={s._id}
-                        student={s}
-                        cabinetMap={cabinetMap}
-                        drawerMap={drawerMap}
-                        onSelect={selectAsReturning}
-                        showUseButton={false}
-                      />
-                    ))}
-                  </div>
-                )}
-                {selectedExistingStudent && (
-                  <div className="space-y-2">
-                    <div className={`flex items-center gap-2 rounded-md border px-3 py-2 text-sm ${
-                      studentIsArchived(selectedExistingStudent)
-                        ? 'border-amber-300 bg-amber-50 dark:bg-amber-950/30'
-                        : 'border-green-300 bg-green-50 dark:bg-green-950/30'
-                    }`}>
-                      <CheckCircle2 className={`h-4 w-4 shrink-0 ${
-                        studentIsArchived(selectedExistingStudent) ? 'text-amber-600' : 'text-green-600'
-                      }`} />
-                      <span className="flex-1 font-medium">
-                        {formatFullName(selectedExistingStudent)}
-                      </span>
-                      {studentIsArchived(selectedExistingStudent) && (
-                        <Badge className="text-[10px] bg-amber-600 hover:bg-amber-600 text-white gap-1">
-                          <Archive className="h-3 w-3" />
-                          Archived
-                        </Badge>
-                      )}
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setSelectedExistingStudent(null);
-                          setStudentSearch('');
-                          setForm(f => ({ ...f, ...emptyReturningVisitFields() }));
-                        }}
-                        className="text-xs text-muted-foreground hover:text-foreground"
-                      >
-                        Change
-                      </button>
-                    </div>
-                    {Array.isArray(selectedExistingStudent.intakeVisits) && selectedExistingStudent.intakeVisits.length > 0 && (
-                      <ReturningVisitHistory visits={selectedExistingStudent.intakeVisits} />
-                    )}
-                  </div>
-                )}
-              </CardContent>
-            </Card>
+            <IntakeReturningFinder
+              selectedExistingStudent={selectedExistingStudent}
+              onSelect={selectAsReturning}
+              onClear={() => {
+                setSelectedExistingStudent(null);
+                setForm(f => ({ ...f, ...emptyReturningVisitFields() }));
+              }}
+              cabinetMap={cabinetMap}
+              drawerMap={drawerMap}
+            />
           )}
 
           {showMainIntakeFields && (

@@ -7,6 +7,7 @@ import {
 import Avery5163LabelContent from '@/components/Avery5163LabelContent';
 import Avery94205LabelContent from '@/components/Avery94205LabelContent';
 import AveryPrintGuidance from '@/components/AveryPrintGuidance';
+import PrintConfirmBar from '@/components/PrintConfirmBar';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -122,29 +123,16 @@ function ReprintHistoryLabel({ student }: { student: any }) {
             </div>
           </div>
           {awaitingConfirm ? (
-            <div className="rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-sm dark:border-amber-700 dark:bg-amber-950/40">
-              <p className="font-medium text-amber-950 dark:text-amber-100">Did the label print successfully?</p>
-              <p className="mt-1 text-xs text-amber-800 dark:text-amber-200">
-                Choose Yes only after it prints correctly. Until then they stay on Needs label.
-              </p>
-            </div>
+            <PrintConfirmBar
+              variant="inline"
+              plural={false}
+              confirming={confirming}
+              onConfirm={() => void handleConfirmPrinted()}
+              onDecline={() => setAwaitingConfirm(false)}
+            />
           ) : null}
           <DialogFooter className="gap-2 sm:gap-0">
-            {awaitingConfirm ? (
-              <>
-                <Button
-                  variant="outline"
-                  disabled={confirming}
-                  onClick={() => setAwaitingConfirm(false)}
-                >
-                  No — keep on Needs label
-                </Button>
-                <Button disabled={confirming} onClick={() => void handleConfirmPrinted()} className="gap-2">
-                  {confirming ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
-                  Yes — mark as printed
-                </Button>
-              </>
-            ) : (
+            {!awaitingConfirm && (
               <>
                 <Button variant="outline" onClick={() => { setAwaitingConfirm(false); setOpen(false); }}>Close</Button>
                 <Button onClick={handleDownload} disabled={downloading} className="gap-2">

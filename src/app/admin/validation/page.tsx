@@ -67,24 +67,24 @@ function fmtTime(iso: string | null) {
 
 function EmailStatusBadge({ status }: { status: string }) {
   if (status === 'VALID')
-    return <Badge className="gap-1 bg-green-100 text-green-700 border-green-300 hover:bg-green-100"><CheckCircle2 className="h-3 w-3" />Valid</Badge>;
+    return <span className="ui-badge-success"><CheckCircle2 className="h-3 w-3" />Valid</span>;
   if (status === 'INVALID')
-    return <Badge className="gap-1 bg-red-100 text-red-700 border-red-300 hover:bg-red-100"><XCircle className="h-3 w-3" />Invalid</Badge>;
+    return <span className="ui-badge-danger"><XCircle className="h-3 w-3" />Invalid</span>;
   if (status === 'CATCH_ALL')
-    return <Badge className="gap-1 bg-yellow-100 text-yellow-700 border-yellow-300 hover:bg-yellow-100"><HelpCircle className="h-3 w-3" />Catch-all</Badge>;
+    return <span className="ui-badge-warning"><HelpCircle className="h-3 w-3" />Catch-all</span>;
   if (status === 'PENDING')
-    return <Badge className="gap-1 bg-slate-100 text-slate-500 border-slate-200 hover:bg-slate-100"><Clock className="h-3 w-3" />Pending</Badge>;
-  return <Badge className="gap-1 bg-muted text-muted-foreground border-border hover:bg-muted"><HelpCircle className="h-3 w-3" />Unknown</Badge>;
+    return <span className="ui-badge-muted"><Clock className="h-3 w-3" />Pending</span>;
+  return <span className="ui-badge-muted"><HelpCircle className="h-3 w-3" />Unknown</span>;
 }
 
 function JobStatusBadge({ status }: { status: string }) {
   if (status === 'COMPLETE')
-    return <Badge className="gap-1 bg-blue-100 text-blue-700 border-blue-300 hover:bg-blue-100 text-[10px]"><CheckCheck className="h-2.5 w-2.5" />Complete</Badge>;
+    return <span className="ui-badge-info text-[10px]"><CheckCheck className="h-2.5 w-2.5" />Complete</span>;
   if (status === 'PENDING')
-    return <Badge className="gap-1 bg-slate-100 text-slate-600 border-slate-300 hover:bg-slate-100 text-[10px]"><Clock className="h-2.5 w-2.5" />Pending</Badge>;
+    return <span className="ui-badge-muted text-[10px]"><Clock className="h-2.5 w-2.5" />Pending</span>;
   if (status === 'FAILED')
-    return <Badge className="gap-1 bg-red-100 text-red-700 border-red-300 hover:bg-red-100 text-[10px]"><XCircle className="h-2.5 w-2.5" />Failed</Badge>;
-  return <Badge className="gap-1 bg-amber-100 text-amber-700 border-amber-300 hover:bg-amber-100 text-[10px]"><Loader2 className="h-2.5 w-2.5 animate-spin" />In Progress</Badge>;
+    return <span className="ui-badge-danger text-[10px]"><XCircle className="h-2.5 w-2.5" />Failed</span>;
+  return <span className="ui-badge-warning text-[10px]"><Loader2 className="h-2.5 w-2.5 animate-spin" />In Progress</span>;
 }
 
 // ── Usage Meter ───────────────────────────────────────────────────────────────
@@ -419,8 +419,8 @@ export default function ValidationPage() {
               <div className="flex items-center gap-3 text-sm">
                 <span className="text-muted-foreground w-32 shrink-0">API Key:</span>
                 {testResult.apiKeyPresent
-                  ? <Badge className="bg-green-100 text-green-700 border-green-300 gap-1"><CheckCircle2 className="h-3 w-3" /> Loaded — {testResult.apiKeyPreview}</Badge>
-                  : <Badge className="bg-red-100 text-red-700 border-red-300 gap-1"><XCircle className="h-3 w-3" /> MISSING — check .env</Badge>
+                  ? <span className="ui-badge-success"><CheckCircle2 className="h-3 w-3" /> Loaded — {testResult.apiKeyPreview}</span>
+                  : <span className="ui-badge-danger"><XCircle className="h-3 w-3" /> MISSING — check .env</span>
                 }
               </div>
 
@@ -531,7 +531,7 @@ export default function ValidationPage() {
                             </TableCell>
                             <TableCell className="hidden sm:table-cell">
                               {j.appliedAt
-                                ? <Badge className="text-[10px] bg-green-50 text-green-700 border-green-200 hover:bg-green-50 gap-1"><CheckCircle2 className="h-2.5 w-2.5" />{fmtDate(j.appliedAt)}</Badge>
+                                ? <span className="ui-badge-success text-[10px]"><CheckCircle2 className="h-2.5 w-2.5" />{fmtDate(j.appliedAt)}</span>
                                 : <span className="text-xs text-muted-foreground">—</span>
                               }
                             </TableCell>
@@ -600,10 +600,10 @@ export default function ValidationPage() {
                 </Select>
                 <span className="text-xs text-muted-foreground">{studentsTotal} students</span>
                 {excludedCount > 0 && (
-                  <Badge variant="outline" className="text-xs gap-1 text-amber-700 border-amber-300 bg-amber-50">
+                  <span className="ui-badge-warning text-xs">
                     <Clock className="h-3 w-3" />
                     {excludedCount} already queued or processing — hidden
-                  </Badge>
+                  </span>
                 )}
               </div>
 

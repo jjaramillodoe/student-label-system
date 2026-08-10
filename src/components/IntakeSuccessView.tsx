@@ -142,9 +142,9 @@ export function IntakeSuccessSummary({
             <Badge variant="secondary">{form.intakeStudentStatus}</Badge>
           )}
           {student.siblingFlag && (
-            <Badge variant="outline" className="text-xs border-amber-400 text-amber-700 bg-amber-50">
-              <ShieldAlert className="h-3 w-3 mr-1" /> Sibling flag
-            </Badge>
+            <span className="ui-badge-warning text-xs">
+              <ShieldAlert className="h-3 w-3" /> Sibling flag
+            </span>
           )}
           {student.addressValidationStatus && (
             <Badge variant="outline" className="text-xs capitalize">
@@ -247,17 +247,17 @@ export function IntakeSuccessSummary({
         )}
 
         {!savedAsVisit && (
-          <Alert className="border-violet-300 bg-violet-50/80 dark:border-violet-800 dark:bg-violet-950/30">
-            <Printer className="h-4 w-4 text-violet-700 dark:text-violet-300" />
-            <AlertTitle className="text-sm text-violet-950 dark:text-violet-100">
+          <Alert>
+            <Printer className="h-4 w-4 text-muted-foreground" />
+            <AlertTitle className="text-sm">
               Labels are printed later (not at this desk)
             </AlertTitle>
-            <AlertDescription className="text-xs text-violet-900/90 dark:text-violet-100/90 space-y-2">
+            <AlertDescription className="text-xs text-muted-foreground space-y-2">
               <p>
-                This student will appear under <strong>Needs label</strong> on the Dashboard
+                This student will appear under <strong className="text-foreground">Needs label</strong> on the Dashboard
                 until someone prints their Avery sheet.
               </p>
-              <Button variant="outline" size="sm" className="gap-1.5 h-8 bg-background/80" asChild>
+              <Button variant="outline" size="sm" className="gap-1.5 h-8" asChild>
                 <Link href="/?needsLabel=1">
                   <Printer className="h-3.5 w-3.5" />
                   Open Find &amp; print → Needs label

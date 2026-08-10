@@ -214,9 +214,9 @@ function StudentCard({
             {role === 'flagged' ? 'Flagged' : 'Match'}
           </Badge>
           {student.siblingConfirmed && (
-            <Badge variant="outline" className="text-xs border-green-400 text-green-700">
+            <span className="ui-badge-success text-xs">
               Confirmed sibling
-            </Badge>
+            </span>
           )}
         </div>
       </div>

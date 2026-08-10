@@ -7,7 +7,6 @@ import {
   type NextCabinetSlot,
 } from '@/lib/cabinets';
 import type { Cabinet } from '@/types/cabinet';
-import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import {
@@ -62,9 +61,9 @@ export default function IntakeFileAssignment({
                   <Loader2 className="h-4 w-4 animate-spin" /> Finding next available slot…
                 </div>
               ) : nextSlot ? (
-                <div className="rounded-lg border-2 border-dashed border-amber-300/50 bg-amber-50/40 dark:bg-amber-950/20 px-5 py-4 flex items-center gap-4">
-                  <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-amber-100 dark:bg-amber-900/40 border border-amber-300/50 flex-shrink-0">
-                    <Building2 className="h-5 w-5 text-amber-700 dark:text-amber-300" />
+                <div className="rounded-lg border-2 border-dashed border-muted-foreground/20 bg-muted/30 px-5 py-4 flex items-center gap-4">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10 border border-primary/20 flex-shrink-0">
+                    <Building2 className="h-5 w-5 text-primary" />
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="font-semibold text-foreground">
@@ -77,9 +76,9 @@ export default function IntakeFileAssignment({
                       <span>Drawer: <strong className="text-foreground">{nextSlot.drawer.name}</strong></span>
                     </div>
                   </div>
-                  <Badge variant="outline" className="text-xs shrink-0 border-amber-400 text-amber-800 bg-amber-50">
+                  <span className="ui-badge-warning text-xs shrink-0">
                     New drawer
-                  </Badge>
+                  </span>
                 </div>
               ) : (
                 <Alert variant="destructive">
@@ -108,9 +107,9 @@ export default function IntakeFileAssignment({
                       <span>Drawer: <strong className="text-foreground">{drw?.name ?? selectedExistingStudent.drawer ?? '—'}</strong></span>
                     </div>
                   </div>
-                  <Badge variant="outline" className="text-xs shrink-0">
+                  <span className="ui-badge-muted text-xs shrink-0">
                     Existing file
-                  </Badge>
+                  </span>
                 </div>
               );
             })()
@@ -142,9 +141,9 @@ export default function IntakeFileAssignment({
                 <span>{nextSlot.spacesLeft} space{nextSlot.spacesLeft !== 1 ? 's' : ''} remaining</span>
               </div>
             </div>
-            <Badge variant="outline" className="text-xs shrink-0 border-green-300 text-green-700 bg-green-50 dark:bg-green-950/30 dark:text-green-400 dark:border-green-800">
+            <span className="ui-badge-success text-xs shrink-0">
               Auto-assigned
-            </Badge>
+            </span>
           </div>
         ) : (
           <Alert variant="destructive">

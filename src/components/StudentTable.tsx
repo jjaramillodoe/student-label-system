@@ -481,13 +481,13 @@ const StudentTable: React.FC<StudentTableProps> = ({
                           {student.status}
                         </Badge>
                         {(student as any).siblingFlag && (
-                          <span className="inline-flex items-center gap-1 text-xs font-medium text-amber-700 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/40 border border-amber-300 dark:border-amber-700 rounded px-1.5 py-0.5">
+                          <span className="ui-badge-warning text-xs">
                             <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126z"/></svg>
                             Sibling flag
                           </span>
                         )}
                         {student.siblingConfirmed && (
-                          <span className="inline-flex items-center gap-1 text-xs font-medium text-blue-700 dark:text-blue-400 bg-blue-50 dark:bg-blue-950/40 border border-blue-300 dark:border-blue-700 rounded px-1.5 py-0.5">
+                          <span className="ui-badge-info text-xs">
                             <Link2 className="h-3 w-3" />
                             {student.siblingWith?.length
                               ? `${student.siblingWith.length} sibling`
