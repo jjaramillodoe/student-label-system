@@ -11,14 +11,25 @@ Data Leads use **Students → Duplicates** (`/admin/duplicates`) to resolve pote
 
 ## How intake surfaces matches
 
-During **NEW** registration, Intake shows possible matches with match scores. Staff can:
+During **NEW** registration, Intake checks in two stages:
 
-- Stop if it is the same person
-- Check **This is a different person** to flag siblings for Data Lead review
+1. **Check ASISTS first** — search by name, DOB (MM/DD/YYYY or YYYY-MM-DD), or both. A DOB-only search returns only students born that day.
+2. **After unlock** — when personal info is filled, the system re-checks **same DOB** (always shown for sibling review), **similar name** (match %), and **home address**.
+
+Staff can:
+
+- Use **Same person sitting here — log returning** when the match is the student at the desk
+- Check **Not the same person sitting here** (ASISTS gate) or **This is a different person with the same name** (duplicate panel) to flag siblings for Data Lead review
 - Use **Copy alert message** for Teams or email
 
-<Frame caption="Intake duplicate alert with match scores and sibling acknowledgement">
-  <img src="/images/screenshots/intake-duplicates.png" alt="Intake form showing possible duplicate matches and sibling flag checkbox" />
+Each match card shows a **% match** (name similarity) and a **Same DOB** badge when birthdays align.
+
+<Note>
+  **ASISTS gate:** after a name or DOB search, confirm **Same person sitting here — log returning**, or check **Not the same person sitting here** to unlock NEW intake (flagged for Data Lead review).
+</Note>
+
+<Frame caption="Intake duplicate alert — match scores, Same DOB, and sibling acknowledgement">
+  <img src="/images/screenshots/intake-duplicates.png" alt="Intake form showing possible duplicate matches with percent match badges and sibling flag checkbox" />
 </Frame>
 
 ## Flagged section
@@ -33,6 +44,8 @@ The system scans students for:
 
 - **Same DOB + similar name** (fuzzy match, including middle-name omissions), **or**
 - **Same DOB + same home address** (even when names do not fuzzy-match)
+
+On Intake, **all same-DOB** students also appear for review (with match %), so siblings with different first names are not dropped when staff type a new name.
 
 Pairs already confirmed as siblings, manually dismissed, or still flagged in the first section are excluded.
 

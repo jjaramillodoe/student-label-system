@@ -24,6 +24,13 @@ Use PNG or WebP for final screenshots (recommended width **1200–1400px**). Sto
 | `intake-returning.png` | [Intake](/workflows/intake) |
 | `intake-duplicates.png` | [Intake](/workflows/intake), [Duplicates](/workflows/duplicates-and-siblings) |
 | `intake-fix-dialog.png` | [Intake](/workflows/intake) |
+
+Pending manual captures (add when convenient — **Cmd+Shift+4**, do not run Playwright on a busy machine):
+
+| File | Used on | What to show |
+| --- | --- | --- |
+| `intake-assists-match.png` | [Intake](/workflows/intake), [Duplicates](/workflows/duplicates-and-siblings) | Check ASISTS gate with a possible match + **Not the same person** |
+| `intake-duplicates.png` (refresh) | same | DOB panel with **% match**, **Same DOB**, sibling checkbox |
 | `cabinets-page.png` | [Cabinets](/storage/cabinets-and-drawers) |
 | `cabinets-add-custom-capacity.png` | [Cabinets](/storage/cabinets-and-drawers) |
 | `cabinet-health.png` | [Cabinets](/storage/cabinets-and-drawers) |
@@ -52,26 +59,31 @@ Optional older captures still in the folder:
 | Capture | Suggested filename | Page |
 | --- | --- | --- |
 | Intake success summary + P2G card | `intake-success.png` | [Intake](/workflows/intake) |
+| Near-eligible DOB banner + Export notice | `intake-near-eligible.png` | [Intake](/workflows/intake) |
 | Cabinets floor map dialog | `cabinets-floor-map.png` | [Cabinets](/storage/cabinets-and-drawers) |
 | Archive packing preview | `archive-packing-preview.png` | [Archive](/storage/archive-and-school-year) |
 | Drawer roster by-section drag | `drawer-roster-sections.png` | [Cabinets](/storage/cabinets-and-drawers) |
+
 ## Capture from production
+
+Prefer **manual** window captures when the machine is busy. Automated Playwright scripts launch Chromium and a local/prod browser session — they can spike memory. Only run them when nothing else heavy is open.
 
 ```bash
 # Analytics + MotherDuck only (reads DOCS_SCREENSHOT_* from .env safely):
-NODE_PATH=./tmp-playwright/node_modules node scripts/capture-analytics-screenshots.cjs
+PLAYWRIGHT_BROWSERS_PATH=0 NODE_PATH=./tmp-playwright/node_modules node scripts/capture-analytics-screenshots.cjs
 
 # Full docs set (avoid shell-sourcing .env if passwords contain & or #):
 export BASE_URL=https://nycadultedlabels.nyc
 # Optional if the account requires MFA:
 # export DOCS_SCREENSHOT_MFA=123456
-NODE_PATH=./tmp-playwright/node_modules node scripts/capture-docs-screenshots.cjs
+PLAYWRIGHT_BROWSERS_PATH=0 NODE_PATH=./tmp-playwright/node_modules node scripts/capture-docs-screenshots.cjs
 ```
 
 <Warning>
   Put credentials in `.env` as plain `KEY=value` lines (no wrapping quotes or trailing `\`). `.env` is gitignored.
   Re-capture **sign-in**, **sign-in-school-portal**, **dashboard**, **app-shell-sidebar**, and **cabinets-add-custom-capacity** after UI changes so Mintlify matches production.
   Use an **Admin** account for Email Validation and MotherDuck shots.
+  Close other browsers/IDEs before running Playwright capture scripts.
 </Warning>
 
 ## How to add a screenshot

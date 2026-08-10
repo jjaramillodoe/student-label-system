@@ -54,12 +54,15 @@ Staff still enter names and answers in English as the student tells them — Tra
     Choose **NEW** under Student Status.
   </Step>
   <Step title="Check ASISTS (required gate)">
-    Search ASISTS / legacy roster and this system (including archived) by name, DOB, or both. If a live/archived match is the person with you, use **Same person — log returning**. If ASISTS-only, you may continue as NEW. If no match, check **I checked ASISTS — student was not found** so personal info unlocks.
+    Search by name, DOB (MM/DD/YYYY or YYYY-MM-DD), or both. A **DOB-only** search returns only students born that day.
+    - Live match is the person with you → **Same person sitting here — log returning**
+    - Match is a sibling / different person → **Not the same person sitting here** (unlocks NEW; flagged for Data Lead)
+    - No match → **I checked ASISTS — this student was not found** so personal info unlocks
   </Step>
   <Step title="Enter personal information">
     - First and last name (required) — A–Z, spaces, and hyphens
-    - **Date of birth** — a human-readable date appears under the picker
-    - **BE/ESL age rule** — students must be at least **21 years old** on their birthday for BE or ESL
+    - **Date of birth** — calendar min **1920-01-01**, max today; a human-readable date appears under the picker
+    - **Age rules** — must be at least **16** for adult education; BE/ESL requires **21** on their birthday, or within **6 weeks** of turning 21 (near-eligible — intake may continue with an eligibility notice)
   </Step>
   <Step title="Contact and address">
     - Phone and email
@@ -68,7 +71,7 @@ Staff still enter names and answers in English as the student tells them — Tra
     - **View on Google Maps** after verify
   </Step>
   <Step title="Review duplicate matches">
-    The system checks same DOB + similar name **and** compares home address. See [Duplicates and siblings](/workflows/duplicates-and-siblings). Only use **This is a different person** for a true sibling or coincidence.
+    After name and DOB are entered, the panel under Date of Birth lists possible matches with **% match** and **Same DOB**. Same calendar DOB always surfaces for sibling review. See [Duplicates and siblings](/workflows/duplicates-and-siblings). Only use **This is a different person** for a true sibling or coincidence.
   </Step>
   <Step title="Complete intake details">
     Choose **BE** or **ESL**, intake activities, placement class, **intake session**, Time In, and Leaving/Staying (Time Out required if Leaving).
@@ -123,11 +126,19 @@ If the student file is **already archived**, Intake does **not** assign a new dr
 
 Staff can scan the archive-box QR to find the physical file when paperwork needs to be added.
 
+## Age eligibility (DOB)
+
+| Situation | What happens |
+| --- | --- |
+| Birth year before **1920** | Inline error — needs administrative confirmation |
+| Under **16** | Intake sections lock; cannot enroll |
+| **21+** for BE/ESL | Proceed normally |
+| Turning **21 within 6 weeks** | Near-eligible — complete intake; banner + **Export Eligibility Notice** |
+| Turning 21 in more than 6 weeks | Sections lock; message shows when they can re-apply; refer to P2G if needed |
+
 ## Under 21 — Pathways to Graduation (P2G)
 
-Students younger than **21** are not eligible for BE or ESL. When age applies, Intake blocks BE/ESL enrollment and can show a **copyable referral message** for [Pathways to Graduation](https://p2g.nyc/contact/).
-
-Use **Copy message for email** on the success screen (or when the under-21 notice appears) to paste into Teams or email.
+Students who are not yet eligible for BE or ESL (and outside the 6-week near-eligible window) can be referred to [Pathways to Graduation](https://p2g.nyc/contact/). Use **Copy message for email** on the success screen when the under-21 notice appears.
 
 ## Success screen
 
@@ -156,9 +167,15 @@ Use **Fix** to:
 
 ## Duplicate flag example
 
-<Frame caption="Possible duplicate matches with sibling acknowledgement checkbox">
+Match cards show **% match** and **Same DOB**. Only check **This is a different person** for a true sibling or coincidence — that flags the record for Data Lead review on [Duplicates and siblings](/workflows/duplicates-and-siblings).
+
+<Frame caption="Possible duplicate matches with percent scores and sibling acknowledgement">
   <img src="/images/screenshots/intake-duplicates.png" alt="Intake duplicate alert with match scores and sibling flag checkbox" />
 </Frame>
+
+<Tip>
+  When you can, re-capture `intake-duplicates.png` (and optionally `intake-assists-match.png`) from the live ASISTS gate + DOB panel so Mintlify matches the current UI. Save under `docs/images/screenshots/` — no Playwright required (Cmd+Shift+4).
+</Tip>
 
 ## Related pages
 
