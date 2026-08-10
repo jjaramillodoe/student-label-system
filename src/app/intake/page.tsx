@@ -1583,7 +1583,7 @@ export default function IntakePage() {
                           runAssistsGateCheck();
                         }
                       }}
-                      placeholder="Name, DOB (MM/DD/YYYY), or both — e.g. Mary Smith 01/15/1990"
+                      placeholder="Name, DOB, or both — e.g. Mary Smith 01/15/1990 or 1979-05-22"
                       className="flex-1 bg-background"
                       autoComplete="off"
                       spellCheck={false}
@@ -1602,7 +1602,8 @@ export default function IntakePage() {
                     </Button>
                   </div>
                   <p className="text-xs text-muted-foreground">
-                    Type a name, a date of birth, or both. Results update as you type (or press Enter / Check ASISTS).
+                    Type a name, a date of birth (MM/DD/YYYY or YYYY-MM-DD), or both.
+                    A DOB-only search returns only students born that day. Results update as you type.
                   </p>
                 </div>
 
