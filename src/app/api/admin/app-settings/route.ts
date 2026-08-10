@@ -15,6 +15,9 @@ export const DEFAULT_SETTINGS = {
   showClearAllData:   false,
   showMigrateDrawers: false,
   ...DEFAULT_NOTIFICATION_SETTINGS,
+  idleTimeoutEnabled: true,
+  idleTimeoutMinutes: 15,
+  idlePromptGraceSeconds: 60,
 };
 
 const BOOLEAN_KEYS = [
@@ -24,7 +27,14 @@ const BOOLEAN_KEYS = [
   'showMigrateDrawers',
   'notifyLowStockEmail',
   'notifyIntakeIssuesEmail',
+  'idleTimeoutEnabled',
 ] as const;
+
+function clampInt(value: unknown, min: number, max: number, fallback: number): number {
+  const n = typeof value === 'number' ? value : Number(value);
+  if (!Number.isFinite(n)) return fallback;
+  return Math.min(max, Math.max(min, Math.round(n)));
+}
 
 export async function GET() {
   const session = await getServerSession(authOptions);
@@ -45,13 +55,19 @@ export async function PATCH(req: NextRequest) {
   }
 
   const body = await req.json();
-  const patch: Record<string, boolean | string> = {};
+  const patch: Record<string, boolean | string | number> = {};
 
   for (const key of BOOLEAN_KEYS) {
     if (typeof body[key] === 'boolean') patch[key] = body[key];
   }
   if (typeof body.notificationRecipients === 'string') {
     patch.notificationRecipients = body.notificationRecipients.trim();
+  }
+  if (body.idleTimeoutMinutes !== undefined) {
+    patch.idleTimeoutMinutes = clampInt(body.idleTimeoutMinutes, 1, 240, 15);
+  }
+  if (body.idlePromptGraceSeconds !== undefined) {
+    patch.idlePromptGraceSeconds = clampInt(body.idlePromptGraceSeconds, 15, 300, 60);
   }
 
   if (Object.keys(patch).length === 0) {

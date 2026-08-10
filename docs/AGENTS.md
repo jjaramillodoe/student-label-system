@@ -39,9 +39,12 @@ Install Mintlify skill: `npm run docs:skill`
 - Do not document secrets, `.env` values, or production credentials
 - Age rules for intake: **16+** overall; BE/ESL **21** on birthday, or **near-eligible within 6 weeks** (submit allowed + eligibility notice). Birth year before **1920** needs admin confirmation. Farther under 21 → Pathways to Graduation ([p2g.nyc/contact](https://p2g.nyc/contact/))
 - Intake duplicate UI: ASISTS gate first, then DOB panel with **% match** + **Same DOB**; DOB-only search must not match label-ID year fragments; sibling ack survives name edits
+- Duplicate notify: **Copy alert message** / **Email with alert** use a structured Data Lead note (subject, school, reporter, NEW student, matches, `/admin/duplicates` link) — blank fields show as —
 - Intake enforces **session start/end times**; Enrollment flags outside-session and handoff issues
 - Archived returning students keep archive box location + QR — do **not** auto-assign a new drawer
 - Intake success shows a **summary** (not single-label print); batch Avery 5163 / 94205 via **Download Word Doc** (Letter, 100%) from Dashboard
+- Dashboard **Needs label** = never printed (full print history for the school), not “created in last 7 days”
+- Idle session prompt is configurable in Admin System Settings (default 15 min idle + grace); client-side only
 - Avery labels show **Last, First**, DOB, **5-digit print sequence**, Label ID barcode, and QR
 - Drawers use capacity **100 / 200 / 400** or **Custom** (1–5000) with automatic **Section 01–08** (hidden from Intake; shown on Dashboard location and Cabinets)
 - **Email Validation** and **MotherDuck Analytics** are Admin-only; in-app **Analytics** is Admin + Data Lead

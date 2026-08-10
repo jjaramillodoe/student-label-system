@@ -134,16 +134,13 @@ function Dashboard() {
 
   async function fetchPrintedIds() {
     try {
-      const res = await fetch('/api/print-history?limit=200');
+      const res = await fetch('/api/print-history?idsOnly=1');
       if (!res.ok) return;
-      const logs = await res.json();
+      const data = await res.json();
       const ids = new Set<string>();
-      if (Array.isArray(logs)) {
-        for (const log of logs) {
-          for (const s of log.students || []) {
-            if (s.studentId) ids.add(s.studentId);
-            if (s.labelId) ids.add(s.labelId);
-          }
+      if (Array.isArray(data?.ids)) {
+        for (const id of data.ids) {
+          if (typeof id === 'string' && id.trim()) ids.add(id.trim());
         }
       }
       setPrintedIds(ids);
@@ -301,14 +298,12 @@ function Dashboard() {
     const matchesYear = filterYear && filterYear !== 'all' ? student.fiscalYear === filterYear : true;
     const matchesStatus = filterStatus && filterStatus !== 'all' ? student.status === filterStatus : true;
 
-    // Needs label: created in last 7 days and not in recent print history
+    // Needs label: never appeared in print history (any time)
     let matchesNeedsLabel = true;
     if (needsLabelMode) {
-      const created = student.createdAt ? Date.parse(student.createdAt) : NaN;
-      const recent = !Number.isNaN(created) && (Date.now() - created) <= 7 * 24 * 60 * 60 * 1000;
       const keys = [student.labelId, student.studentId].filter(Boolean) as string[];
-      const alreadyPrinted = keys.some(k => printedIds.has(k));
-      matchesNeedsLabel = recent && !alreadyPrinted && !student.archived;
+      const alreadyPrinted = keys.length > 0 && keys.some(k => printedIds.has(k));
+      matchesNeedsLabel = !alreadyPrinted && !student.archived;
     }
     
     // Advanced filters
@@ -1063,7 +1058,10 @@ function Dashboard() {
             showQRCode={showQRCode}
             cabinetMap={cabinetMap}
             drawerMap={drawerMap}
-            onClose={() => setPrintMode(false)}
+            onClose={() => {
+              setPrintMode(false);
+              void fetchPrintedIds();
+            }}
           />
         )}
 

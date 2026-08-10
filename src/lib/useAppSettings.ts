@@ -10,6 +10,12 @@ export interface AppSettings {
   notifyLowStockEmail: boolean;
   notifyIntakeIssuesEmail: boolean;
   notificationRecipients: string;
+  /** Show "still using the app?" after idle period (shared front-desk PCs). */
+  idleTimeoutEnabled: boolean;
+  /** Minutes without activity before the prompt (1–240). */
+  idleTimeoutMinutes: number;
+  /** Seconds to answer the prompt before automatic sign-out (15–300). */
+  idlePromptGraceSeconds: number;
 }
 
 const DEFAULT: AppSettings = {
@@ -20,6 +26,9 @@ const DEFAULT: AppSettings = {
   notifyLowStockEmail: true,
   notifyIntakeIssuesEmail: true,
   notificationRecipients: '',
+  idleTimeoutEnabled: true,
+  idleTimeoutMinutes: 15,
+  idlePromptGraceSeconds: 60,
 };
 
 // Simple module-level cache so parallel component mounts share one fetch

@@ -112,6 +112,7 @@ export default function StudentFilters({
             variant={needsLabelMode ? 'default' : 'outline'}
             className="h-7 text-xs"
             onClick={() => onNeedsLabelModeChange(!needsLabelMode)}
+            title="Show only students who have never been printed (hides anyone found in print history)"
           >
             Needs label
           </Button>

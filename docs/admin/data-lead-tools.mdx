@@ -44,6 +44,10 @@ Staff pages (Admin, Data Lead, Data Member) use a **left sidebar**. Grouped link
   On the Dashboard **Location** column, Data Leads see **Cab**, **Draw**, and **Sec** (automatic drawer section). Intake Members do not see sections during registration. See [Cabinets and drawers](/storage/cabinets-and-drawers).
 </Tip>
 
+<Tip>
+  On **Find & print**, use the **Needs label** chip to list only students who have **never** been printed (full print history, not just recent jobs). See [Labels and scanning](/workflows/labels-and-scanning#needs-label).
+</Tip>
+
 ## Reporting and configuration
 
 | Tool | Path | Purpose | Who |
@@ -54,6 +58,7 @@ Staff pages (Admin, Data Lead, Data Member) use a **left sidebar**. Grouped link
 | School Year Rollover | `/admin/school-year` | End-of-year checklist | Admin, Data Lead |
 | Label Stock | `/admin/label-stock` | Avery inventory, burn rate, restock | Admin, Data Lead |
 | Users | `/admin/users` | Roles, schools, MFA recovery | Admin |
+| System Settings | `/admin/settings` | App-wide options, including **idle session prompt** | Admin |
 | Analytics | `/admin/analytics` | Live enrollment / storage / print metrics | Admin, Data Lead |
 | MotherDuck Analytics | `/admin/motherduck-analytics` | Warehouse analytics (Mongo → MotherDuck sync) | **Admin only** |
 | Email Validation | `/admin/validation` | EmailAwesome verification | **Admin only** |
@@ -74,6 +79,18 @@ Full DNS, Vercel, env, slug, and smoke-test instructions:
 
 - Mintlify: [School subdomains](/contributors/school-subdomains)
 - Repo markdown: `docs/school-subdomains-configuration.md`
+
+## Idle session prompt
+
+Admins can configure an **idle session prompt** under **Admin → System Settings** (`/admin/settings`):
+
+| Setting | Default | Purpose |
+| --- | --- | --- |
+| Enable idle prompt | On | After no mouse/keyboard activity, ask “Still using the app?” |
+| Idle minutes | 15 | How long to wait before the prompt |
+| Grace seconds | 60 | Time to click Continue before the app signs the user out |
+
+This is a **client-side** safety prompt for shared front-desk computers. It does not replace NextAuth session length.
 
 ## Security
 

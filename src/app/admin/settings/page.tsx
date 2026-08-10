@@ -32,6 +32,7 @@ import {
   Mail,
   GraduationCap,
   SlidersHorizontal,
+  Clock,
 } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
@@ -94,6 +95,9 @@ export default function SettingsPage() {
     notifyLowStockEmail: true,
     notifyIntakeIssuesEmail: true,
     notificationRecipients: '',
+    idleTimeoutEnabled: true,
+    idleTimeoutMinutes: 15,
+    idlePromptGraceSeconds: 60,
   });
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -714,6 +718,79 @@ export default function SettingsPage() {
                 </CardContent>
               </Card>
             )}
+
+        {/* Idle session timeout */}
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base flex items-center gap-2">
+              <Clock className="h-4 w-4 text-primary" />
+              Idle session prompt
+            </CardTitle>
+            <CardDescription>
+              On shared front-desk computers, ask staff if they are still using the app after a period
+              with no mouse or keyboard activity. If they do not confirm, they are signed out automatically.
+              Does not apply on public student / archive QR pages.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <Label htmlFor="idleTimeoutEnabled" className="text-sm font-medium">
+                  Enable idle prompt
+                </Label>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  Recommended for Intake and Dashboard kiosks.
+                </p>
+              </div>
+              <Switch
+                id="idleTimeoutEnabled"
+                checked={values.idleTimeoutEnabled}
+                onCheckedChange={(v: boolean) => setValues(prev => ({ ...prev, idleTimeoutEnabled: v }))}
+              />
+            </div>
+            <Separator />
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div className="space-y-2">
+                <Label htmlFor="idleTimeoutMinutes">Idle minutes before prompt</Label>
+                <Input
+                  id="idleTimeoutMinutes"
+                  type="number"
+                  min={1}
+                  max={240}
+                  disabled={!values.idleTimeoutEnabled}
+                  value={values.idleTimeoutMinutes}
+                  onChange={(e) => {
+                    const n = Number(e.target.value);
+                    setValues(prev => ({
+                      ...prev,
+                      idleTimeoutMinutes: Number.isFinite(n) ? n : prev.idleTimeoutMinutes,
+                    }));
+                  }}
+                />
+                <p className="text-xs text-muted-foreground">Default 15. Range 1–240.</p>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="idlePromptGraceSeconds">Seconds to answer before sign-out</Label>
+                <Input
+                  id="idlePromptGraceSeconds"
+                  type="number"
+                  min={15}
+                  max={300}
+                  disabled={!values.idleTimeoutEnabled}
+                  value={values.idlePromptGraceSeconds}
+                  onChange={(e) => {
+                    const n = Number(e.target.value);
+                    setValues(prev => ({
+                      ...prev,
+                      idlePromptGraceSeconds: Number.isFinite(n) ? n : prev.idlePromptGraceSeconds,
+                    }));
+                  }}
+                />
+                <p className="text-xs text-muted-foreground">Default 60. Range 15–300.</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
 
         {/* Email notifications */}
         <Card>

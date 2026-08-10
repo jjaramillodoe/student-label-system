@@ -6,6 +6,7 @@ import {
 } from 'lucide-react';
 import { Checkbox } from '@/components/ui/checkbox';
 import IntakeMatchCard, { type IntakeMatchStudent } from '@/components/IntakeMatchCard';
+import { buildIntakeDuplicateAlertMailto } from '@/lib/intakeDuplicateAlert';
 
 export type IntakeDuplicateMatchLists = {
   exact: IntakeMatchStudent[];
@@ -28,6 +29,8 @@ type Props = {
   dataLead: DataLead;
   copied: boolean;
   onCopyAlert: () => void;
+  /** Full plain-text alert used for mailto body (same as copy button). */
+  alertMessage?: string;
   cabinetMap: Record<string, string>;
   drawerMap: Record<string, string>;
   siblingCheckboxId?: string;
@@ -42,6 +45,7 @@ const IntakeDuplicatePanel = forwardRef<HTMLDivElement, Props>(function IntakeDu
     dataLead,
     copied,
     onCopyAlert,
+    alertMessage,
     cabinetMap,
     drawerMap,
     siblingCheckboxId = 'siblingFlag',
@@ -50,6 +54,11 @@ const IntakeDuplicatePanel = forwardRef<HTMLDivElement, Props>(function IntakeDu
 ) {
   const live = [...matches.exact, ...matches.fuzzy];
   const legacy = [...matches.legacyExact, ...matches.legacyFuzzy];
+  const dataLeadMailto = dataLead?.email && alertMessage
+    ? buildIntakeDuplicateAlertMailto(dataLead.email, alertMessage)
+    : dataLead?.email
+      ? `mailto:${dataLead.email}`
+      : null;
 
   return (
     <div
@@ -119,13 +128,15 @@ const IntakeDuplicatePanel = forwardRef<HTMLDivElement, Props>(function IntakeDu
               </p>
               <p className="text-sm font-semibold text-foreground">{dataLead.name}</p>
             </div>
-            <a
-              href={`mailto:${dataLead.email}`}
-              className="flex items-center gap-1.5 text-xs text-primary hover:underline shrink-0"
-            >
-              <Mail className="h-3.5 w-3.5" />
-              {dataLead.email}
-            </a>
+            {dataLeadMailto && (
+              <a
+                href={dataLeadMailto}
+                className="flex items-center gap-1.5 text-xs text-primary hover:underline shrink-0"
+              >
+                <Mail className="h-3.5 w-3.5" />
+                Email with alert
+              </a>
+            )}
           </div>
         )}
         <div className="flex items-center gap-2 pt-0.5">
@@ -143,7 +154,7 @@ const IntakeDuplicatePanel = forwardRef<HTMLDivElement, Props>(function IntakeDu
               : <><Copy className="h-3.5 w-3.5" /> Copy alert message</>}
           </button>
           <span className="text-xs text-muted-foreground">
-            Paste into email, Teams, or Slack to notify your Data Lead
+            Or paste into Teams / Slack. Email link opens with this alert filled in.
           </span>
         </div>
       </div>

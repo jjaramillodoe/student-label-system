@@ -17,6 +17,7 @@ export async function GET(req: NextRequest) {
     const userId = searchParams.get('userId');
     const studentId = searchParams.get('studentId');
     const limit = parseInt(searchParams.get('limit') || '100');
+    const idsOnly = searchParams.get('idsOnly') === '1' || searchParams.get('idsOnly') === 'true';
 
     const client = await clientPromise;
     const db = client.db('student-label');
@@ -41,6 +42,31 @@ export async function GET(req: NextRequest) {
     const userSchool = (session.user as { school?: string })?.school;
     if (userRole !== 'Admin' && userSchool) {
       query['user.school'] = userSchool;
+    }
+
+    // Distinct printed label/student IDs for "Needs label" filtering (full history).
+    if (idsOnly) {
+      const rows = await db.collection('print_history').aggregate([
+        { $match: query },
+        { $unwind: { path: '$students', preserveNullAndEmptyArrays: false } },
+        {
+          $group: {
+            _id: null,
+            studentIds: { $addToSet: '$students.studentId' },
+            labelIds: { $addToSet: '$students.labelId' },
+          },
+        },
+      ]).toArray();
+
+      const row = rows[0] || {};
+      const ids = [
+        ...((row.studentIds as unknown[]) || []),
+        ...((row.labelIds as unknown[]) || []),
+      ]
+        .map(v => (typeof v === 'string' ? v.trim() : ''))
+        .filter(Boolean);
+
+      return NextResponse.json({ ids: Array.from(new Set(ids)) });
     }
 
     const logs = await db

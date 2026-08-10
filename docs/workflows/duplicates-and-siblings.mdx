@@ -20,9 +20,21 @@ Staff can:
 
 - Use **Same person sitting here — log returning** when the match is the student at the desk
 - Check **Not the same person sitting here** (ASISTS gate) or **This is a different person with the same name** (duplicate panel) to flag siblings for Data Lead review
-- Use **Copy alert message** for Teams or email
+- Notify the Data Lead with **Copy alert message** (Teams / Slack / paste into email) or **Email with alert** (opens mail with subject + body filled in)
 
 Each match card shows a **% match** (name similarity) and a **Same DOB** badge when birthdays align.
+
+## Intake alert message
+
+The copied alert is written for Data Lead review. It includes:
+
+- A clear **Subject** line (`Possible duplicate student — Intake alert`)
+- School, who reported it, and when
+- The NEW student being registered (name, DOB, phone, email, address — shows **—** if a field is still blank)
+- Possible matches in this system and on ASISTS / legacy (DOB, Label ID, status, similarity, same-DOB / address notes)
+- Short **What to do** steps and a link to `/admin/duplicates`
+
+If intake already checked **different person**, the intro line says the registration was flagged as a sibling / coincidence path.
 
 <Note>
   **ASISTS gate:** after a name or DOB search, confirm **Same person sitting here — log returning**, or check **Not the same person sitting here** to unlock NEW intake (flagged for Data Lead review).
