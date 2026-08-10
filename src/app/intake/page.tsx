@@ -83,7 +83,8 @@ const INTAKE_STATUS_OPTIONS = [
 ];
 
 interface CheckResult {
-  status: 'idle' | 'checking' | 'found' | 'clear';
+  /** needs_dob: unlocked NEW intake waiting on DOB for the full duplicate/sibling scan */
+  status: 'idle' | 'checking' | 'found' | 'clear' | 'needs_dob';
   exact: any[];
   fuzzy: any[];
   legacyExact: any[];
@@ -523,6 +524,8 @@ export default function IntakePage() {
 
   const checkTimeout = useRef<NodeJS.Timeout | null>(null);
   const schoolLookupTimeout = useRef<NodeJS.Timeout | null>(null);
+  const dobDuplicatePanelRef = useRef<HTMLDivElement | null>(null);
+  const prevCheckStatusRef = useRef<CheckResult['status']>('idle');
 
   const intakeDobEval = useMemo(
     () =>
@@ -682,8 +685,19 @@ export default function IntakePage() {
       setCheckResult(emptyCheckResult());
       return;
     }
-    if (!f.firstName.trim() || !f.lastName.trim() || !f.dob) {
+    if (!f.firstName.trim() || !f.lastName.trim()) {
       setCheckResult(emptyCheckResult());
+      return;
+    }
+    // Full identity check needs DOB. Do not wipe ASISTS gate matches to idle —
+    // that hid the duplicate/sibling panel after unlock when DOB was still empty.
+    if (!f.dob) {
+      setCheckResult(r => {
+        const hits =
+          r.exact.length + r.fuzzy.length + r.legacyExact.length + r.legacyFuzzy.length;
+        if (hits > 0) return { ...r, status: 'found' };
+        return { ...emptyCheckResult(), status: 'needs_dob' };
+      });
       return;
     }
     setCheckResult(r => ({ ...r, status: 'checking' }));
@@ -762,6 +776,30 @@ export default function IntakePage() {
     intakeAddress,
     addressVerification,
     scheduleCheck,
+    assistsNotFoundAck,
+    assistsDifferentPersonAck,
+    assistsLegacySameAck,
+  ]);
+
+  // When DOB/address check surfaces matches after unlock, bring the sibling panel into view.
+  useEffect(() => {
+    const prev = prevCheckStatusRef.current;
+    prevCheckStatusRef.current = checkResult.status;
+    if (
+      form.intakeStudentStatus === 'NEW'
+      && form.dob
+      && checkResult.status === 'found'
+      && prev !== 'found'
+      && (assistsNotFoundAck || assistsDifferentPersonAck || assistsLegacySameAck)
+    ) {
+      requestAnimationFrame(() => {
+        dobDuplicatePanelRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      });
+    }
+  }, [
+    checkResult.status,
+    form.dob,
+    form.intakeStudentStatus,
     assistsNotFoundAck,
     assistsDifferentPersonAck,
     assistsLegacySameAck,
@@ -1753,11 +1791,25 @@ export default function IntakePage() {
             </Card>
           )}
 
-          {/* Duplicate check panel (after gate unlock — e.g. address-driven matches) */}
+          {/* Duplicate check status (after gate unlock) — full match panel renders under DOB */}
           {newAssistsUnlocked && checkResult.status === 'checking' && (
             <Alert>
               <Loader2 className="h-4 w-4 animate-spin" />
-              <AlertDescription>Checking for existing records…</AlertDescription>
+              <AlertDescription>Checking for existing records and possible siblings…</AlertDescription>
+            </Alert>
+          )}
+
+          {newAssistsUnlocked && checkResult.status === 'needs_dob' && form.intakeStudentStatus === 'NEW' && (
+            <Alert className="border-sky-300 bg-sky-50/90 dark:border-sky-800 dark:bg-sky-950/30">
+              <Info className="h-4 w-4 text-sky-700 dark:text-sky-400" />
+              <AlertTitle className="text-sky-900 dark:text-sky-100 text-sm">
+                Enter date of birth to check duplicates
+              </AlertTitle>
+              <AlertDescription className="text-xs text-sky-800 dark:text-sky-200">
+                Name-only ASISTS search found nothing. After you enter DOB (and address when available),
+                we scan this system again for same DOB + similar name or same home address — including
+                possible siblings.
+              </AlertDescription>
             </Alert>
           )}
 
@@ -1774,125 +1826,6 @@ export default function IntakePage() {
                 )}
               </AlertDescription>
             </Alert>
-          )}
-          {newAssistsUnlocked && checkResult.status === 'found' && form.intakeStudentStatus === 'NEW' && !assistsLegacySameAck && (
-          <div className={`rounded-lg border-2 p-4 space-y-3 transition-colors ${
-            siblingAcknowledged
-              ? 'border-amber-400 bg-amber-50 dark:bg-amber-950/30 dark:border-amber-600'
-              : 'border-destructive bg-destructive/5'
-          }`}>
-            {/* Header */}
-            <div className="flex items-start gap-2">
-              {siblingAcknowledged
-                ? <ShieldAlert className="h-5 w-5 text-amber-600 dark:text-amber-400 mt-0.5 shrink-0" />
-                : <AlertCircle className="h-5 w-5 text-destructive mt-0.5 shrink-0" />
-              }
-              <div>
-                <p className={`font-semibold text-sm ${siblingAcknowledged ? 'text-amber-800 dark:text-amber-200' : 'text-destructive'}`}>
-                  {siblingAcknowledged ? 'Flagged as different person — Data Lead will review' : 'Possible existing student(s) found'}
-                </p>
-                <p className={`text-xs mt-0.5 ${siblingAcknowledged ? 'text-amber-700 dark:text-amber-300' : 'text-destructive/80'}`}>
-                  Review name, DOB, and address before registering. Matches may be live files or ASISTS / legacy export.
-                </p>
-              </div>
-            </div>
-
-            {/* Live system matches */}
-            {(checkResult.exact.length > 0 || checkResult.fuzzy.length > 0) && (
-              <div className="space-y-1.5">
-                <p className="text-xs font-medium text-muted-foreground">In this system</p>
-                {[...checkResult.exact, ...checkResult.fuzzy].map((s, i) => (
-                  <IntakeMatchCard
-                    key={s._id || i}
-                    student={s}
-                    cabinetMap={cabinetMap}
-                    drawerMap={drawerMap}
-                    onUseAsReturning={selectAsReturning}
-                  />
-                ))}
-              </div>
-            )}
-
-            {/* ASISTS / legacy matches */}
-            {(checkResult.legacyExact.length > 0 || checkResult.legacyFuzzy.length > 0) && (
-              <div className="space-y-1.5">
-                <p className="text-xs font-medium text-violet-800 dark:text-violet-300">ASISTS / legacy roster</p>
-                {[...checkResult.legacyExact, ...checkResult.legacyFuzzy].map((s, i) => (
-                  <IntakeMatchCard
-                    key={s._id || `legacy-${i}`}
-                    student={s}
-                    cabinetMap={cabinetMap}
-                    drawerMap={drawerMap}
-                    showUseButton={false}
-                  />
-                ))}
-              </div>
-            )}
-
-            {/* Data Lead contact + copy button */}
-            <div className="rounded-md bg-muted/60 border border-border px-3 py-2.5 space-y-2">
-              {dataLead && (
-                <div className="flex items-center gap-3">
-                  <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary/10 border border-primary/20 shrink-0">
-                    <Users className="h-4 w-4 text-primary" />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Not sure? Contact your {dataLead.role}</p>
-                    <p className="text-sm font-semibold text-foreground">{dataLead.name}</p>
-                  </div>
-                  <a
-                    href={`mailto:${dataLead.email}`}
-                    className="flex items-center gap-1.5 text-xs text-primary hover:underline shrink-0"
-                  >
-                    <Mail className="h-3.5 w-3.5" />
-                    {dataLead.email}
-                  </a>
-                </div>
-              )}
-
-              {/* Copy-to-clipboard for quick message to Data Lead */}
-              <div className="flex items-center gap-2 pt-0.5">
-                <button
-                  type="button"
-                  onClick={handleCopyMessage}
-                  className={`flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-md border font-medium transition-all ${
-                    copied
-                      ? 'border-green-400 bg-green-50 text-green-700 dark:bg-green-950/30 dark:text-green-400'
-                      : 'border-border bg-background hover:bg-accent text-muted-foreground hover:text-foreground'
-                  }`}
-                >
-                  {copied
-                    ? <><Check className="h-3.5 w-3.5" /> Copied!</>
-                    : <><Copy className="h-3.5 w-3.5" /> Copy alert message</>
-                  }
-                </button>
-                <span className="text-xs text-muted-foreground">
-                  Paste into email, Teams, or Slack to notify your Data Lead
-                </span>
-              </div>
-            </div>
-
-            {/* Sibling / coincidence acknowledgement */}
-            <div className={`rounded-md border px-3 py-3 flex items-start gap-3 transition-colors ${
-              siblingAcknowledged
-                ? 'border-amber-400 bg-amber-100/60 dark:bg-amber-900/20'
-                : 'border-border bg-muted/30'
-            }`}>
-              <Checkbox
-                id="siblingFlag"
-                checked={siblingAcknowledged}
-                onCheckedChange={v => setSiblingAcknowledged(Boolean(v))}
-                className="mt-0.5"
-              />
-              <label htmlFor="siblingFlag" className="text-sm cursor-pointer select-none">
-                <span className="font-medium">This is a different person with the same name</span>
-                <span className="block text-xs text-muted-foreground mt-0.5">
-                  Check this if the student is a sibling, twin, or a coincidental name match.
-                  The record will be flagged for your Data Lead to review.
-                </span>
-              </label>
-            </div>
-          </div>
           )}
 
           {form.intakeStudentStatus === 'RETURNING' && !selectedExistingStudent && (
@@ -2117,6 +2050,129 @@ export default function IntakePage() {
                     Must be at least 16 to enroll in adult education. BE/ESL requires age 21
                     (or within 6 weeks of turning 21).
                   </p>
+                )}
+                {form.intakeStudentStatus === 'NEW' && newAssistsUnlocked && checkResult.status === 'needs_dob' && (
+                  <p className="text-xs font-medium text-sky-800 dark:text-sky-300">
+                    Enter DOB to scan for duplicates and possible siblings (same DOB + similar name, or same address).
+                  </p>
+                )}
+                {form.intakeStudentStatus === 'NEW'
+                  && newAssistsUnlocked
+                  && checkResult.status === 'found'
+                  && !assistsLegacySameAck && (
+                  <div
+                    ref={dobDuplicatePanelRef}
+                    className={`rounded-lg border-2 p-4 space-y-3 transition-colors ${
+                      siblingAcknowledged
+                        ? 'border-amber-400 bg-amber-50 dark:bg-amber-950/30 dark:border-amber-600'
+                        : 'border-destructive bg-destructive/5'
+                    }`}
+                  >
+                    <div className="flex items-start gap-2">
+                      {siblingAcknowledged
+                        ? <ShieldAlert className="h-5 w-5 text-amber-600 dark:text-amber-400 mt-0.5 shrink-0" />
+                        : <AlertCircle className="h-5 w-5 text-destructive mt-0.5 shrink-0" />
+                      }
+                      <div>
+                        <p className={`font-semibold text-sm ${siblingAcknowledged ? 'text-amber-800 dark:text-amber-200' : 'text-destructive'}`}>
+                          {siblingAcknowledged ? 'Flagged as different person — Data Lead will review' : 'Possible existing student(s) found'}
+                        </p>
+                        <p className={`text-xs mt-0.5 ${siblingAcknowledged ? 'text-amber-700 dark:text-amber-300' : 'text-destructive/80'}`}>
+                          Review name, DOB, and address before registering. Matches may be live files or ASISTS / legacy export.
+                          Use <span className="font-medium">This is a different person</span> for siblings or coincidences.
+                        </p>
+                      </div>
+                    </div>
+
+                    {(checkResult.exact.length > 0 || checkResult.fuzzy.length > 0) && (
+                      <div className="space-y-1.5">
+                        <p className="text-xs font-medium text-muted-foreground">In this system</p>
+                        {[...checkResult.exact, ...checkResult.fuzzy].map((s, i) => (
+                          <IntakeMatchCard
+                            key={s._id || i}
+                            student={s}
+                            cabinetMap={cabinetMap}
+                            drawerMap={drawerMap}
+                            onUseAsReturning={selectAsReturning}
+                          />
+                        ))}
+                      </div>
+                    )}
+
+                    {(checkResult.legacyExact.length > 0 || checkResult.legacyFuzzy.length > 0) && (
+                      <div className="space-y-1.5">
+                        <p className="text-xs font-medium text-violet-800 dark:text-violet-300">ASISTS / legacy roster</p>
+                        {[...checkResult.legacyExact, ...checkResult.legacyFuzzy].map((s, i) => (
+                          <IntakeMatchCard
+                            key={s._id || `legacy-${i}`}
+                            student={s}
+                            cabinetMap={cabinetMap}
+                            drawerMap={drawerMap}
+                            showUseButton={false}
+                          />
+                        ))}
+                      </div>
+                    )}
+
+                    <div className="rounded-md bg-muted/60 border border-border px-3 py-2.5 space-y-2">
+                      {dataLead && (
+                        <div className="flex items-center gap-3">
+                          <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary/10 border border-primary/20 shrink-0">
+                            <Users className="h-4 w-4 text-primary" />
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Not sure? Contact your {dataLead.role}</p>
+                            <p className="text-sm font-semibold text-foreground">{dataLead.name}</p>
+                          </div>
+                          <a
+                            href={`mailto:${dataLead.email}`}
+                            className="flex items-center gap-1.5 text-xs text-primary hover:underline shrink-0"
+                          >
+                            <Mail className="h-3.5 w-3.5" />
+                            {dataLead.email}
+                          </a>
+                        </div>
+                      )}
+                      <div className="flex items-center gap-2 pt-0.5">
+                        <button
+                          type="button"
+                          onClick={handleCopyMessage}
+                          className={`flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-md border font-medium transition-all ${
+                            copied
+                              ? 'border-green-400 bg-green-50 text-green-700 dark:bg-green-950/30 dark:text-green-400'
+                              : 'border-border bg-background hover:bg-accent text-muted-foreground hover:text-foreground'
+                          }`}
+                        >
+                          {copied
+                            ? <><Check className="h-3.5 w-3.5" /> Copied!</>
+                            : <><Copy className="h-3.5 w-3.5" /> Copy alert message</>}
+                        </button>
+                        <span className="text-xs text-muted-foreground">
+                          Paste into email, Teams, or Slack to notify your Data Lead
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className={`rounded-md border px-3 py-3 flex items-start gap-3 transition-colors ${
+                      siblingAcknowledged
+                        ? 'border-amber-400 bg-amber-100/60 dark:bg-amber-900/20'
+                        : 'border-border bg-muted/30'
+                    }`}>
+                      <Checkbox
+                        id="siblingFlag"
+                        checked={siblingAcknowledged}
+                        onCheckedChange={v => setSiblingAcknowledged(Boolean(v))}
+                        className="mt-0.5"
+                      />
+                      <label htmlFor="siblingFlag" className="text-sm cursor-pointer select-none">
+                        <span className="font-medium">This is a different person with the same name</span>
+                        <span className="block text-xs text-muted-foreground mt-0.5">
+                          Check this if the student is a sibling, twin, or a coincidental name match.
+                          The record will be flagged for your Data Lead to review.
+                        </span>
+                      </label>
+                    </div>
+                  </div>
                 )}
               </div>
 
