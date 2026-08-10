@@ -49,7 +49,7 @@ flowchart TB
 | Runtime | Node.js 20 LTS |
 | Framework | Next.js 16, React 19, TypeScript |
 | Database | MongoDB 6.x (native driver, no ORM) |
-| Auth | NextAuth.js v4 — credentials, JWT sessions, optional TOTP MFA |
+| Auth | NextAuth.js v4 — credentials, JWT (12h), TOTP MFA, lockout, `auth_events` |
 | UI | Tailwind CSS, shadcn/ui (Radix), app shell (`AppShell` / `AppSidebar`) |
 | Hosting | Vercel — production [nycadultedlabels.nyc](https://nycadultedlabels.nyc) (+ school subdomains) |
 | API docs | OpenAPI 3.0 — `/api/openapi.json`, Swagger UI at `/docs/api` in the app |
@@ -80,7 +80,8 @@ The repository has **59 API route handlers** under `src/app/api/`.
 | --- | --- |
 | `students` | Core records, placement, archive metadata (~4,400 docs) |
 | `cabinets` | Cabinet/drawer structure and capacity |
-| `users` | Accounts (bcrypt passwords, MFA) |
+| `users` | Accounts (bcrypt passwords, MFA, lockout fields) |
+| `auth_events` | Sign-in failures, lockouts, MFA disable, user created |
 | `school_config` | Per-school intake settings |
 | `audit_logs` | User action trail |
 | `print_history` | Label print events |

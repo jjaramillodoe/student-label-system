@@ -103,19 +103,17 @@ This is a **client-side** safety prompt for shared front-desk computers. NextAut
 
 ## Security
 
+MFA enrollment, 12-hour sessions, failed-login review, account lockout, and Admin alerts are documented on the dedicated **[Security](/admin/security)** page.
+
 <Warning>
-  **MFA is required for password sign-in** until DOE Single Sign-On (SSO) is available. All staff (Admin, Data Lead, Data Member, Intake Member) must enable authenticator-app MFA. Accounts without MFA are limited to Profile until they enroll.
+  **MFA is required for password sign-in** until DOE Single Sign-On (SSO) is available. Accounts without MFA are limited to Profile until they enroll.
 </Warning>
 
-- Sign in with your DOE email and password, then enter the **6-digit MFA code** from your authenticator app
-- Users set up MFA from **Profile** (QR code + verify)
-- Admins can reset passwords, force password changes, and **temporarily disable MFA** only to recover locked-out users — the user must re-enable MFA after recovery
-- Admins review failed logins and MFA events at **Admin → Security** (`/admin/security`); repeated failures can email notification recipients
-- After **8** failed password/MFA attempts, an account is locked for about **30 minutes** (or unlock from Users → Security / Admin → Security)
-- Creating a user (or bulk upload) logs a security event and can email notification recipients
-- SSO (Microsoft Entra ID / `@schools.nyc.gov`) is planned; until then MFA remains mandatory for security
+Quick links for Admins:
 
-See also [User roles](/user-roles).
+- [Security](/admin/security) — auth events and unlock
+- [Users](https://nycadultedlabels.nyc/admin/users) — password reset and MFA recovery
+- [User roles](/user-roles) — who can do what
 
 ## Screenshots
 

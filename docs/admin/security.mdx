@@ -1,0 +1,76 @@
+---
+title: Security
+description: MFA, sessions, failed-login review, account lockout, and Admin security alerts.
+---
+
+Admins use **Admin → Security** (`/admin/security`) to review sign-in activity and unlock accounts. Staff manage their own MFA from **Profile**.
+
+## MFA (required for password sign-in)
+
+<Warning>
+  Until DOE Single Sign-On is available, **password sign-in requires authenticator MFA**. After sign-in without MFA enrolled, you are limited to **Profile** until you complete enrollment.
+</Warning>
+
+1. Sign in with your DOE email and password
+2. Enter the **6-digit code** from your authenticator app (or enroll on Profile if prompted)
+3. Keep the authenticator app available — if you lose the device, ask an Admin to **temporarily disable MFA**, then re-enroll from Profile
+
+Microsoft SSO (when enabled) does not force app TOTP; DOE Conditional Access covers those accounts.
+
+## Sessions
+
+| Control | Default | Notes |
+| --- | --- | --- |
+| JWT session length | **12 hours** | Sign in again after the session expires |
+| Idle prompt | 15 min + grace (configurable) | **Admin → System Settings** — client-side “Still using the app?” on shared desks |
+
+Idle sign-out does not replace the 12-hour session limit.
+
+## Admin → Security
+
+Open [Admin → Security](https://nycadultedlabels.nyc/admin/security) to:
+
+- Filter **auth events** (bad password, unknown user, bad MFA, lock/unlock, MFA disabled, user created, successful sign-in)
+- See counts for failures, MFA failures, successes, and **currently locked** accounts
+- **Unlock** a locked account immediately
+
+Events store email, time, IP, and reason — never passwords.
+
+## Account lockout
+
+After **8** failed password or MFA attempts, the account is locked for about **30 minutes**.
+
+- Sign-in shows a clear locked message
+- Admins unlock from **Admin → Security** or **Users → Security → Unlock account**
+- Lockouts and unlocks appear in the security event log; notification recipients can get an email when an account locks
+
+## Email alerts
+
+When email notifications are configured, Admins / recipients can be notified for:
+
+| Event | When |
+| --- | --- |
+| Repeated failures | 5+ failed attempts for one email in 15 minutes |
+| Account locked | After the lockout threshold |
+| MFA disabled | Admin recovery action |
+| New user created | Single create, or one summary for bulk upload |
+
+## User recovery (Admin)
+
+From **Admin → Users → Security**:
+
+- Reset password (forces change on next login)
+- Force / clear password change
+- Temporarily disable MFA (user must re-enroll)
+- Unlock a locked account
+
+See also [User roles](/user-roles) and [Data Lead tools](/admin/data-lead-tools#security).
+
+## Platform protections (production)
+
+These run outside the app UI:
+
+- **New York State geo wall** — visitors outside NY see a blocked page (cron/sync/health bypass)
+- **Vercel Firewall** — rate limit on `/api/auth`; challenge on `/auth/signin`; NY-only deny rule
+
+Staff do not configure these day to day; Admins should still review **Admin → Security** weekly for unexpected sign-in attempts.
