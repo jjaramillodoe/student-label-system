@@ -6,6 +6,7 @@ import { authOptions } from '@/lib/authOptions';
 import clientPromise from '@/lib/mongodb';
 import { DEFAULT_INTAKE_SESSIONS } from '@/lib/intakeDefaults';
 import { intakeSessionNames, normalizeIntakeSessions } from '@/lib/intakeSession';
+import { logAuthEvent } from '@/lib/authSecurity';
 
 const VALID_ROLES = new Set(['Admin', 'Data Lead', 'Data Member', 'Intake Member']);
 
@@ -187,6 +188,19 @@ export async function POST(req: NextRequest) {
         lastLogin: null,
       });
 
+      await logAuthEvent({
+        type: 'user_created',
+        email,
+        reason: 'Bulk upload created user',
+        meta: {
+          role,
+          school,
+          byEmail: session.user?.email || '',
+          byName: session.user?.name || '',
+        },
+        suppressAlert: true,
+      });
+
       existingEmails.add(email);
       created.push({
         name,
@@ -195,6 +209,20 @@ export async function POST(req: NextRequest) {
         school,
         temporaryPassword: plainPassword,
         passwordGenerated,
+      });
+    }
+
+    if (created.length > 0) {
+      await logAuthEvent({
+        type: 'user_created',
+        email: session.user?.email || 'bulk-upload',
+        reason: `Bulk upload created ${created.length} user(s)`,
+        meta: {
+          bulkCount: created.length,
+          byEmail: session.user?.email || '',
+          byName: session.user?.name || '',
+          emails: created.map((c) => c.email).slice(0, 40),
+        },
       });
     }
 

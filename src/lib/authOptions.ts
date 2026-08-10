@@ -4,7 +4,12 @@ import AzureADProvider from 'next-auth/providers/azure-ad';
 import clientPromise from './mongodb';
 import * as bcrypt from 'bcrypt';
 import { verifyMfaToken } from './mfa';
-import { logAuthEvent } from './authSecurity';
+import {
+  clearCredentialFailures,
+  isAccountLocked,
+  logAuthEvent,
+  recordCredentialFailure,
+} from './authSecurity';
 
 type DbUser = {
   _id: unknown;
@@ -17,6 +22,8 @@ type DbUser = {
   mfaEnabled?: boolean;
   mfaSecret?: string;
   forcePasswordChange?: boolean;
+  failedLoginCount?: number;
+  lockedUntil?: string | null;
 };
 
 /** Password sessions last 12 hours (idle timeout still signs out earlier on shared desks). */
@@ -77,13 +84,29 @@ const providers: NextAuthOptions['providers'] = [
         });
         return null;
       }
-      const isValid = await bcrypt.compare(credentials.password, user.password);
-      if (!isValid) {
+
+      if (isAccountLocked(user)) {
         await logAuthEvent({
           type: 'login_failure',
           email,
-          reason: 'Invalid password',
+          reason: 'Account temporarily locked',
+          meta: { lockedUntil: user.lockedUntil || null },
         });
+        throw new Error('ACCOUNT_LOCKED');
+      }
+
+      const isValid = await bcrypt.compare(credentials.password, user.password);
+      if (!isValid) {
+        const result = await recordCredentialFailure(user._id, email);
+        await logAuthEvent({
+          type: 'login_failure',
+          email,
+          reason: result.locked
+            ? 'Invalid password — account locked'
+            : 'Invalid password',
+          meta: { failedLoginCount: result.failedLoginCount },
+        });
+        if (result.locked) throw new Error('ACCOUNT_LOCKED');
         return null;
       }
 
@@ -98,11 +121,16 @@ const providers: NextAuthOptions['providers'] = [
         }
 
         if (!(await verifyMfaToken(mfaCode, user.mfaSecret))) {
+          const result = await recordCredentialFailure(user._id, email);
           await logAuthEvent({
             type: 'mfa_failure',
             email,
-            reason: 'Invalid MFA code',
+            reason: result.locked
+              ? 'Invalid MFA code — account locked'
+              : 'Invalid MFA code',
+            meta: { failedLoginCount: result.failedLoginCount },
           });
+          if (result.locked) throw new Error('ACCOUNT_LOCKED');
           throw new Error('MFA_INVALID');
         }
       } else if (user.mfaEnabled && !user.mfaSecret) {
@@ -126,6 +154,7 @@ const providers: NextAuthOptions['providers'] = [
         forceMfaSetup = true;
       }
 
+      await clearCredentialFailures(user._id);
       await touchLastLogin(user._id);
       await logAuthEvent({
         type: 'login_success',

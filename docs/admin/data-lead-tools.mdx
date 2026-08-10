@@ -111,6 +111,8 @@ This is a **client-side** safety prompt for shared front-desk computers. NextAut
 - Users set up MFA from **Profile** (QR code + verify)
 - Admins can reset passwords, force password changes, and **temporarily disable MFA** only to recover locked-out users — the user must re-enable MFA after recovery
 - Admins review failed logins and MFA events at **Admin → Security** (`/admin/security`); repeated failures can email notification recipients
+- After **8** failed password/MFA attempts, an account is locked for about **30 minutes** (or unlock from Users → Security / Admin → Security)
+- Creating a user (or bulk upload) logs a security event and can email notification recipients
 - SSO (Microsoft Entra ID / `@schools.nyc.gov`) is planned; until then MFA remains mandatory for security
 
 See also [User roles](/user-roles).

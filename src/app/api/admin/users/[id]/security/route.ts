@@ -4,7 +4,7 @@ import { ObjectId } from 'mongodb';
 import * as bcrypt from 'bcrypt';
 import { authOptions } from '@/lib/authOptions';
 import clientPromise from '@/lib/mongodb';
-import { logAuthEvent } from '@/lib/authSecurity';
+import { isAccountLocked, logAuthEvent, unlockAccount } from '@/lib/authSecurity';
 
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const session = await getServerSession(authOptions);
@@ -94,6 +94,22 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       });
 
       return NextResponse.json({ success: true, message: 'MFA disabled. User can re-enroll from Profile.' });
+    }
+
+    if (action === 'unlock-account') {
+      const lockedUntil = (user as { lockedUntil?: string | null }).lockedUntil;
+      const failedLoginCount = Number((user as { failedLoginCount?: number }).failedLoginCount || 0);
+      if (!isAccountLocked({ lockedUntil }) && !failedLoginCount) {
+        return NextResponse.json({ success: true, message: 'Account is not locked.' });
+      }
+      await unlockAccount(new ObjectId(id), String(user.email || ''), {
+        byEmail: session.user?.email || '',
+        byName: session.user?.name || '',
+      });
+      return NextResponse.json({
+        success: true,
+        message: 'Account unlocked. User can sign in again.',
+      });
     }
 
     return NextResponse.json({ error: 'Unknown security action' }, { status: 400 });

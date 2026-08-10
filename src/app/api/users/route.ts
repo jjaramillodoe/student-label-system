@@ -3,6 +3,7 @@ import clientPromise from '@/lib/mongodb';
 import * as bcrypt from 'bcrypt';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/authOptions';
+import { logAuthEvent } from '@/lib/authSecurity';
 
 export async function GET(req: NextRequest) {
   const session = await getServerSession(authOptions);
@@ -84,6 +85,18 @@ export async function POST(req: NextRequest) {
       lastLogin: null
     };
     const result = await db.collection('users').insertOne(userData);
+    await logAuthEvent({
+      type: 'user_created',
+      email: normalizedEmail,
+      reason: 'Admin created user',
+      meta: {
+        role,
+        school,
+        byEmail: session.user?.email || '',
+        byName: session.user?.name || '',
+        userId: String(result.insertedId),
+      },
+    });
     const { password: _, ...userWithoutPassword } = userData;
     return NextResponse.json({ ...userWithoutPassword, _id: result.insertedId });
   } catch (error) {

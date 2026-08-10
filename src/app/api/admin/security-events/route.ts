@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/authOptions';
 import clientPromise from '@/lib/mongodb';
-import { AUTH_EVENTS_COLLECTION } from '@/lib/authSecurity';
+import { AUTH_EVENTS_COLLECTION, listLockedAccounts } from '@/lib/authSecurity';
 
 /**
  * GET /api/admin/security-events
@@ -30,11 +30,12 @@ export async function GET(req: NextRequest) {
   const db = client.db('student-label');
   const col = db.collection(AUTH_EVENTS_COLLECTION);
 
-  const [events, failureCount, mfaFailCount, successCount] = await Promise.all([
+  const [events, failureCount, mfaFailCount, successCount, lockedAccounts] = await Promise.all([
     col.find(filter).sort({ at: -1 }).limit(limit).toArray(),
     col.countDocuments({ at: { $gte: since }, type: { $in: ['login_failure', 'user_unknown'] } }),
     col.countDocuments({ at: { $gte: since }, type: 'mfa_failure' }),
     col.countDocuments({ at: { $gte: since }, type: 'login_success' }),
+    listLockedAccounts(),
   ]);
 
   return NextResponse.json({
@@ -44,7 +45,9 @@ export async function GET(req: NextRequest) {
       failures: failureCount,
       mfaFailures: mfaFailCount,
       successes: successCount,
+      locked: lockedAccounts.length,
     },
+    lockedAccounts,
     events: events.map((e) => ({
       ...e,
       _id: String(e._id),

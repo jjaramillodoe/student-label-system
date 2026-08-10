@@ -52,6 +52,13 @@ interface User {
   lastLogin?: string;
   mfaEnabled?: boolean;
   forcePasswordChange?: boolean;
+  lockedUntil?: string | null;
+  failedLoginCount?: number;
+}
+
+function userIsLocked(user: User): boolean {
+  if (!user.lockedUntil) return false;
+  return new Date(user.lockedUntil).getTime() > Date.now();
 }
 
 interface SchoolOption {
@@ -293,6 +300,9 @@ export default function UsersPage() {
         if (action === 'disable-mfa') {
           return { ...current, mfaEnabled: false };
         }
+        if (action === 'unlock-account') {
+          return { ...current, lockedUntil: null, failedLoginCount: 0 };
+        }
         return current;
       });
       if (action === 'reset-password') {
@@ -489,6 +499,9 @@ export default function UsersPage() {
                           )}
                           {user.forcePasswordChange && (
                             <Badge variant="destructive" className="text-xs">Must change password</Badge>
+                          )}
+                          {userIsLocked(user) && (
+                            <Badge variant="destructive" className="text-xs">Locked</Badge>
                           )}
                         </div>
                       </TableCell>
@@ -863,6 +876,9 @@ export default function UsersPage() {
                   {securityUser.forcePasswordChange && (
                     <Badge variant="destructive">Password change required</Badge>
                   )}
+                  {userIsLocked(securityUser) && (
+                    <Badge variant="destructive">Locked until {new Date(securityUser.lockedUntil!).toLocaleString()}</Badge>
+                  )}
                 </div>
               </div>
 
@@ -933,6 +949,16 @@ export default function UsersPage() {
                 >
                   <ShieldOff className="h-4 w-4" />
                   Disable MFA
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => handleSecurityAction('unlock-account')}
+                  disabled={loading || (!userIsLocked(securityUser) && !Number(securityUser.failedLoginCount || 0))}
+                  className="gap-2 sm:col-span-2"
+                >
+                  <Shield className="h-4 w-4" />
+                  Unlock account
                 </Button>
               </div>
 

@@ -71,6 +71,10 @@ export default function SignIn() {
         } else if (result.error === 'MFA_INVALID') {
           setMfaRequired(true);
           setError('Invalid verification code.');
+        } else if (result.error === 'ACCOUNT_LOCKED') {
+          setError(
+            'This account is temporarily locked after too many failed sign-in attempts. Try again in about 30 minutes, or ask an Admin to unlock it.',
+          );
         } else {
           setError('Invalid email or password.');
         }
