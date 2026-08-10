@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 import { getToken } from 'next-auth/jwt';
+import { isAllowedByNyGeoWall } from '@/lib/geoRestrict';
 import {
   extractTenantSlugFromHost,
   getTenantRootDomain,
@@ -11,6 +12,7 @@ import {
 function isPublicPath(pathname: string): boolean {
   return (
     pathname.startsWith('/auth') ||
+    pathname.startsWith('/geo-blocked') ||
     pathname.startsWith('/student') ||
     pathname.startsWith('/archive') ||
     pathname.startsWith('/docs') ||
@@ -43,6 +45,18 @@ export async function middleware(req: NextRequest) {
     if (rootDomain) res.headers.set(TENANT_ROOT_HEADER, rootDomain);
     return res;
   };
+
+  // New York State wall — before auth (production / GEO_RESTRICT_NY=1)
+  if (!isAllowedByNyGeoWall(req)) {
+    if (path.startsWith('/api/')) {
+      return NextResponse.json(
+        { error: 'Forbidden', detail: 'This service is only available from New York State.' },
+        { status: 403 },
+      );
+    }
+    const blocked = new URL('/geo-blocked', req.url);
+    return withTenantHeaders(NextResponse.rewrite(blocked));
+  }
 
   if (isPublicPath(path)) {
     return withTenantHeaders(

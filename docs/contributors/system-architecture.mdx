@@ -68,6 +68,7 @@ There is **no Redis**, **no message queue**, and **no separate backend service**
 | Printing | `/api/print/*` | Avery 5163 labels, print history |
 | Admin | `/admin/*` | Enrollment, duplicates, settings, users |
 | Tenant host | middleware + `/api/tenant` | School subdomain portals |
+| Geo wall | middleware + `/geo-blocked` | Production: New York State only (`GEO_RESTRICT_NY`; bypasses cron/sync/health) |
 | Sync export | `/api/sync/v1/students` | Delta export for Power Automate → Dynamics |
 | Health | `/api/health`, `/api/health/deep` | Liveness and readiness probes |
 
