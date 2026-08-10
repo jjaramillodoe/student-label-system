@@ -685,13 +685,10 @@ export default function IntakePage() {
       setCheckResult(emptyCheckResult());
       return;
     }
-    if (!f.firstName.trim() || !f.lastName.trim()) {
-      setCheckResult(emptyCheckResult());
-      return;
-    }
-    // Full identity check needs DOB. Do not wipe ASISTS gate matches to idle —
-    // that hid the duplicate/sibling panel after unlock when DOB was still empty.
-    if (!f.dob) {
+    // Full identity check needs name + DOB. Never wipe ASISTS gate matches when
+    // Personal Info is still incomplete (DOB-only search → empty names was re-locking
+    // the form after "Not the same person").
+    if (!f.firstName.trim() || !f.lastName.trim() || !f.dob) {
       setCheckResult(r => {
         const hits =
           r.exact.length + r.fuzzy.length + r.legacyExact.length + r.legacyFuzzy.length;
@@ -767,6 +764,8 @@ export default function IntakePage() {
   useEffect(() => {
     if (form.intakeStudentStatus !== 'NEW') return;
     if (!assistsNotFoundAck && !assistsDifferentPersonAck && !assistsLegacySameAck) return;
+    // Wait until Personal Info has a full identity — running early cleared gate matches.
+    if (!form.firstName.trim() || !form.lastName.trim() || !form.dob) return;
     scheduleCheck(form, intakeAddress, addressVerification);
   }, [
     form.intakeStudentStatus,
@@ -1429,11 +1428,13 @@ export default function IntakePage() {
   const legacyAssistsHits = checkResult.legacyExact.length + checkResult.legacyFuzzy.length;
   const assistsHasMatches = liveAssistsHits + legacyAssistsHits > 0;
 
+  // Acknowledgements stick even if a later duplicate re-check clears match arrays
+  // (e.g. DOB-only ASISTS search → unlock before first/last name are filled).
   const newAssistsUnlocked = form.intakeStudentStatus !== 'NEW' || (
     assistsGateChecked && (
-      (!assistsHasMatches && assistsNotFoundAck)
-      || (assistsHasMatches && assistsDifferentPersonAck)
-      || (assistsHasMatches && liveAssistsHits === 0 && assistsLegacySameAck)
+      assistsDifferentPersonAck
+      || assistsLegacySameAck
+      || (!assistsHasMatches && assistsNotFoundAck)
     )
   );
 
@@ -1708,10 +1709,13 @@ export default function IntakePage() {
                           id="assistsDifferentPerson"
                           checked={assistsDifferentPersonAck}
                           onCheckedChange={v => {
-                            const on = Boolean(v);
+                            const on = v === true;
                             setAssistsDifferentPersonAck(on);
                             setSiblingAcknowledged(on);
-                            if (on) setAssistsLegacySameAck(false);
+                            if (on) {
+                              setAssistsLegacySameAck(false);
+                              setAssistsNotFoundAck(false);
+                            }
                           }}
                           className="mt-0.5"
                         />
@@ -1722,6 +1726,18 @@ export default function IntakePage() {
                           </span>
                         </label>
                       </div>
+                    )}
+
+                    {assistsDifferentPersonAck && (
+                      <Alert className="border-amber-300 bg-amber-50/90 dark:border-amber-700 dark:bg-amber-950/40">
+                        <CheckCircle2 className="h-4 w-4 text-amber-700" />
+                        <AlertTitle className="text-sm text-amber-950 dark:text-amber-100">
+                          Continue as a new student
+                        </AlertTitle>
+                        <AlertDescription className="text-xs text-amber-900/90 dark:text-amber-100/90">
+                          Personal information is unlocked below. Complete the form — this registration will be flagged for Data Lead review.
+                        </AlertDescription>
+                      </Alert>
                     )}
                   </div>
                 )}
