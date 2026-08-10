@@ -23,6 +23,7 @@ Install Mintlify skill: `npm run docs:skill`
 ## Terminology
 
 - Use **Label ID** and **Student ID** (not "barcode ID" alone)
+- Student ID is ASISTS-aligned: `{LAST}{FIRST}{AGENCY}{D}{M}{YYYY}` (day/month unpadded). NEW from legacy match keeps the full ASISTS `externalId`
 - **Intake Member**, **Data Lead**, **Data Member**, **Admin** — capitalize roles
 - **BE** / **ESL** — spell out on first use in a page when audience may be new
 

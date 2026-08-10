@@ -6,8 +6,14 @@
  *            example: 1979-EC-0000048
  *
  * studentId — permanent demographic identifier stored in the DB
- *             format: {LASTNAME}{FIRSTNAME}{AGENCYID}{DOBDIGITS}  (all caps, alphanumeric only)
- *             example: CUEVAELSAR0119790522
+ *             Aligned with ASISTS export IDs:
+ *             format: {LASTNAME}{FIRSTNAME}{AGENCYID}{D}{M}{YYYY}
+ *             DOB day/month are not zero-padded (ASISTS style).
+ *             example: CUEVAELSAR012251979  (Elsa Cueva, R01, 1979-05-22)
+ *
+ * When registering NEW from an ASISTS/legacy roster match, prefer the
+ * roster externalId (may include an ASISTS internal number between agency
+ * and DOB, e.g. SMITHFITZROYR082522026211958).
  */
 
 /**
@@ -25,8 +31,29 @@ export function cleanIdComponent(s: string): string {
 }
 
 /**
- * Build the demographic student ID.
+ * ASISTS-style DOB digits: day + month + year with no zero-padding.
+ * "1979-05-22" → "2251979"
+ * "1958-01-02" → "211958"
+ */
+export function formatAssistsDobDigits(dob: string): string {
+  const iso = String(dob || '').trim();
+  const m = iso.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (m) {
+    const year = Number(m[1]);
+    const month = Number(m[2]);
+    const day = Number(m[3]);
+    if (year > 0 && month >= 1 && month <= 12 && day >= 1 && day <= 31) {
+      return `${day}${month}${year}`;
+    }
+  }
+  // Fallback: strip non-digits (legacy callers / odd inputs)
+  return iso.replace(/[^0-9]/g, '');
+}
+
+/**
+ * Build the demographic student ID (ASISTS-aligned).
  * All components are cleaned and concatenated without separators.
+ * Day/month are not zero-padded.
  */
 export function generateStudentId(
   firstName: string,
@@ -37,8 +64,31 @@ export function generateStudentId(
   const last   = cleanIdComponent(lastName);
   const first  = cleanIdComponent(firstName);
   const agency = cleanIdComponent(agencyId);
-  const dobNum = dob.replace(/[^0-9]/g, ''); // "1979-05-22" → "19790522"
+  const dobNum = formatAssistsDobDigits(dob);
   return `${last}${first}${agency}${dobNum}`;
+}
+
+/**
+ * Prefer a cleaned ASISTS/legacy external ID when present; otherwise generate.
+ */
+export function resolveStudentId(params: {
+  firstName: string;
+  lastName: string;
+  agencyId: string;
+  dob: string;
+  /** ASISTS / legacy roster ID when continuing as NEW from a match */
+  preferredExternalId?: string | null;
+}): string {
+  const preferred = params.preferredExternalId
+    ? cleanIdComponent(params.preferredExternalId)
+    : '';
+  if (preferred) return preferred;
+  return generateStudentId(
+    params.firstName,
+    params.lastName,
+    params.agencyId,
+    params.dob,
+  );
 }
 
 /**

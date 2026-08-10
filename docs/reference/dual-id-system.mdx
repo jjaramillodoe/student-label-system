@@ -22,10 +22,17 @@ This permanent Label ID is **not** the same as the optional **5-digit print-batc
 Used for reporting and ASISTS alignment.
 
 ```
-JARAMILLOJAVIERR0119790522
+JARAMILLOJAVIERR012251979
 ```
 
-Format: `{lastName}{firstName}{agencyId}{dobNoDashes}`
+Format: `{lastName}{firstName}{agencyId}{D}{M}{YYYY}`
+
+- Day and month are **not** zero-padded (ASISTS style): `1979-05-22` → `2251979`
+- Agency codes are set per school (e.g. School 8 → `R08`)
+
+When intake confirms **Same person sitting here — continue as NEW** from an ASISTS/legacy roster match, the full ASISTS ID from the export is kept as the Student ID (it may include an ASISTS internal number between agency and DOB, e.g. `SMITHFITZROYR082522026211958`).
+
+Brand-new students with no ASISTS match get the generated form above (no internal number).
 
 ## Agency IDs
 
@@ -37,4 +44,4 @@ Configured per school under **Admin → Schools**:
 | R01 | School 1 |
 | R02 | School 2 |
 
-Use **Backfill Student IDs** in Schools to migrate existing records.
+Use **Backfill Student IDs** in Schools to regenerate existing records to the ASISTS-style DOB encoding. Backfill does **not** invent ASISTS internal numbers — only intake/legacy matches (or a CSV `studentId` column) preserve full export IDs.

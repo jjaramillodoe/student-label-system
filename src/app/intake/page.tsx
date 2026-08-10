@@ -22,6 +22,7 @@ import {
 } from '@/lib/beEslEligibility';
 import { emptyReturningVisitFields, nowHHMM } from '@/lib/intakeVisitTime';
 import { emptyIntakeForm, emptyIntakeCheckResult, type IntakeCheckResult } from '@/lib/intakeForm';
+import { cleanIdComponent } from '@/lib/studentId';
 import IntakeAssistsGate from '@/components/IntakeAssistsGate';
 import IntakePersonalInfoCard from '@/components/IntakePersonalInfoCard';
 import IntakeProgramDetails from '@/components/IntakeProgramDetails';
@@ -141,6 +142,8 @@ export default function IntakePage() {
 
   // Returning student search
   const [selectedExistingStudent, setSelectedExistingStudent] = useState<any>(null);
+  /** ASISTS/legacy externalId to use as studentId when continuing as NEW */
+  const [preferredStudentId, setPreferredStudentId] = useState<string | null>(null);
   const [issuesRefresh, setIssuesRefresh] = useState(0);
   const [fixTarget, setFixTarget] = useState<{ id: string; name: string } | null>(null);
   const [pendingDraft, setPendingDraft] = useState<IntakeDraftPayload | null>(null);
@@ -218,6 +221,7 @@ export default function IntakePage() {
         assistsNotFoundAck,
         assistsDifferentPersonAck,
         assistsLegacySameAck,
+        preferredStudentId,
         siblingAcknowledged,
         selectedExistingStudent: selectedExistingStudent
           ? {
@@ -263,6 +267,7 @@ export default function IntakePage() {
     assistsNotFoundAck,
     assistsDifferentPersonAck,
     assistsLegacySameAck,
+    preferredStudentId,
     siblingAcknowledged,
     selectedExistingStudent,
   ]);
@@ -278,6 +283,7 @@ export default function IntakePage() {
     setAssistsNotFoundAck(Boolean(d.assistsNotFoundAck));
     setAssistsDifferentPersonAck(Boolean(d.assistsDifferentPersonAck));
     setAssistsLegacySameAck(Boolean(d.assistsLegacySameAck));
+    setPreferredStudentId(d.preferredStudentId || null);
     setSiblingAcknowledged(Boolean(d.siblingAcknowledged));
     setSelectedExistingStudent(d.selectedExistingStudent);
     setPendingDraft(null);
@@ -531,6 +537,7 @@ export default function IntakePage() {
     setAssistsNotFoundAck(false);
     setAssistsDifferentPersonAck(false);
     setAssistsLegacySameAck(false);
+    setPreferredStudentId(null);
     if (clearCheck) setCheckResult(emptyCheckResult());
   }
 
@@ -600,6 +607,7 @@ export default function IntakePage() {
       setAssistsNotFoundAck(false);
       setAssistsDifferentPersonAck(false);
       setAssistsLegacySameAck(false);
+      setPreferredStudentId(null);
       setSiblingAcknowledged(false);
 
       // Soft-prefill from the query so Personal Info is closer when they continue
@@ -629,6 +637,8 @@ export default function IntakePage() {
       lastName: sanitizeUsaNameInput(s.lastName ?? f.lastName),
       dob: s.dob ?? f.dob,
     }));
+    const assistsId = s.externalId ? cleanIdComponent(String(s.externalId)) : '';
+    setPreferredStudentId(assistsId || null);
     setAssistsLegacySameAck(true);
     setAssistsDifferentPersonAck(false);
     setAssistsNotFoundAck(false);
@@ -882,6 +892,10 @@ export default function IntakePage() {
       if (assistsLegacySameAck) {
         payload.assistsLegacySamePerson = true;
       }
+      // Preserve full ASISTS ID (includes internal number) when continuing as NEW from legacy
+      if (!isUpdatingExisting && preferredStudentId) {
+        payload.studentId = preferredStudentId;
+      }
 
       const res = isUpdatingExisting
         ? await fetch(`/api/students/${normalizeMongoId(selectedExistingStudent._id) ?? selectedExistingStudent._id}`, {
@@ -977,6 +991,7 @@ export default function IntakePage() {
     setSavedAsVisit(false);
     setSubmitError('');
     setSelectedExistingStudent(null);
+    setPreferredStudentId(null);
     setIntakeAddress({ address: '', apt: '', city: '', state: 'NY', zip: '' });
     setAddressVerification(null);
   }
@@ -1270,7 +1285,10 @@ export default function IntakePage() {
             assistsDifferentPersonAck={assistsDifferentPersonAck}
             setAssistsDifferentPersonAck={setAssistsDifferentPersonAck}
             assistsLegacySameAck={assistsLegacySameAck}
-            setAssistsLegacySameAck={setAssistsLegacySameAck}
+            setAssistsLegacySameAck={(value) => {
+              setAssistsLegacySameAck(value);
+              if (!value) setPreferredStudentId(null);
+            }}
             setSiblingAcknowledged={setSiblingAcknowledged}
             newAssistsUnlocked={newAssistsUnlocked}
             cabinetMap={cabinetMap}

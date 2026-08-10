@@ -14,6 +14,8 @@ export type IntakeDraftPayload = {
   assistsNotFoundAck: boolean;
   assistsDifferentPersonAck: boolean;
   assistsLegacySameAck: boolean;
+  /** ASISTS/legacy externalId preserved for NEW registration studentId */
+  preferredStudentId?: string | null;
   siblingAcknowledged: boolean;
   selectedExistingStudent: {
     _id?: string;

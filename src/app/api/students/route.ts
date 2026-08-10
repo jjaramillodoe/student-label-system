@@ -4,7 +4,7 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/authOptions';
 import { buildStudentSearchOrConditions } from '@/lib/studentSearch';
 import { ObjectId } from 'mongodb';
-import { generateLabelId, generateStudentId, resolveAgencyId } from '@/lib/studentId';
+import { cleanIdComponent, generateLabelId, resolveAgencyId, resolveStudentId } from '@/lib/studentId';
 import {
   beEslAgeErrorMessage,
   evaluateIntakeDob,
@@ -192,11 +192,20 @@ export async function POST(req: NextRequest) {
       labelId = generateLabelId(firstName, lastName, dob, nextNum);
     }
 
-    // ── Generate studentId (demographic identifier) ───────────────────────────
-    // Format: {LASTNAME}{FIRSTNAME}{AGENCYID}{DOBDIGITS}
-    let studentId: string = body.studentId || '';
-    if (!studentId && firstName && lastName && dob && agencyId) {
-      studentId = generateStudentId(firstName, lastName, agencyId, dob);
+    // ── Generate studentId (ASISTS-aligned demographic identifier) ────────────
+    // Prefer an explicit ID (e.g. ASISTS/legacy externalId from intake).
+    // Otherwise: {LASTNAME}{FIRSTNAME}{AGENCYID}{D}{M}{YYYY} (day/month unpadded).
+    let studentId = '';
+    if (firstName && lastName && dob && agencyId) {
+      studentId = resolveStudentId({
+        firstName,
+        lastName,
+        agencyId,
+        dob,
+        preferredExternalId: body.studentId ? cleanIdComponent(String(body.studentId)) : null,
+      });
+    } else if (body.studentId) {
+      studentId = cleanIdComponent(String(body.studentId));
     }
     
     // If cabinet and drawer are provided, update the cabinet capacity

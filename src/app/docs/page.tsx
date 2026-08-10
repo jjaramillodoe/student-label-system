@@ -171,7 +171,7 @@ const featureGroups = [
     isNew: true,
     items: [
       'Label ID: printed on the barcode (e.g. 1979-JJ-0000001). Used on physical labels and QR codes.',
-      'Student ID: demographic format — LastNameFirstNameAgencyIDDOB (e.g. CUEVAELSAR0119790522).',
+      'Student ID: ASISTS-aligned — LastNameFirstNameAgencyID + day/month/year unpadded (e.g. CUEVAELSAR012251979). Legacy matches keep the full ASISTS export ID.',
       'Agency ID (e.g. R01, R02) configured per school under Admin → Schools.',
       '"Backfill Student IDs" button in Schools migrates existing records to the new format.',
       'Both IDs shown in the student table, bulk upload preview, and student detail page.',
@@ -438,10 +438,10 @@ Print / PDF:
   1979-JJ-0000001
   Format: {year}-{initials}-{sequence}
 
-Student ID (demographic):
-  JARAMILLOJAVIER R01 19790522
-  Format: {lastName}{firstName}
-          {agencyId}{dob no dashes}
+Student ID (ASISTS-aligned):
+  JARAMILLOJAVIERR012251979
+  Format: {lastName}{firstName}{agencyId}{D}{M}{YYYY}
+  (day/month not zero-padded; legacy matches keep full ASISTS ID)
 
 Agency IDs (set in Schools):
   R00 = District 79

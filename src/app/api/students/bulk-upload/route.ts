@@ -3,7 +3,7 @@ import { getServerSession } from 'next-auth';
 import { ObjectId } from 'mongodb';
 import { authOptions } from '@/lib/authOptions';
 import clientPromise from '@/lib/mongodb';
-import { generateLabelId, generateStudentId, resolveAgencyId } from '@/lib/studentId';
+import { generateLabelId, resolveAgencyId, resolveStudentId } from '@/lib/studentId';
 import { assignDrawerSection } from '@/lib/drawerSections';
 
 type DrawerDoc = {
@@ -437,7 +437,13 @@ export async function POST(req: NextRequest) {
 
       const studentId =
         student.firstName && student.lastName && student.dob
-          ? generateStudentId(student.firstName, student.lastName, agencyId, student.dob)
+          ? resolveStudentId({
+              firstName: student.firstName,
+              lastName: student.lastName,
+              agencyId,
+              dob: student.dob,
+              preferredExternalId: student.studentId || null,
+            })
           : '';
 
       if (studentId) plannedStudentIds.push(studentId);

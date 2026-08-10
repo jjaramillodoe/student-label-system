@@ -53,7 +53,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { parseCsvToObjects } from '@/lib/csv';
-import { generateStudentId, generateLabelId, resolveAgencyId } from '@/lib/studentId';
+import { generateLabelId, resolveAgencyId, resolveStudentId } from '@/lib/studentId';
 import {
   validateStudentAddress,
   normalizeStudentAddress,
@@ -401,9 +401,15 @@ export default function BulkUploadPage() {
 
   /** Returns the demographic Student ID ({LAST}{FIRST}{AGENCY}{DOB_DIGITS}) */
   function getGeneratedStudentId(row: any): string {
-    const { firstName = '', lastName = '', dob = '' } = row;
+    const { firstName = '', lastName = '', dob = '', studentId = '' } = row;
     if (!firstName || !lastName || !dob) return '';
-    return generateStudentId(firstName, lastName, schoolAgencyId || 'R00', dob);
+    return resolveStudentId({
+      firstName,
+      lastName,
+      agencyId: schoolAgencyId || 'R00',
+      dob,
+      preferredExternalId: studentId || null,
+    });
   }
 
   const selectedDrawerInfo = selectedCabinet?.drawers?.find((drawer: any) => drawer._id === selectedDrawer);
