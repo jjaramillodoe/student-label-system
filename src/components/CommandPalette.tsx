@@ -116,7 +116,7 @@ export default function CommandPalette() {
     if (!canData) return [];
     const items: Array<ToolItem & { show: boolean }> = [
       { id: 'dash', label: 'Dashboard', group: 'Navigate', href: '/', icon: FileText, show: true, keywords: 'home students' },
-      { id: 'intake', label: 'Intake', group: 'Intake', href: '/intake', icon: UserPlus, show: isAdminOrDataLead, keywords: 'new student enroll' },
+      { id: 'intake', label: 'Intake', group: 'Intake', href: '/intake', icon: UserPlus, show: canData, keywords: 'new student enroll' },
       { id: 'students', label: 'All Students', group: 'Students', href: '/admin/students/all', icon: Users, show: true },
       { id: 'enroll', label: 'Enrollment', group: 'Students', href: '/admin/enrollment', icon: UserPlus, show: true },
       { id: 'upload', label: 'Bulk Upload', group: 'Students', href: '/admin/students/bulk-upload', icon: Upload, show: true },

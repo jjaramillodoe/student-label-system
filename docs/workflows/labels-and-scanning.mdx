@@ -20,13 +20,13 @@ On the Dashboard **Find & print** filters, use the **Needs label** chip (next to
 | --- | --- |
 | Who appears | Non-archived students with no Label ID / Student ID in any print job for your school |
 | Who is hidden | Anyone already logged in print history (including older jobs, not just recent batches) |
-| After you print | Closing the print view refreshes the list so those students drop out of **Needs label** |
+| After you print | Confirm **Yes — mark as printed** in the print preview; Needs label refreshes when that succeeds (and when you close preview) |
 | Combine filters | Leave **Active** on to see active + never printed, or turn Active off for all statuses |
 
-The amber **Recent intakes ready for labels** banner still highlights students created in the last 7 days who are not yet printed — use **Needs label** when you want the full never-printed queue.
+The amber **Needs label — never printed** banner at the top of Find & print uses the same rule and shows the newest students first, with **View all** to apply the chip filter.
 
 <Tip>
-  Print only from the app (**Download Word Doc** or browser print that logs history). Labels printed outside the system will not mark a student as printed, so they can still appear under **Needs label**.
+  After **Download Word Doc** or browser Print, confirm that labels printed successfully. Choosing **No** leaves students on **Needs label**. Labels printed outside the app are never logged.
 </Tip>
 
 ### What appears on each label
@@ -48,6 +48,7 @@ The 5-digit sequence is the position in **this print job**, not the 7-digit coun
 3. Open the label preview and choose **Avery 5163** or **94205**.
 4. Click **Download Word Doc**.
 5. Open the file in Microsoft Word and print on **Letter (8.5"×11")** at **100%** scale with **margins None**.
+6. Back in the app, confirm **Yes — mark as printed** (or **No** if the sheet failed so they stay on Needs label).
 
 Browser CSS print is not used for Avery sheets.
 
@@ -69,7 +70,7 @@ Browser CSS print is not used for Avery sheets.
 
 ## Label stock inventory
 
-Admins and Data Leads track Avery inventory under **Print → Label Stock**. Stock decreases when a Word Doc is downloaded or a browser print completes — not on preview alone. See [Label stock](/admin/label-stock).
+Admins and Data Leads track Avery inventory under **Print → Label Stock**. Stock decreases when staff confirm labels printed successfully — not on preview alone, and not on Word download alone. See [Label stock](/admin/label-stock).
 
 ## Student QR codes
 

@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { AlertCircle, ArrowRightLeft, CheckCircle2, Loader2, RefreshCw, Search } from 'lucide-react';
 import PageIntro from '@/components/PageIntro';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
@@ -38,6 +39,7 @@ type Student = {
   school?: string;
   cabinet?: string;
   drawer?: string;
+  archived?: boolean;
 };
 
 type Cabinet = {
@@ -53,27 +55,53 @@ type Cabinet = {
   }[];
 };
 
+const PAGE_SIZE = 100;
+
 function getCabinetName(cabinet?: Cabinet) {
   if (!cabinet) return 'Unassigned';
   return cabinet.identifier ? `${cabinet.name} (${cabinet.identifier})` : cabinet.name;
 }
 
 export default function BulkMovePage() {
+  const searchParams = useSearchParams();
   const [students, setStudents] = useState<Student[]>([]);
   const [cabinets, setCabinets] = useState<Cabinet[]>([]);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [sourceCabinetId, setSourceCabinetId] = useState('all');
+  const [sourceDrawerId, setSourceDrawerId] = useState('all');
+  const [statusFilter, setStatusFilter] = useState('all');
   const [targetCabinetId, setTargetCabinetId] = useState('');
   const [targetDrawerId, setTargetDrawerId] = useState('');
   const [search, setSearch] = useState('');
+  const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
   const [loading, setLoading] = useState(true);
   const [moving, setMoving] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
+  const [deepLinkNote, setDeepLinkNote] = useState('');
 
   useEffect(() => {
     fetchContext();
   }, []);
+
+  // Deep-link from Cabinet Health: ?sourceCabinetId=&sourceDrawerId=
+  useEffect(() => {
+    const cab =
+      searchParams?.get('sourceCabinetId')
+      || searchParams?.get('cabinetId')
+      || '';
+    const drw =
+      searchParams?.get('sourceDrawerId')
+      || searchParams?.get('drawerId')
+      || '';
+    if (cab) {
+      setSourceCabinetId(cab);
+      setDeepLinkNote('Source filter applied from Cabinet Health.');
+    }
+    if (drw) {
+      setSourceDrawerId(drw);
+    }
+  }, [searchParams]);
 
   async function fetchContext() {
     setLoading(true);
@@ -91,7 +119,7 @@ export default function BulkMovePage() {
 
       setStudents(Array.isArray(studentData) ? studentData : []);
       setCabinets(Array.isArray(cabinetData) ? cabinetData : []);
-    } catch (err) {
+    } catch {
       setError('Failed to load students and cabinets');
     } finally {
       setLoading(false);
@@ -99,23 +127,42 @@ export default function BulkMovePage() {
   }
 
   const cabinetMap = useMemo(() => new Map(cabinets.map((cabinet) => [cabinet._id, cabinet])), [cabinets]);
+  const sourceCabinet = sourceCabinetId !== 'all' ? cabinetMap.get(sourceCabinetId) : undefined;
+  const sourceDrawers = sourceCabinet?.drawers || [];
   const targetCabinet = cabinetMap.get(targetCabinetId);
   const targetDrawer = targetCabinet?.drawers?.find((drawer) => drawer._id === targetDrawerId);
   const targetAvailable = targetDrawer ? (targetDrawer.capacity || 0) - (targetDrawer.currentCount || 0) : 0;
 
+  const statusOptions = useMemo(() => {
+    const set = new Set<string>();
+    for (const s of students) {
+      if (s.status?.trim()) set.add(s.status.trim());
+    }
+    return Array.from(set).sort((a, b) => a.localeCompare(b));
+  }, [students]);
+
   const filteredStudents = useMemo(() => {
     const query = search.toLowerCase();
     return students.filter((student) => {
+      if (student.archived) return false;
       const matchesSource = sourceCabinetId === 'all' || student.cabinet === sourceCabinetId;
+      const matchesDrawer = sourceDrawerId === 'all' || student.drawer === sourceDrawerId;
+      const matchesStatus = statusFilter === 'all' || student.status === statusFilter;
       const matchesSearch =
         !query ||
         student.studentId?.toLowerCase().includes(query) ||
         formatFullNameLower(student).includes(query) ||
         student.email?.toLowerCase().includes(query);
 
-      return matchesSource && matchesSearch;
+      return matchesSource && matchesDrawer && matchesStatus && matchesSearch;
     });
-  }, [students, sourceCabinetId, search]);
+  }, [students, sourceCabinetId, sourceDrawerId, statusFilter, search]);
+
+  const visibleStudents = filteredStudents.slice(0, visibleCount);
+
+  useEffect(() => {
+    setVisibleCount(PAGE_SIZE);
+  }, [sourceCabinetId, sourceDrawerId, statusFilter, search]);
 
   function toggleStudent(id: string) {
     setSelectedIds((current) => (
@@ -124,7 +171,7 @@ export default function BulkMovePage() {
   }
 
   function selectVisible() {
-    const visibleIds = filteredStudents.map((student) => student._id);
+    const visibleIds = visibleStudents.map((student) => student._id);
     const allVisibleSelected = visibleIds.every((id) => selectedIds.includes(id));
     setSelectedIds((current) => (
       allVisibleSelected
@@ -182,6 +229,26 @@ export default function BulkMovePage() {
         }
       />
 
+      {deepLinkNote && (
+        <Alert className="border-sky-300 bg-sky-50/80 dark:border-sky-800 dark:bg-sky-950/30">
+          <AlertDescription className="text-sm text-sky-950 dark:text-sky-100">
+            {deepLinkNote}
+            {' '}
+            <button
+              type="button"
+              className="underline font-medium"
+              onClick={() => {
+                setSourceCabinetId('all');
+                setSourceDrawerId('all');
+                setDeepLinkNote('');
+              }}
+            >
+              Clear source filter
+            </button>
+          </AlertDescription>
+        </Alert>
+      )}
+
       {error && (
         <Alert variant="destructive">
           <AlertCircle className="h-4 w-4" />
@@ -201,14 +268,16 @@ export default function BulkMovePage() {
       <Card>
         <CardHeader>
           <CardTitle>Move Setup</CardTitle>
-          <CardDescription>Choose optional source filter and required destination drawer.</CardDescription>
+          <CardDescription>Filter the source list, then choose a destination drawer.</CardDescription>
         </CardHeader>
-        <CardContent className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <CardContent className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-5 gap-4">
           <div className="space-y-2">
-            <Label>Source Cabinet Filter</Label>
+            <Label>Source Cabinet</Label>
             <Select value={sourceCabinetId} onValueChange={(value) => {
               setSourceCabinetId(value);
+              setSourceDrawerId('all');
               setSelectedIds([]);
+              setDeepLinkNote('');
             }}>
               <SelectTrigger>
                 <SelectValue placeholder="All cabinets" />
@@ -217,6 +286,47 @@ export default function BulkMovePage() {
                 <SelectItem value="all">All Cabinets</SelectItem>
                 {cabinets.map((cabinet) => (
                   <SelectItem key={cabinet._id} value={cabinet._id}>{getCabinetName(cabinet)}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-2">
+            <Label>Source Drawer</Label>
+            <Select
+              value={sourceDrawerId}
+              onValueChange={(value) => {
+                setSourceDrawerId(value);
+                setSelectedIds([]);
+                setDeepLinkNote('');
+              }}
+              disabled={sourceCabinetId === 'all'}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="All drawers" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All drawers</SelectItem>
+                {sourceDrawers.map((drawer) => (
+                  <SelectItem key={drawer._id} value={drawer._id}>
+                    {drawer.name} ({drawer.currentCount}/{drawer.capacity})
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-2">
+            <Label>Status</Label>
+            <Select value={statusFilter} onValueChange={(value) => {
+              setStatusFilter(value);
+              setSelectedIds([]);
+            }}>
+              <SelectTrigger>
+                <SelectValue placeholder="All statuses" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All statuses</SelectItem>
+                {statusOptions.map((status) => (
+                  <SelectItem key={status} value={status}>{status}</SelectItem>
                 ))}
               </SelectContent>
             </Select>
@@ -260,7 +370,8 @@ export default function BulkMovePage() {
           <div>
             <CardTitle>Students</CardTitle>
             <CardDescription>
-              {selectedIds.length} selected. {targetDrawer ? `${targetAvailable} target spaces available.` : 'Select a target drawer.'}
+              {filteredStudents.length} match · {selectedIds.length} selected.
+              {targetDrawer ? ` ${targetAvailable} target spaces available.` : ' Select a target drawer.'}
             </CardDescription>
           </div>
           <div className="flex gap-2 flex-wrap">
@@ -300,7 +411,7 @@ export default function BulkMovePage() {
                   <TableRow>
                     <TableHead className="w-12">
                       <Checkbox
-                        checked={filteredStudents.length > 0 && filteredStudents.every((student) => selectedIds.includes(student._id))}
+                        checked={visibleStudents.length > 0 && visibleStudents.every((student) => selectedIds.includes(student._id))}
                         onCheckedChange={selectVisible}
                       />
                     </TableHead>
@@ -311,7 +422,7 @@ export default function BulkMovePage() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {filteredStudents.slice(0, 100).map((student) => {
+                  {visibleStudents.map((student) => {
                     const cabinet = student.cabinet ? cabinetMap.get(student.cabinet) : undefined;
                     const drawer = cabinet?.drawers?.find((item) => item._id === student.drawer);
 
@@ -342,10 +453,17 @@ export default function BulkMovePage() {
               </Table>
             </div>
           )}
-          {filteredStudents.length > 100 && (
-            <p className="text-sm text-muted-foreground mt-3 text-center">
-              Showing first 100 matching students. Use search/source filter to narrow the list.
-            </p>
+          {filteredStudents.length > visibleCount && (
+            <div className="flex justify-center mt-3">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => setVisibleCount((n) => n + PAGE_SIZE)}
+              >
+                Show more ({filteredStudents.length - visibleCount} remaining)
+              </Button>
+            </div>
           )}
         </CardContent>
       </Card>

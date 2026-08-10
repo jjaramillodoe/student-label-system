@@ -67,6 +67,14 @@ import {
   stackedAddressForAlert,
 } from '@/lib/intakeDuplicateAlert';
 import {
+  clearIntakeDraft,
+  formatIntakeDraftSavedAt,
+  intakeDraftUserKey,
+  loadIntakeDraft,
+  saveIntakeDraft,
+  type IntakeDraftPayload,
+} from '@/lib/intakeDraft';
+import {
   type AddressMatchKind,
 } from '@/lib/addressDuplicate';
 
@@ -139,6 +147,9 @@ export default function IntakePage() {
   const [selectedExistingStudent, setSelectedExistingStudent] = useState<any>(null);
   const [issuesRefresh, setIssuesRefresh] = useState(0);
   const [fixTarget, setFixTarget] = useState<{ id: string; name: string } | null>(null);
+  const [pendingDraft, setPendingDraft] = useState<IntakeDraftPayload | null>(null);
+  const [draftHydrated, setDraftHydrated] = useState(false);
+  const draftUserKey = intakeDraftUserKey(session?.user);
 
   // Always-on school roster lookup (includes archived)
   const [schoolLookup, setSchoolLookup] = useState('');
@@ -190,6 +201,97 @@ export default function IntakePage() {
       router.push('/');
     }
   }, [authStatus, session, router]);
+
+  // Offer resume of unfinished intake (survives idle sign-out on this browser)
+  useEffect(() => {
+    if (authStatus !== 'authenticated' || draftHydrated) return;
+    setPendingDraft(loadIntakeDraft(draftUserKey));
+    setDraftHydrated(true);
+  }, [authStatus, draftUserKey, draftHydrated]);
+
+  // Autosave draft while registering (not while a pending restore banner is open)
+  useEffect(() => {
+    if (!draftHydrated || pendingDraft || savedStudent || authStatus !== 'authenticated') return;
+    const timer = window.setTimeout(() => {
+      saveIntakeDraft(draftUserKey, {
+        form,
+        intakeAddress,
+        addressVerification,
+        assistsQuery,
+        assistsGateChecked,
+        assistsNotFoundAck,
+        assistsDifferentPersonAck,
+        assistsLegacySameAck,
+        siblingAcknowledged,
+        selectedExistingStudent: selectedExistingStudent
+          ? {
+              _id: selectedExistingStudent._id,
+              firstName: selectedExistingStudent.firstName,
+              lastName: selectedExistingStudent.lastName,
+              dob: selectedExistingStudent.dob,
+              labelId: selectedExistingStudent.labelId,
+              studentId: selectedExistingStudent.studentId,
+              status: selectedExistingStudent.status,
+              archived: selectedExistingStudent.archived,
+              cabinet: selectedExistingStudent.cabinet,
+              drawer: selectedExistingStudent.drawer,
+              archiveBoxId: selectedExistingStudent.archiveBoxId,
+              archiveBoxLabel: selectedExistingStudent.archiveBoxLabel,
+              archiveLocation: selectedExistingStudent.archiveLocation,
+              archiveSchoolYear: selectedExistingStudent.archiveSchoolYear,
+              intakeVisits: selectedExistingStudent.intakeVisits,
+              phone: selectedExistingStudent.phone,
+              email: selectedExistingStudent.email,
+              address: selectedExistingStudent.address,
+              apt: selectedExistingStudent.apt,
+              city: selectedExistingStudent.city,
+              state: selectedExistingStudent.state,
+              zip: selectedExistingStudent.zip,
+              originalStartDate: selectedExistingStudent.originalStartDate,
+            }
+          : null,
+      });
+    }, 700);
+    return () => window.clearTimeout(timer);
+  }, [
+    draftHydrated,
+    pendingDraft,
+    savedStudent,
+    authStatus,
+    draftUserKey,
+    form,
+    intakeAddress,
+    addressVerification,
+    assistsQuery,
+    assistsGateChecked,
+    assistsNotFoundAck,
+    assistsDifferentPersonAck,
+    assistsLegacySameAck,
+    siblingAcknowledged,
+    selectedExistingStudent,
+  ]);
+
+  function resumePendingDraft() {
+    if (!pendingDraft) return;
+    const d = pendingDraft;
+    setForm(d.form);
+    setIntakeAddress(d.intakeAddress);
+    setAddressVerification(d.addressVerification);
+    setAssistsQuery(d.assistsQuery || '');
+    setAssistsGateChecked(Boolean(d.assistsGateChecked));
+    setAssistsNotFoundAck(Boolean(d.assistsNotFoundAck));
+    setAssistsDifferentPersonAck(Boolean(d.assistsDifferentPersonAck));
+    setAssistsLegacySameAck(Boolean(d.assistsLegacySameAck));
+    setSiblingAcknowledged(Boolean(d.siblingAcknowledged));
+    setSelectedExistingStudent(d.selectedExistingStudent);
+    setPendingDraft(null);
+    setActiveTab('register');
+  }
+
+  function discardPendingDraft() {
+    clearIntakeDraft(draftUserKey);
+    setPendingDraft(null);
+  }
 
   // Load cabinets and auto-select next available slot
   useEffect(() => {
@@ -819,6 +921,8 @@ export default function IntakePage() {
         return;
       }
       const student = await res.json();
+      clearIntakeDraft(draftUserKey);
+      setPendingDraft(null);
       setSavedAsVisit(isUpdatingExisting);
       setSavedStudent(student);
     } catch {
@@ -868,6 +972,8 @@ export default function IntakePage() {
   }
 
   function resetForm() {
+    clearIntakeDraft(draftUserKey);
+    setPendingDraft(null);
     // Re-compute next slot from freshly-fetched cabinets
     setCabinetsLoading(true);
     fetch('/api/cabinets')
@@ -1115,6 +1221,32 @@ export default function IntakePage() {
           <TabsContent value="register" className="space-y-6 mt-0">
 
         <IntakeMemberGuide />
+
+        {pendingDraft && (
+          <Alert className="border-amber-300 bg-amber-50/90 dark:border-amber-800 dark:bg-amber-950/30">
+            <Info className="h-4 w-4 text-amber-700 dark:text-amber-400" />
+            <AlertTitle className="text-sm text-amber-950 dark:text-amber-100">
+              Unfinished intake on this computer
+            </AlertTitle>
+            <AlertDescription className="text-xs text-amber-900/90 dark:text-amber-100/90 space-y-3">
+              <p>
+                A draft was saved{pendingDraft.form.firstName || pendingDraft.form.lastName
+                  ? ` for ${formatFullName(pendingDraft.form.firstName, pendingDraft.form.lastName)}`
+                  : ''}
+                {' '}on {formatIntakeDraftSavedAt(pendingDraft.savedAt)}.
+                Resume after an idle sign-out, or discard to start fresh.
+              </p>
+              <div className="flex flex-wrap gap-2">
+                <Button type="button" size="sm" className="gap-1.5" onClick={resumePendingDraft}>
+                  Resume draft
+                </Button>
+                <Button type="button" size="sm" variant="outline" className="gap-1.5 bg-background/80" onClick={discardPendingDraft}>
+                  Discard
+                </Button>
+              </div>
+            </AlertDescription>
+          </Alert>
+        )}
 
         <form onSubmit={handleSubmit} className="space-y-4">
 

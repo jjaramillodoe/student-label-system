@@ -1,11 +1,12 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
+import { createPortal } from 'react-dom';
 import Barcode from 'react-barcode';
 import QRCode from './QRCode';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
-import { FileText, Loader2, Printer, X } from 'lucide-react';
+import { Check, FileText, Loader2, Printer, X } from 'lucide-react';
 import { buildStudentQrPayload } from '@/lib/qrPayload';
 import Avery5163LabelContent from '@/components/Avery5163LabelContent';
 import Avery94205LabelContent from '@/components/Avery94205LabelContent';
@@ -112,6 +113,8 @@ interface PrintViewProps {
   cabinetMap?: Record<string, string>;
   drawerMap?: Record<string, string>;
   onClose: () => void;
+  /** Called after the user confirms labels printed (history + stock recorded). */
+  onPrintConfirmed?: () => void;
 }
 
 export default function PrintView({
@@ -122,31 +125,51 @@ export default function PrintView({
   cabinetMap = {},
   drawerMap = {},
   onClose,
+  onPrintConfirmed,
 }: PrintViewProps) {
   const [downloadingDocx, setDownloadingDocx] = useState(false);
+  const [awaitingConfirm, setAwaitingConfirm] = useState(false);
+  const [confirming, setConfirming] = useState(false);
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   async function recordBrowserPrintJob() {
+    const res = await fetch('/api/print-history', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        students: students.map((s) => ({
+          studentId: s.studentId,
+          labelId: s.labelId,
+          firstName: s.firstName,
+          lastName: s.lastName,
+          dob: s.dob,
+          school: s.school,
+        })),
+        labelCount: students.length,
+        layout: printLayout,
+        status: 'completed',
+        consumeStock: true,
+      }),
+    });
+    if (!res.ok) {
+      throw new Error('Failed to record print / stock usage');
+    }
+  }
+
+  async function handleConfirmPrinted() {
+    setConfirming(true);
     try {
-      await fetch('/api/print-history', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          students: students.map((s) => ({
-            studentId: s.studentId,
-            labelId: s.labelId,
-            firstName: s.firstName,
-            lastName: s.lastName,
-            dob: s.dob,
-            school: s.school,
-          })),
-          labelCount: students.length,
-          layout: printLayout,
-          status: 'completed',
-          consumeStock: true,
-        }),
-      });
-    } catch (err) {
-      console.error('Failed to record print / stock usage', err);
+      await recordBrowserPrintJob();
+      setAwaitingConfirm(false);
+      onPrintConfirmed?.();
+    } catch {
+      alert('Could not save print history. Try again or contact a Data Lead.');
+    } finally {
+      setConfirming(false);
     }
   }
 
@@ -155,13 +178,56 @@ export default function PrintView({
 
     setDownloadingDocx(true);
     try {
-      // DOCX routes record print history + decrement stock on success
-      await downloadAveryDocx(printLayout, students);
+      // Defer history/stock until staff confirm the physical print worked
+      await downloadAveryDocx(printLayout, students, { skipStock: true });
+      setAwaitingConfirm(true);
     } catch {
       alert('Error generating Word document. Please try again.');
     } finally {
       setDownloadingDocx(false);
     }
+  }
+
+  function withPrintConfirm(node: ReactNode) {
+    const banner =
+      mounted && awaitingConfirm
+        ? createPortal(
+            <div className="fixed bottom-6 left-1/2 z-[100] w-[min(36rem,calc(100vw-2rem))] -translate-x-1/2 print:hidden rounded-lg border border-amber-300 bg-amber-50 px-4 py-3 shadow-lg dark:border-amber-700 dark:bg-amber-950/90">
+              <p className="text-sm font-medium text-amber-950 dark:text-amber-100">
+                Did the labels print successfully?
+              </p>
+              <p className="mt-1 text-xs text-amber-800 dark:text-amber-200">
+                Choose Yes only after labels come out correctly. Until then, these students stay on Needs label.
+              </p>
+              <div className="mt-3 flex flex-wrap gap-2">
+                <Button
+                  size="sm"
+                  className="gap-1.5"
+                  disabled={confirming}
+                  onClick={() => void handleConfirmPrinted()}
+                >
+                  {confirming ? <Loader2 size={14} className="animate-spin" /> : <Check size={14} />}
+                  Yes — mark as printed
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  disabled={confirming}
+                  onClick={() => setAwaitingConfirm(false)}
+                >
+                  No — keep on Needs label
+                </Button>
+              </div>
+            </div>,
+            document.body,
+          )
+        : null;
+    return (
+      <>
+        {node}
+        {banner}
+      </>
+    );
   }
 
   // Inject @page CSS for the active layout so the browser doesn't scale/shrink the sheet
@@ -238,9 +304,9 @@ export default function PrintView({
       );
       if (!confirmed) return;
     }
-    // Browser print (Avery 5160 / Brother): record job + decrement stock
-    void recordBrowserPrintJob();
+    // Defer history/stock until staff confirm the physical print worked
     window.print();
+    setAwaitingConfirm(true);
   };
 
   const template = LABEL_TEMPLATES.find(t => t.key === printLayout) || LABEL_TEMPLATES.find(t => t.key === 'avery5163')!;
@@ -275,7 +341,7 @@ export default function PrintView({
 
   // For Brother continuous feed labels, stack vertically
   if (isBrotherLabel) {
-    return (
+    return withPrintConfirm(
       <div className="fixed inset-0 bg-white dark:bg-gray-900 z-50 p-8 overflow-auto print:p-0">
         <div className="print:hidden flex flex-col sm:flex-row justify-between items-center mb-6 gap-4">
           <div className="flex items-center gap-2">
@@ -323,7 +389,7 @@ export default function PrintView({
             </div>
           ))}
         </div>
-      </div>
+      </div>,
     );
   }
 
@@ -340,7 +406,7 @@ export default function PrintView({
     const sheetStudents = [...students];
     while (sheetStudents.length % 10 !== 0) sheetStudents.push({} as Student);
 
-    return (
+    return withPrintConfirm(
       <div className="fixed inset-0 bg-gray-100 dark:bg-gray-900 z-50 overflow-auto print:overflow-hidden print:bg-white">
         {/* Screen-only toolbar */}
         <div className="print:hidden bg-white dark:bg-gray-800 border-b px-6 py-3 flex flex-col sm:flex-row justify-between items-center gap-3 shadow-sm">
@@ -424,7 +490,7 @@ export default function PrintView({
             </div>
           );
         })}
-      </div>
+      </div>,
     );
   }
 
@@ -432,7 +498,7 @@ export default function PrintView({
     const sheetStudents = [...students];
     while (sheetStudents.length % AVERY94205.labelsPerSheet !== 0) sheetStudents.push({} as Student);
 
-    return (
+    return withPrintConfirm(
       <div className="fixed inset-0 bg-gray-100 dark:bg-gray-900 z-50 overflow-auto print:overflow-hidden print:bg-white">
         <div className="print:hidden bg-white dark:bg-gray-800 border-b px-6 py-3 flex flex-col sm:flex-row justify-between items-center gap-3 shadow-sm">
           <div className="flex items-center gap-3 flex-wrap">
@@ -517,11 +583,11 @@ export default function PrintView({
             </div>
           );
         })}
-      </div>
+      </div>,
     );
   }
 
-  return (
+  return withPrintConfirm(
     <div className="fixed inset-0 bg-white dark:bg-gray-900 z-50 p-8 overflow-auto print:p-0">
       <div className="print:hidden flex flex-col sm:flex-row justify-between items-center mb-6 gap-4">
         <div className="flex items-center gap-2 flex-wrap">
@@ -595,7 +661,7 @@ export default function PrintView({
           );
         })}
       </div>
-    </div>
+    </div>,
   );
 }
 

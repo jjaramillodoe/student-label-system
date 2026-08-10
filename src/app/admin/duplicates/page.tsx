@@ -25,6 +25,15 @@ import {
 } from '@/components/ui/dialog';
 import { Separator } from '@/components/ui/separator';
 import { Skeleton } from '@/components/ui/skeleton';
+import UndoSnackbar from '@/components/UndoSnackbar';
+
+const MERGE_UNDO_MS = 10_000;
+
+type MergeUndoPayload = {
+  primaryId: string;
+  secondary: Record<string, unknown> & { _id: string };
+  filledFields: string[];
+};
 
 interface AddressComparison {
   match: AddressMatchKind;
@@ -349,6 +358,9 @@ export default function DuplicatesPage() {
     primaryId: string;
   } | null>(null);
   const [actioning, setActioning] = useState(false);
+  const [mergeUndo, setMergeUndo] = useState<MergeUndoPayload | null>(null);
+  const [showMergeUndo, setShowMergeUndo] = useState(false);
+  const [mergeUndoTimer, setMergeUndoTimer] = useState<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     if (status === 'loading') return;
@@ -393,13 +405,60 @@ export default function DuplicatesPage() {
       const labels: Record<string, string> = {
         dismiss: 'Flag dismissed — record marked as reviewed.',
         confirm_siblings: 'Confirmed as siblings — both records kept and updated.',
-        merge: 'Records merged — secondary record deleted.',
+        merge: 'Records merged — secondary record deleted. You can undo for a few seconds.',
       };
       setSuccess(labels[action] || 'Done.');
       setMergeDialog(null);
+
+      if (action === 'merge' && data.undo?.secondary) {
+        if (mergeUndoTimer) clearTimeout(mergeUndoTimer);
+        setMergeUndo({
+          primaryId: data.undo.primaryId || primaryId,
+          secondary: data.undo.secondary,
+          filledFields: Array.isArray(data.undo.filledFields) ? data.undo.filledFields : [],
+        });
+        setShowMergeUndo(true);
+        const timer = setTimeout(() => {
+          setShowMergeUndo(false);
+          setMergeUndo(null);
+          setMergeUndoTimer(null);
+        }, MERGE_UNDO_MS);
+        setMergeUndoTimer(timer);
+      }
+
       await load();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Action failed.');
+    } finally {
+      setActioning(false);
+    }
+  }
+
+  async function handleUndoMerge() {
+    if (!mergeUndo) return;
+    setActioning(true);
+    setError('');
+    try {
+      const res = await fetch('/api/admin/duplicates', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'undo_merge',
+          primaryId: mergeUndo.primaryId,
+          secondary: mergeUndo.secondary,
+          filledFields: mergeUndo.filledFields,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Undo failed');
+      if (mergeUndoTimer) clearTimeout(mergeUndoTimer);
+      setShowMergeUndo(false);
+      setMergeUndo(null);
+      setMergeUndoTimer(null);
+      setSuccess('Merge undone — secondary record restored.');
+      await load();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Undo failed.');
     } finally {
       setActioning(false);
     }
@@ -446,7 +505,7 @@ export default function DuplicatesPage() {
           <Info className="h-4 w-4" />
           <AlertDescription>
             <strong>Confirm Siblings</strong> — keeps both records and marks them as confirmed siblings. &nbsp;
-            <strong>Merge</strong> — choose which record to keep; the other is deleted and its drawer space freed. &nbsp;
+            <strong>Merge</strong> — choose which record to keep; the other is deleted and its drawer space freed (short undo window). &nbsp;
             <strong>Dismiss</strong> — clears the flag; treats them as unrelated people. &nbsp;
             Home addresses are compared using NYC-standardized data when available — same address strengthens the match; different addresses may indicate siblings or a move.
           </AlertDescription>
@@ -524,8 +583,8 @@ export default function DuplicatesPage() {
             </DialogTitle>
             <DialogDescription>
               Select which record to <strong>keep</strong> as the primary.
-              All data will be preserved on the primary. The other record will be permanently deleted
-              and its drawer space freed.
+              Missing fields are copied onto the primary. The other record is deleted and its drawer
+              space freed — you can undo for about 10 seconds afterward.
             </DialogDescription>
           </DialogHeader>
 
@@ -552,8 +611,9 @@ export default function DuplicatesPage() {
                 <Alert variant="destructive" className="text-sm">
                   <AlertTriangle className="h-4 w-4" />
                   <AlertDescription>
-                    The <strong>non-primary</strong> record will be <strong>permanently deleted</strong>.
-                    Any fields missing on the primary will be copied from the deleted record first.
+                    The <strong>non-primary</strong> record will be deleted.
+                    Missing fields on the primary are filled from it first. Use Undo in the snackbar
+                    if you merge the wrong pair.
                   </AlertDescription>
                 </Alert>
               </div>
@@ -583,6 +643,12 @@ export default function DuplicatesPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <UndoSnackbar
+        open={showMergeUndo}
+        onUndo={() => { void handleUndoMerge(); }}
+        message="Records merged — secondary deleted."
+      />
     </div>
   );
 }

@@ -22,15 +22,27 @@ export function isAveryDocxLayout(layout: string): layout is AveryDocxLayout {
   return layout === 'avery5163' || layout === 'avery94205';
 }
 
+export type DownloadAveryDocxOptions = {
+  /**
+   * When true, skip print-history + stock consume on the DOCX route.
+   * Use when the UI will ask “Did labels print?” before recording.
+   */
+  skipStock?: boolean;
+};
+
 export async function downloadAveryDocx(
   layout: AveryDocxLayout,
   students: AveryDocxStudent[],
+  options: DownloadAveryDocxOptions = {},
 ): Promise<void> {
   const route = DOCX_ROUTES[layout];
   const res = await fetch(route, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ students }),
+    body: JSON.stringify({
+      students,
+      skipStock: options.skipStock === true,
+    }),
   });
   if (!res.ok) {
     throw new Error('Failed to generate Word document');

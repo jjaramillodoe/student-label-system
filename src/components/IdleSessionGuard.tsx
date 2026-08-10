@@ -149,11 +149,18 @@ export default function IdleSessionGuard() {
             <Clock className="h-5 w-5 text-primary" />
             Still using the app?
           </DialogTitle>
-          <DialogDescription className="text-sm leading-relaxed">
-            No activity for about <strong>{idleMinutes} minutes</strong>.
-            Confirm to stay signed in, or you will be signed out in{' '}
-            <strong>{secondsLeft} second{secondsLeft === 1 ? '' : 's'}</strong>
-            {' '}to protect student data on shared computers.
+          <DialogDescription className="text-sm leading-relaxed space-y-2">
+            <span className="block">
+              No activity for about <strong>{idleMinutes} minutes</strong>.
+              Confirm to stay signed in, or you will be signed out in{' '}
+              <strong>{secondsLeft} second{secondsLeft === 1 ? '' : 's'}</strong>
+              {' '}to protect student data on shared computers.
+            </span>
+            {pathname.startsWith('/intake') && (
+              <span className="block text-muted-foreground">
+                If you were filling Intake, a draft is saved in this browser so you can resume after signing back in.
+              </span>
+            )}
           </DialogDescription>
         </DialogHeader>
         <DialogFooter className="flex-col sm:flex-row gap-2 sm:justify-end">

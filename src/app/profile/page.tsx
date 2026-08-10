@@ -262,6 +262,20 @@ export default function ProfilePage() {
           </Alert>
         )}
 
+        <Alert className="border-sky-300 bg-sky-50/80 dark:border-sky-800 dark:bg-sky-950/30">
+          <Shield className="h-4 w-4 text-sky-700 dark:text-sky-300" />
+          <AlertDescription className="text-sm text-sky-950 dark:text-sky-100 space-y-1">
+            <p>
+              <strong>MFA is required</strong> until DOE SSO is available. Keep your authenticator app
+              available; if you lose access, ask an Admin to temporarily disable MFA so you can re-enroll.
+            </p>
+            <p className="text-xs text-sky-900/80 dark:text-sky-200/80">
+              Shared desks may show a “Still using the app?” prompt after idle time (configured in
+              Admin → System Settings). On Intake, a draft is saved in this browser if you are signed out.
+            </p>
+          </AlertDescription>
+        </Alert>
+
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Profile Card */}
           <Card className="lg:col-span-1">

@@ -25,16 +25,50 @@ function ReprintHistoryLabel({ student }: { student: any }) {
   const [open, setOpen] = useState(false);
   const [layout, setLayout] = useState<'avery5163' | 'avery94205'>('avery5163');
   const [downloading, setDownloading] = useState(false);
+  const [awaitingConfirm, setAwaitingConfirm] = useState(false);
+  const [confirming, setConfirming] = useState(false);
 
   async function handleDownload() {
     setDownloading(true);
     try {
       const { downloadAveryDocx } = await import('@/lib/downloadAveryDocx');
-      await downloadAveryDocx(layout, [student]);
+      await downloadAveryDocx(layout, [student], { skipStock: true });
+      setAwaitingConfirm(true);
     } catch {
       alert('Error generating Word document. Please try again.');
     } finally {
       setDownloading(false);
+    }
+  }
+
+  async function handleConfirmPrinted() {
+    setConfirming(true);
+    try {
+      const res = await fetch('/api/print-history', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          students: [{
+            studentId: student.studentId,
+            labelId: student.labelId,
+            firstName: student.firstName,
+            lastName: student.lastName,
+            dob: student.dob,
+            school: student.school,
+          }],
+          labelCount: 1,
+          layout,
+          status: 'completed',
+          consumeStock: true,
+        }),
+      });
+      if (!res.ok) throw new Error('Failed to record print');
+      setAwaitingConfirm(false);
+      setOpen(false);
+    } catch {
+      alert('Could not save print history. Try again.');
+    } finally {
+      setConfirming(false);
     }
   }
 
@@ -45,7 +79,10 @@ function ReprintHistoryLabel({ student }: { student: any }) {
         <FileText className="h-4 w-4" />
         <span className="hidden sm:inline">Word Doc</span>
       </Button>
-      <Dialog open={open} onOpenChange={setOpen}>
+      <Dialog open={open} onOpenChange={(next) => {
+        setOpen(next);
+        if (!next) setAwaitingConfirm(false);
+      }}>
         <DialogContent className="max-w-md">
           <DialogHeader>
             <DialogTitle>Download Label (Word)</DialogTitle>
@@ -84,12 +121,38 @@ function ReprintHistoryLabel({ student }: { student: any }) {
               )}
             </div>
           </div>
+          {awaitingConfirm ? (
+            <div className="rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-sm dark:border-amber-700 dark:bg-amber-950/40">
+              <p className="font-medium text-amber-950 dark:text-amber-100">Did the label print successfully?</p>
+              <p className="mt-1 text-xs text-amber-800 dark:text-amber-200">
+                Choose Yes only after it prints correctly. Until then they stay on Needs label.
+              </p>
+            </div>
+          ) : null}
           <DialogFooter className="gap-2 sm:gap-0">
-            <Button variant="outline" onClick={() => setOpen(false)}>Close</Button>
-            <Button onClick={handleDownload} disabled={downloading} className="gap-2">
-              {downloading ? <Loader2 className="h-4 w-4 animate-spin" /> : <FileText className="h-4 w-4" />}
-              {downloading ? 'Generating…' : 'Download Word Doc'}
-            </Button>
+            {awaitingConfirm ? (
+              <>
+                <Button
+                  variant="outline"
+                  disabled={confirming}
+                  onClick={() => setAwaitingConfirm(false)}
+                >
+                  No — keep on Needs label
+                </Button>
+                <Button disabled={confirming} onClick={() => void handleConfirmPrinted()} className="gap-2">
+                  {confirming ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+                  Yes — mark as printed
+                </Button>
+              </>
+            ) : (
+              <>
+                <Button variant="outline" onClick={() => { setAwaitingConfirm(false); setOpen(false); }}>Close</Button>
+                <Button onClick={handleDownload} disabled={downloading} className="gap-2">
+                  {downloading ? <Loader2 className="h-4 w-4 animate-spin" /> : <FileText className="h-4 w-4" />}
+                  {downloading ? 'Generating…' : 'Download Word Doc'}
+                </Button>
+              </>
+            )}
           </DialogFooter>
         </DialogContent>
       </Dialog>

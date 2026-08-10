@@ -9,9 +9,12 @@ import { cn } from '@/lib/utils';
 import {
   getVisibleNavGroups,
   isNavPathActive,
+  type NavBadgeKey,
   type NavGroup,
   type NavItem,
 } from '@/lib/navConfig';
+
+type NavBadges = Partial<Record<NavBadgeKey, number>>;
 
 type AppSidebarProps = {
   role?: string | null;
@@ -26,29 +29,79 @@ type AppSidebarProps = {
 const FOCUSABLE =
   'a[href], button:not([disabled]), [tabindex]:not([tabindex="-1"])';
 
+function NavCountBadge({
+  count,
+  active,
+  collapsed,
+}: {
+  count: number;
+  active: boolean;
+  collapsed: boolean;
+}) {
+  if (!count || count < 1) return null;
+  const label = count > 99 ? '99+' : String(count);
+  return (
+    <span
+      className={cn(
+        'inline-flex min-w-[1.25rem] items-center justify-center rounded-full px-1.5 text-[10px] font-semibold tabular-nums',
+        collapsed && 'absolute -right-1 -top-1 min-w-[1rem] px-1',
+        active
+          ? 'bg-primary-foreground/20 text-primary-foreground'
+          : 'bg-destructive text-destructive-foreground',
+      )}
+    >
+      {label}
+    </span>
+  );
+}
+
 function NavLinkRow({
   item,
   active,
   collapsed,
   onNavigate,
   labelOverride,
+  badgeCount,
 }: {
   item: NavItem;
   active: boolean;
   collapsed: boolean;
   onNavigate?: () => void;
   labelOverride?: string;
+  badgeCount?: number;
 }) {
   const Icon = item.icon;
   const label = labelOverride || item.label;
+  const title = collapsed && badgeCount
+    ? `${label} (${badgeCount})`
+    : collapsed
+      ? label
+      : undefined;
   const className = cn(
-    'group flex items-center gap-3 rounded-lg px-2.5 py-2 text-sm font-medium transition-colors',
+    'group relative flex items-center gap-3 rounded-lg px-2.5 py-2 text-sm font-medium transition-colors',
     collapsed && 'justify-center px-2',
     active
       ? 'bg-primary text-primary-foreground shadow-sm'
       : item.emphasize
         ? 'text-foreground hover:bg-muted'
         : 'text-muted-foreground hover:bg-muted hover:text-foreground',
+  );
+
+  const content = (
+    <>
+      <span className={cn('relative shrink-0', collapsed && 'inline-flex')}>
+        <Icon className={cn('h-4 w-4', active ? 'opacity-100' : 'opacity-80')} />
+        {collapsed && (
+          <NavCountBadge count={badgeCount || 0} active={active} collapsed />
+        )}
+      </span>
+      {!collapsed && (
+        <>
+          <span className="truncate flex-1">{label}</span>
+          <NavCountBadge count={badgeCount || 0} active={active} collapsed={false} />
+        </>
+      )}
+    </>
   );
 
   if (item.external) {
@@ -58,11 +111,10 @@ function NavLinkRow({
         target="_blank"
         rel="noopener noreferrer"
         onClick={onNavigate}
-        title={collapsed ? label : undefined}
+        title={title}
         className={className}
       >
-        <Icon className={cn('h-4 w-4 shrink-0', active ? 'opacity-100' : 'opacity-80')} />
-        {!collapsed && <span className="truncate">{label}</span>}
+        {content}
       </a>
     );
   }
@@ -71,11 +123,10 @@ function NavLinkRow({
     <Link
       href={item.href}
       onClick={onNavigate}
-      title={collapsed ? label : undefined}
+      title={title}
       className={className}
     >
-      <Icon className={cn('h-4 w-4 shrink-0', active ? 'opacity-100' : 'opacity-80')} />
-      {!collapsed && <span className="truncate">{label}</span>}
+      {content}
     </Link>
   );
 }
@@ -102,6 +153,33 @@ export default function AppSidebar({
   const previouslyFocused = useRef<HTMLElement | null>(null);
   /** Manual expand/collapse for collapsible groups (default: open). */
   const [groupOpen, setGroupOpen] = useState<Record<string, boolean>>({});
+  const [badges, setBadges] = useState<NavBadges>({});
+
+  useEffect(() => {
+    if (!role || !['Admin', 'Data Lead'].includes(role)) {
+      setBadges({});
+      return;
+    }
+    let cancelled = false;
+    const load = () => {
+      fetch('/api/admin/nav-badges')
+        .then(r => (r.ok ? r.json() : null))
+        .then((data) => {
+          if (cancelled || !data) return;
+          setBadges({
+            duplicates: Number(data.duplicates) || 0,
+            unassigned: Number(data.unassigned) || 0,
+          });
+        })
+        .catch(() => {});
+    };
+    load();
+    const id = window.setInterval(load, 60_000);
+    return () => {
+      cancelled = true;
+      window.clearInterval(id);
+    };
+  }, [role, pathname]);
 
   useEffect(() => {
     if (!mobileOpen) return;
@@ -248,6 +326,7 @@ export default function AppSidebar({
                       item.href === '/admin/schools' && role !== 'Admin'
                         ? 'School Settings'
                         : undefined;
+                    const badgeCount = item.badgeKey ? badges[item.badgeKey] : undefined;
                     return (
                       <NavLinkRow
                         key={item.href}
@@ -256,6 +335,7 @@ export default function AppSidebar({
                         collapsed={railCollapsed}
                         onNavigate={onMobileClose}
                         labelOverride={labelOverride}
+                        badgeCount={badgeCount}
                       />
                     );
                   })}

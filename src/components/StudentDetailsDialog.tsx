@@ -1,6 +1,6 @@
 'use client';
 
-import type { ReactNode } from 'react';
+import { useState, type ReactNode } from 'react';
 import Link from 'next/link';
 import Barcode from 'react-barcode';
 import {
@@ -17,6 +17,8 @@ import {
   Pencil,
   Building2,
   Layers,
+  FolderInput,
+  Loader2,
 } from 'lucide-react';
 import {
   Dialog,
@@ -28,6 +30,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 import QRCode from '@/components/QRCode';
 import type { Student } from '@/components/StudentTable';
 import { formatFullName } from '@/lib/personName';
@@ -35,7 +38,7 @@ import { formatStudentAddressStacked, type StudentAddressInput } from '@/lib/add
 import { googleMapsSearchUrl } from '@/lib/googleMaps';
 import { getStudentStorageDisplay } from '@/lib/studentLocation';
 import { buildStudentQrPayload } from '@/lib/qrPayload';
-import { formatShortDate } from '@/lib/utils';
+import { formatShortDate, normalizeMongoId } from '@/lib/utils';
 
 function studentAddressInput(student: Student): StudentAddressInput {
   if (student.addressStandardized?.address?.trim()) {
@@ -118,6 +121,10 @@ type StudentDetailsDialogProps = {
   drawerMap: Record<string, string>;
   showQRCode?: boolean;
   onEdit?: (student: Student) => void;
+  /** Called after a successful archive → active drawer re-file */
+  onStudentUpdated?: () => void;
+  /** Show Data Lead re-file control (Admin / Data Lead) */
+  canRefileArchived?: boolean;
 };
 
 export default function StudentDetailsDialog({
@@ -128,7 +135,43 @@ export default function StudentDetailsDialog({
   drawerMap,
   showQRCode = true,
   onEdit,
+  onStudentUpdated,
+  canRefileArchived = false,
 }: StudentDetailsDialogProps) {
+  const [refiling, setRefiling] = useState(false);
+  const [refileError, setRefileError] = useState('');
+  const [refileSuccess, setRefileSuccess] = useState('');
+
+  async function refileToNextDrawer() {
+    if (!student?._id) return;
+    setRefiling(true);
+    setRefileError('');
+    setRefileSuccess('');
+    try {
+      const id = normalizeMongoId(student._id) ?? String(student._id);
+      const res = await fetch('/api/admin/assign-next-slot', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          studentIds: [id],
+          reactivateFromArchive: true,
+          source: 'student-details-refile',
+          note: 'Re-filed from archive to next available active drawer',
+        }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        throw new Error(data.error || 'Failed to re-file student');
+      }
+      setRefileSuccess(data.message || 'Student re-filed to an active drawer and set Active.');
+      onStudentUpdated?.();
+    } catch (err) {
+      setRefileError(err instanceof Error ? err.message : 'Failed to re-file student');
+    } finally {
+      setRefiling(false);
+    }
+  }
+
   if (!student) return null;
 
   const fullName = formatFullName(student);
@@ -309,34 +352,95 @@ export default function StudentDetailsDialog({
             </h3>
             <div className="rounded-lg border border-border/60 bg-background p-4">
               {storage.isArchived && (student.archiveBoxLabel || student.archiveLocation) ? (
-                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                  <Field label="Archive box">
-                    <span className="text-base font-semibold">{student.archiveBoxLabel || '—'}</span>
-                    {student.archiveSchoolYear && (
-                      <div className="mt-0.5 font-normal text-muted-foreground">
-                        {student.archiveSchoolYear}
-                      </div>
-                    )}
-                  </Field>
-                  <Field label="Storage location">
-                    <span className="text-base font-semibold">{student.archiveLocation || '—'}</span>
-                    {student.archiveBoxId && (
-                      <Link
-                        href={`/archive/box/${student.archiveBoxId}`}
-                        className="mt-1 block text-xs font-medium text-primary hover:underline"
+                <div className="space-y-3">
+                  <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                    <Field label="Archive box">
+                      <span className="text-base font-semibold">{student.archiveBoxLabel || '—'}</span>
+                      {student.archiveSchoolYear && (
+                        <div className="mt-0.5 font-normal text-muted-foreground">
+                          {student.archiveSchoolYear}
+                        </div>
+                      )}
+                    </Field>
+                    <Field label="Storage location">
+                      <span className="text-base font-semibold">{student.archiveLocation || '—'}</span>
+                      {student.archiveBoxId && (
+                        <Link
+                          href={`/archive/box/${student.archiveBoxId}`}
+                          className="mt-1 block text-xs font-medium text-primary hover:underline"
+                        >
+                          View archive box →
+                        </Link>
+                      )}
+                    </Field>
+                  </div>
+                  {canRefileArchived && (
+                    <div className="rounded-md border border-border/70 bg-muted/30 px-3 py-3 space-y-2">
+                      <p className="text-xs text-muted-foreground">
+                        Returning students usually stay in the archive box. Use re-file only when the
+                        physical file should move back into an active cabinet drawer.
+                      </p>
+                      {refileError && (
+                        <Alert variant="destructive" className="py-2">
+                          <AlertDescription className="text-xs">{refileError}</AlertDescription>
+                        </Alert>
+                      )}
+                      {refileSuccess && (
+                        <Alert className="py-2 border-green-300 bg-green-50 dark:bg-green-950/30">
+                          <AlertDescription className="text-xs text-green-800 dark:text-green-200">
+                            {refileSuccess}
+                          </AlertDescription>
+                        </Alert>
+                      )}
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        className="gap-1.5"
+                        disabled={refiling}
+                        onClick={() => void refileToNextDrawer()}
                       >
-                        View archive box →
-                      </Link>
-                    )}
-                  </Field>
+                        {refiling ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <FolderInput className="h-3.5 w-3.5" />}
+                        Re-file to next active drawer
+                      </Button>
+                    </div>
+                  )}
                 </div>
               ) : storage.isArchived ? (
-                <div className="rounded-md border border-amber-200 bg-amber-50/80 p-3 text-sm text-amber-900 dark:border-amber-900/60 dark:bg-amber-950/30 dark:text-amber-200">
-                  <p className="font-medium">No archive box assigned yet</p>
-                  <p className="mt-1 text-amber-800/90 dark:text-amber-300/90">
-                    Go to Admin → Cabinets, open the archived cabinet, and use
-                    &quot;Move Students to Boxes&quot; to assign a box and location.
-                  </p>
+                <div className="space-y-3">
+                  <div className="rounded-md border border-amber-200 bg-amber-50/80 p-3 text-sm text-amber-900 dark:border-amber-900/60 dark:bg-amber-950/30 dark:text-amber-200">
+                    <p className="font-medium">No archive box assigned yet</p>
+                    <p className="mt-1 text-amber-800/90 dark:text-amber-300/90">
+                      Go to Admin → Cabinets, open the archived cabinet, and use
+                      &quot;Move Students to Boxes&quot; to assign a box and location — or re-file
+                      into an active drawer if the file is coming back into circulation.
+                    </p>
+                  </div>
+                  {canRefileArchived && (
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      className="gap-1.5"
+                      disabled={refiling}
+                      onClick={() => void refileToNextDrawer()}
+                    >
+                      {refiling ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <FolderInput className="h-3.5 w-3.5" />}
+                      Re-file to next active drawer
+                    </Button>
+                  )}
+                  {refileError && (
+                    <Alert variant="destructive" className="py-2">
+                      <AlertDescription className="text-xs">{refileError}</AlertDescription>
+                    </Alert>
+                  )}
+                  {refileSuccess && (
+                    <Alert className="py-2 border-green-300 bg-green-50 dark:bg-green-950/30">
+                      <AlertDescription className="text-xs text-green-800 dark:text-green-200">
+                        {refileSuccess}
+                      </AlertDescription>
+                    </Alert>
+                  )}
                 </div>
               ) : (
                 <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">

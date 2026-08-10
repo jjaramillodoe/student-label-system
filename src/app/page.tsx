@@ -116,10 +116,12 @@ function Dashboard() {
     fetchPrintedIds();
   }, [status, session, router]);
 
-  // Deep-link from command palette: /?q=labelId
+  // Deep-link from command palette: /?q=labelId ; Intake success: /?needsLabel=1
   useEffect(() => {
     const q = searchParams?.get('q');
     if (q) setSearch(q);
+    const needs = searchParams?.get('needsLabel');
+    if (needs === '1' || needs === 'true') setNeedsLabelMode(true);
   }, [searchParams]);
 
   // Remember last-used Avery/Brother layout
@@ -376,8 +378,8 @@ function Dashboard() {
   const somePageSelected = paginatedStudents.some(s => selectedIds.includes(s._id!)) && !allPageSelected;
   const selectedStudents = filteredStudents.filter(s => selectedIds.includes(s._id!));
 
-  // Print history + stock decrement happen when the user downloads Word or prints
-  // (see PrintView / Avery DOCX routes) — not when the preview merely opens.
+  // Print history + stock decrement happen after the user confirms labels printed
+  // (see PrintView) — not when the preview opens or the Word file merely downloads.
 
   // Reset to page 1 when filters/search change
   useEffect(() => { setPage(1); }, [search, filterYear, filterStatus, pageSize]);
@@ -768,6 +770,7 @@ function Dashboard() {
             setShowPrintPreview(true);
             setPrintMode(true);
           }}
+          onShowNeedsLabel={() => setNeedsLabelMode(true)}
         />
 
         {/* Printer Configuration */}
@@ -1058,6 +1061,9 @@ function Dashboard() {
             showQRCode={showQRCode}
             cabinetMap={cabinetMap}
             drawerMap={drawerMap}
+            onPrintConfirmed={() => {
+              void fetchPrintedIds();
+            }}
             onClose={() => {
               setPrintMode(false);
               void fetchPrintedIds();
@@ -1072,6 +1078,11 @@ function Dashboard() {
           cabinetMap={cabinetMap}
           drawerMap={drawerMap}
           showQRCode={showQRCode}
+          canRefileArchived={['Admin', 'Data Lead'].includes((session?.user as { role?: string } | undefined)?.role || '')}
+          onStudentUpdated={() => {
+            void fetchStudents();
+            setDetailsStudent(null);
+          }}
           onEdit={(student) => {
             setDetailsStudent(null);
             openEditModal(student);

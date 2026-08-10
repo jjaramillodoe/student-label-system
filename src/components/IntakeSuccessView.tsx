@@ -3,7 +3,7 @@
 import { useEffect, useState, type ReactNode } from 'react';
 import Link from 'next/link';
 import {
-  Boxes, ExternalLink, MapPin, QrCode, ShieldAlert,
+  Boxes, ExternalLink, MapPin, Printer, QrCode, ShieldAlert,
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -244,6 +244,27 @@ export function IntakeSuccessSummary({
               </a>
             )}
           </div>
+        )}
+
+        {!savedAsVisit && (
+          <Alert className="border-violet-300 bg-violet-50/80 dark:border-violet-800 dark:bg-violet-950/30">
+            <Printer className="h-4 w-4 text-violet-700 dark:text-violet-300" />
+            <AlertTitle className="text-sm text-violet-950 dark:text-violet-100">
+              Labels are printed later (not at this desk)
+            </AlertTitle>
+            <AlertDescription className="text-xs text-violet-900/90 dark:text-violet-100/90 space-y-2">
+              <p>
+                This student will appear under <strong>Needs label</strong> on the Dashboard
+                until someone prints their Avery sheet.
+              </p>
+              <Button variant="outline" size="sm" className="gap-1.5 h-8 bg-background/80" asChild>
+                <Link href="/?needsLabel=1">
+                  <Printer className="h-3.5 w-3.5" />
+                  Open Find &amp; print → Needs label
+                </Link>
+              </Button>
+            </AlertDescription>
+          </Alert>
         )}
       </CardContent>
     </Card>

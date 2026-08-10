@@ -24,9 +24,9 @@ Staff pages (Admin, Data Lead, Data Member) use a **left sidebar**. Grouped link
 
 | Tool | Path | Purpose |
 | --- | --- | --- |
-| Cabinet Health | `/admin/cabinet-health` | Drawer capacity at a glance |
+| Cabinet Health | `/admin/cabinet-health` | Drawer capacity at a glance; **Move from here** opens Bulk Move |
 | Unassigned Queue | `/admin/unassigned` | Missing cabinet/drawer |
-| Bulk Move | `/admin/bulk-move` | Move students with validation |
+| Bulk Move | `/admin/bulk-move` | Move students with source cabinet/drawer/status filters + capacity checks |
 | Bulk Upload | `/admin/students/bulk-upload` | CSV import with preview validation |
 | Data Cleanup | `/admin/data-cleanup` | Invalid emails, missing dates |
 | Duplicates | `/admin/duplicates` | Sibling and duplicate review with address comparison |
@@ -45,7 +45,15 @@ Staff pages (Admin, Data Lead, Data Member) use a **left sidebar**. Grouped link
 </Tip>
 
 <Tip>
-  On **Find & print**, use the **Needs label** chip to list only students who have **never** been printed (full print history, not just recent jobs). See [Labels and scanning](/workflows/labels-and-scanning#needs-label).
+  On **Find & print**, use the **Needs label** chip to list only students who have **never** been printed (full print history, not just recent jobs). After printing, confirm **Yes — mark as printed** so they leave that list. See [Labels and scanning](/workflows/labels-and-scanning#needs-label).
+</Tip>
+
+<Tip>
+  On **Duplicates**, **Merge** offers a short **Undo** window (~10 seconds) if the wrong record was removed.
+</Tip>
+
+<Tip>
+  Sidebar badges on **Duplicates** (sibling-flagged) and **Unassigned** (missing cabinet/drawer) refresh about once a minute so daily review work stays visible.
 </Tip>
 
 ## Reporting and configuration

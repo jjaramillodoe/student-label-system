@@ -39,7 +39,8 @@ Last updated: July 2026. This file replaces the older in-progress checklist (man
 2. Dashboard / Print Queue: select students → print preview → **Download Word Doc**.
 3. Intake History: **Word Doc** downloads a single-student Avery sheet the same way.
 4. Print from Word on **Letter (8.5"×11")**, scale **100%**, margins **None**.
-5. Brother / Avery 5160 layouts still use browser Print (grouped under “Other” in the layout dropdown).
+5. Confirm **Yes — mark as printed** so Needs label / stock update (or **No** if the sheet failed).
+6. Brother / Avery 5160 layouts still use browser Print (grouped under “Other” in the layout dropdown), then the same confirm step.
 
 ## Integrity notes (Phase 4)
 

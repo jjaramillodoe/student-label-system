@@ -29,6 +29,8 @@ import { MINTLIFY_DOCS_URL } from '@/lib/docsUrl';
 
 export type NavRole = 'Admin' | 'Data Lead' | 'Data Member' | 'Intake Member' | string;
 
+export type NavBadgeKey = 'duplicates' | 'unassigned';
+
 export type NavItem = {
   href: string;
   label: string;
@@ -40,6 +42,8 @@ export type NavItem = {
   emphasize?: boolean;
   /** Open in a new tab (external docs, etc.) */
   external?: boolean;
+  /** Sidebar count badge (Admin / Data Lead inbox) */
+  badgeKey?: NavBadgeKey;
 };
 
 export type NavGroup = {
@@ -58,8 +62,8 @@ export const NAV_GROUPS: NavGroup[] = [
     label: 'Daily',
     items: [
       { href: '/', label: 'Dashboard', icon: FileText },
-      { href: '/intake', label: 'Intake', icon: ClipboardList, roles: ['Admin', 'Data Lead'], emphasize: true },
-      { href: '/admin/unassigned', label: 'Unassigned', icon: Inbox, roles: ['Admin', 'Data Lead'] },
+      { href: '/intake', label: 'Intake', icon: ClipboardList, roles: ['Admin', 'Data Lead', 'Data Member'], emphasize: true },
+      { href: '/admin/unassigned', label: 'Unassigned', icon: Inbox, roles: ['Admin', 'Data Lead'], badgeKey: 'unassigned' },
       { href: '/admin/print-queue', label: 'Print Queue', icon: Printer, roles: ['Admin', 'Data Lead'] },
     ],
   },
@@ -70,7 +74,7 @@ export const NAV_GROUPS: NavGroup[] = [
       { href: '/admin/students/all', label: 'All Students', icon: Users },
       { href: '/admin/students/bulk-upload', label: 'Bulk Upload', icon: Upload, emphasize: true },
       { href: '/admin/enrollment', label: 'Enrollment', icon: UserPlus },
-      { href: '/admin/duplicates', label: 'Duplicates', icon: CopyCheck, roles: ['Admin', 'Data Lead'] },
+      { href: '/admin/duplicates', label: 'Duplicates', icon: CopyCheck, roles: ['Admin', 'Data Lead'], badgeKey: 'duplicates' },
       { href: '/admin/validation', label: 'Email Validation', icon: ShieldCheck, roles: ['Admin'] },
     ],
   },

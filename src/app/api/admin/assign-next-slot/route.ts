@@ -1,12 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { ObjectId } from 'mongodb';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/authOptions';
 import clientPromise from '@/lib/mongodb';
 import { assignStudentsToNextSlot, moveStudentsToDrawer } from '@/lib/cabinetMoves';
 
 /**
- * POST { studentIds, auto?: true, targetCabinetId?, targetDrawerId?, note?, source? }
+ * POST { studentIds, auto?: true, targetCabinetId?, targetDrawerId?, note?, source?, reactivateFromArchive? }
  * Auto-assign to next open drawer, or move to an explicit target.
+ * When reactivateFromArchive is true, clears archive box fields and sets archived=false after a successful move.
  */
 export async function POST(req: NextRequest) {
   try {
@@ -57,11 +59,47 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: result.error }, { status: result.status || 400 });
     }
 
+    if (body.reactivateFromArchive === true && result.moved > 0) {
+      const objectIds = studentIds
+        .map((id: string) => {
+          try {
+            return new ObjectId(id);
+          } catch {
+            return null;
+          }
+        })
+        .filter((id: ObjectId | null): id is ObjectId => Boolean(id));
+
+      if (objectIds.length > 0) {
+        await db.collection('students').updateMany(
+          { _id: { $in: objectIds } },
+          {
+            $set: {
+              archived: false,
+              status: 'Active',
+              updatedAt: new Date().toISOString(),
+            },
+            $unset: {
+              archiveBoxId: '',
+              archiveBoxLabel: '',
+              archiveLocation: '',
+              archiveId: '',
+              archiveSchoolYear: '',
+              archivedAt: '',
+            },
+          },
+        );
+      }
+    }
+
     return NextResponse.json({
       success: true,
       moved: result.moved,
       errors: result.errors,
-      message: result.message,
+      message: body.reactivateFromArchive
+        ? `${result.message || `Moved ${result.moved}`}. Cleared archive box fields and set Active.`
+        : result.message,
+      reactivatedFromArchive: body.reactivateFromArchive === true,
     });
   } catch (error) {
     console.error('[assign-next-slot]', error);

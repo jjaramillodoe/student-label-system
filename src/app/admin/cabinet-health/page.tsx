@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { AlertCircle, Archive, Building2, CheckCircle2, Loader2, RefreshCw, ShieldAlert, Wrench } from 'lucide-react';
+import { AlertCircle, Archive, ArrowRightLeft, Building2, CheckCircle2, Loader2, RefreshCw, ShieldAlert, Wrench } from 'lucide-react';
 import PageIntro from '@/components/PageIntro';
 import FixStudentAssignmentDialog from '@/components/FixStudentAssignmentDialog';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
@@ -85,6 +85,7 @@ function DrawerTable({ drawers, emptyLabel }: { drawers: DrawerHealth[]; emptyLa
             <TableHead>School</TableHead>
             <TableHead>Usage</TableHead>
             <TableHead className="text-right">Available</TableHead>
+            <TableHead className="text-right">Actions</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
@@ -102,6 +103,25 @@ function DrawerTable({ drawers, emptyLabel }: { drawers: DrawerHealth[]; emptyLa
                 </div>
               </TableCell>
               <TableCell className="text-right">{drawer.available}</TableCell>
+              <TableCell className="text-right">
+                {drawer.drawerId ? (
+                  <Button variant="outline" size="sm" className="gap-1.5 h-8" asChild>
+                    <Link
+                      href={`/admin/bulk-move?sourceCabinetId=${encodeURIComponent(drawer.cabinetId)}&sourceDrawerId=${encodeURIComponent(drawer.drawerId)}`}
+                    >
+                      <ArrowRightLeft className="h-3.5 w-3.5" />
+                      Move from here
+                    </Link>
+                  </Button>
+                ) : (
+                  <Button variant="outline" size="sm" className="gap-1.5 h-8" asChild>
+                    <Link href={`/admin/bulk-move?sourceCabinetId=${encodeURIComponent(drawer.cabinetId)}`}>
+                      <ArrowRightLeft className="h-3.5 w-3.5" />
+                      Move from here
+                    </Link>
+                  </Button>
+                )}
+              </TableCell>
             </TableRow>
           ))}
         </TableBody>
@@ -264,6 +284,7 @@ export default function CabinetHealthPage() {
                           <TableHead>School</TableHead>
                           <TableHead>Usage</TableHead>
                           <TableHead className="text-right">Over By</TableHead>
+                          <TableHead className="text-right">Actions</TableHead>
                         </TableRow>
                       </TableHeader>
                       <TableBody>
@@ -275,6 +296,14 @@ export default function CabinetHealthPage() {
                               <UsageBadge percent={cabinet.usagePercent} />
                             </TableCell>
                             <TableCell className="text-right text-destructive font-medium">{cabinet.overBy}</TableCell>
+                            <TableCell className="text-right">
+                              <Button variant="outline" size="sm" className="gap-1.5 h-8" asChild>
+                                <Link href={`/admin/bulk-move?sourceCabinetId=${encodeURIComponent(cabinet.cabinetId)}`}>
+                                  <ArrowRightLeft className="h-3.5 w-3.5" />
+                                  Move from here
+                                </Link>
+                              </Button>
+                            </TableCell>
                           </TableRow>
                         ))}
                       </TableBody>
