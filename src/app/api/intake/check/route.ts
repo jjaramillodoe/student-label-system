@@ -114,25 +114,35 @@ export async function POST(request: Request) {
       const fullIncoming = `${firstName} ${lastName}`.trim().toLowerCase();
       const fullExisting = `${s.firstName} ${s.lastName}`.trim().toLowerCase();
 
+      // Exact name + DOB
       if (fullIncoming === fullExisting) {
-        exact.push(annotateMatch(s, incoming, incomingAddress));
-      } else if (isPossibleDuplicate(incoming, s)) {
-        const pct = matchPercent(incoming, s);
-        fuzzy.push(annotateMatch(s, incoming, incomingAddress, pct));
-      } else if (hasComparableAddress(incomingAddress)) {
-        const addressCmp = compareStudentAddresses(incomingAddress, s as StudentAddressRecord);
-        if (isSameAddressMatch(addressCmp.match)) {
-          const pct = boostMatchPercentForAddress(
-            Math.round(nameSim(`${firstName} ${lastName}`, `${s.firstName} ${s.lastName}`) * 100),
-            addressCmp.match,
-          );
-          fuzzy.push({
-            ...annotateMatch(s, incoming, incomingAddress, pct),
-            _addressDriven: true,
-          });
-        }
+        exact.push(annotateMatch(s, incoming, incomingAddress, 100));
+        continue;
       }
+
+      const nameDup = isPossibleDuplicate(incoming, s);
+      const pct = matchPercent(incoming, s);
+      const addressCmp = hasComparableAddress(incomingAddress)
+        ? compareStudentAddresses(incomingAddress, s as StudentAddressRecord)
+        : null;
+      const addressHit = addressCmp ? isSameAddressMatch(addressCmp.match) : false;
+
+      // Always surface same-DOB rows for review (siblings / twins / coincidence).
+      // Previously only name-fuzzy or same-address rows were kept — typing a different
+      // first name cleared the panel after "Not the same person".
+      const boosted = addressHit && addressCmp
+        ? boostMatchPercentForAddress(pct, addressCmp.match)
+        : pct;
+      fuzzy.push({
+        ...annotateMatch(s, incoming, incomingAddress, boosted),
+        _sameDob: true,
+        ...(addressHit ? { _addressDriven: !nameDup } : {}),
+        ...(nameDup ? {} : { _sameDobOnly: true }),
+      });
     }
+
+    fuzzy.sort((a, b) => Number(b._similarity ?? 0) - Number(a._similarity ?? 0));
+    if (fuzzy.length > 15) fuzzy.length = 15;
 
     const exactNameOtherDob = await db
       .collection('students')

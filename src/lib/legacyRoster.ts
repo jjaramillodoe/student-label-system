@@ -275,9 +275,15 @@ export function matchLegacyRoster(
     };
 
     if (sameDob && fullIncoming === fullExisting) {
-      exact.push(base);
-    } else if (sameDob && isPossibleDuplicate(incoming, s)) {
-      fuzzy.push({ ...base, _similarity: matchPercent(incoming, s) });
+      exact.push({ ...base, _similarity: 100, _sameDob: true });
+    } else if (sameDob) {
+      // Keep all same-DOB legacy rows (siblings / twins), not only fuzzy name hits
+      fuzzy.push({
+        ...base,
+        _similarity: matchPercent(incoming, s),
+        _sameDob: true,
+        ...(isPossibleDuplicate(incoming, s) ? {} : { _sameDobOnly: true }),
+      });
     } else if (
       fullIncoming === fullExisting
       && incoming.dob
@@ -288,5 +294,6 @@ export function matchLegacyRoster(
     }
   }
 
-  return { exact, fuzzy };
+  fuzzy.sort((a, b) => Number(b._similarity ?? 0) - Number(a._similarity ?? 0));
+  return { exact, fuzzy: fuzzy.slice(0, 15) };
 }

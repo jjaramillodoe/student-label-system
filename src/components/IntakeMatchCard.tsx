@@ -49,6 +49,10 @@ export type IntakeMatchStudent = {
   _legacy?: boolean;
   _dobMismatch?: boolean;
   _similarity?: number;
+  /** Same calendar DOB as the intake entry (sibling / twin review). */
+  _sameDob?: boolean;
+  /** Surfaced only because of shared DOB (name similarity below fuzzy threshold). */
+  _sameDobOnly?: boolean;
   _addressDriven?: boolean;
   _addressMatch?: string;
   _addressExisting?: string;
@@ -120,7 +124,19 @@ export default function IntakeMatchCard({
           <Badge variant="outline" className="text-[10px]">Diff. DOB</Badge>
         )}
         {student._similarity != null && !student._dobMismatch && (
-          <Badge variant="outline" className="text-[10px]">{student._similarity}% match</Badge>
+          <Badge
+            variant="outline"
+            className={`text-[10px] tabular-nums ${
+              student._similarity >= 80
+                ? 'border-amber-400 text-amber-900 dark:text-amber-200'
+                : ''
+            }`}
+          >
+            {student._similarity}% match
+          </Badge>
+        )}
+        {student._sameDob && !student._dobMismatch && (
+          <Badge variant="outline" className="text-[10px]">Same DOB</Badge>
         )}
         {student._addressDriven && (
           <Badge variant="outline" className="text-[10px]">Same address</Badge>

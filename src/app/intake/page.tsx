@@ -65,6 +65,7 @@ import IntakeAddressFields, {
   type IntakeAddressValues,
 } from '@/components/IntakeAddressFields';
 import IntakeMatchCard, { type IntakeMatchStudent } from '@/components/IntakeMatchCard';
+import IntakeDuplicatePanel from '@/components/IntakeDuplicatePanel';
 import { formatStudentAddressStacked } from '@/lib/addressValidation';
 import { googleMapsSearchUrl } from '@/lib/googleMaps';
 import { epeVisitsTotalMinutes } from '@/lib/epeClock';
@@ -73,6 +74,7 @@ import {
   addressMatchLabel,
   type AddressMatchKind,
 } from '@/lib/addressDuplicate';
+import { annotateAssistsSearchMatches } from '@/lib/intakeMatchAnnotate';
 import { formatFullName } from '@/lib/personName';
 
 const INTAKE_STATUS_OPTIONS = [
@@ -818,10 +820,10 @@ export default function IntakePage() {
     }
     const updated = { ...form, [key]: value };
     setForm(updated);
-    if (['firstName', 'lastName', 'dob'].includes(key)) {
+    // Do not clear sibling acknowledgement when typing first/last name — that is the
+    // sibling path (different name, same DOB). Only reset when DOB itself changes.
+    if (key === 'dob') {
       setSiblingAcknowledged(false);
-      // After unlock, editing identity in Personal Info should re-check later via scheduleCheck —
-      // do not wipe the ASISTS gate (search box is separate).
     }
     if (key === 'intakeStudentStatus') {
       setCheckResult(emptyCheckResult());
@@ -864,8 +866,10 @@ export default function IntakePage() {
       ]);
       const liveData = await liveRes.json();
       const legacyData = legacyRes.ok ? await legacyRes.json() : { results: [] };
-      const live = Array.isArray(liveData) ? liveData.slice(0, 12) : [];
-      const legacy = Array.isArray(legacyData.results) ? legacyData.results.slice(0, 12) : [];
+      const liveRaw = Array.isArray(liveData) ? liveData.slice(0, 12) : [];
+      const legacyRaw = Array.isArray(legacyData.results) ? legacyData.results.slice(0, 12) : [];
+      const live = annotateAssistsSearchMatches(liveRaw, q);
+      const legacy = annotateAssistsSearchMatches(legacyRaw, q);
 
       setCheckResult({
         status: live.length + legacy.length > 0 ? 'found' : 'clear',
@@ -2077,119 +2081,22 @@ export default function IntakePage() {
                   && newAssistsUnlocked
                   && checkResult.status === 'found'
                   && !assistsLegacySameAck && (
-                  <div
+                  <IntakeDuplicatePanel
                     ref={dobDuplicatePanelRef}
-                    className={`rounded-lg border-2 p-4 space-y-3 transition-colors ${
-                      siblingAcknowledged
-                        ? 'border-amber-400 bg-amber-50 dark:bg-amber-950/30 dark:border-amber-600'
-                        : 'border-destructive bg-destructive/5'
-                    }`}
-                  >
-                    <div className="flex items-start gap-2">
-                      {siblingAcknowledged
-                        ? <ShieldAlert className="h-5 w-5 text-amber-600 dark:text-amber-400 mt-0.5 shrink-0" />
-                        : <AlertCircle className="h-5 w-5 text-destructive mt-0.5 shrink-0" />
-                      }
-                      <div>
-                        <p className={`font-semibold text-sm ${siblingAcknowledged ? 'text-amber-800 dark:text-amber-200' : 'text-destructive'}`}>
-                          {siblingAcknowledged ? 'Flagged as different person — Data Lead will review' : 'Possible existing student(s) found'}
-                        </p>
-                        <p className={`text-xs mt-0.5 ${siblingAcknowledged ? 'text-amber-700 dark:text-amber-300' : 'text-destructive/80'}`}>
-                          Review name, DOB, and address before registering. Matches may be live files or ASISTS / legacy export.
-                          Use <span className="font-medium">This is a different person</span> for siblings or coincidences.
-                        </p>
-                      </div>
-                    </div>
-
-                    {(checkResult.exact.length > 0 || checkResult.fuzzy.length > 0) && (
-                      <div className="space-y-1.5">
-                        <p className="text-xs font-medium text-muted-foreground">In this system</p>
-                        {[...checkResult.exact, ...checkResult.fuzzy].map((s, i) => (
-                          <IntakeMatchCard
-                            key={s._id || i}
-                            student={s}
-                            cabinetMap={cabinetMap}
-                            drawerMap={drawerMap}
-                            onUseAsReturning={selectAsReturning}
-                          />
-                        ))}
-                      </div>
-                    )}
-
-                    {(checkResult.legacyExact.length > 0 || checkResult.legacyFuzzy.length > 0) && (
-                      <div className="space-y-1.5">
-                        <p className="text-xs font-medium text-violet-800 dark:text-violet-300">ASISTS / legacy roster</p>
-                        {[...checkResult.legacyExact, ...checkResult.legacyFuzzy].map((s, i) => (
-                          <IntakeMatchCard
-                            key={s._id || `legacy-${i}`}
-                            student={s}
-                            cabinetMap={cabinetMap}
-                            drawerMap={drawerMap}
-                            showUseButton={false}
-                          />
-                        ))}
-                      </div>
-                    )}
-
-                    <div className="rounded-md bg-muted/60 border border-border px-3 py-2.5 space-y-2">
-                      {dataLead && (
-                        <div className="flex items-center gap-3">
-                          <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary/10 border border-primary/20 shrink-0">
-                            <Users className="h-4 w-4 text-primary" />
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Not sure? Contact your {dataLead.role}</p>
-                            <p className="text-sm font-semibold text-foreground">{dataLead.name}</p>
-                          </div>
-                          <a
-                            href={`mailto:${dataLead.email}`}
-                            className="flex items-center gap-1.5 text-xs text-primary hover:underline shrink-0"
-                          >
-                            <Mail className="h-3.5 w-3.5" />
-                            {dataLead.email}
-                          </a>
-                        </div>
-                      )}
-                      <div className="flex items-center gap-2 pt-0.5">
-                        <button
-                          type="button"
-                          onClick={handleCopyMessage}
-                          className={`flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-md border font-medium transition-all ${
-                            copied
-                              ? 'border-green-400 bg-green-50 text-green-700 dark:bg-green-950/30 dark:text-green-400'
-                              : 'border-border bg-background hover:bg-accent text-muted-foreground hover:text-foreground'
-                          }`}
-                        >
-                          {copied
-                            ? <><Check className="h-3.5 w-3.5" /> Copied!</>
-                            : <><Copy className="h-3.5 w-3.5" /> Copy alert message</>}
-                        </button>
-                        <span className="text-xs text-muted-foreground">
-                          Paste into email, Teams, or Slack to notify your Data Lead
-                        </span>
-                      </div>
-                    </div>
-
-                    <div className={`rounded-md border px-3 py-3 flex items-start gap-3 transition-colors ${
-                      siblingAcknowledged
-                        ? 'border-amber-400 bg-amber-100/60 dark:bg-amber-900/20'
-                        : 'border-border bg-muted/30'
-                    }`}>
-                      <Checkbox
-                        id="siblingFlag"
-                        checked={siblingAcknowledged}
-                        onCheckedChange={v => setSiblingAcknowledged(Boolean(v))}
-                        className="mt-0.5"
-                      />
-                      <label htmlFor="siblingFlag" className="text-sm cursor-pointer select-none">
-                        <span className="font-medium">This is a different person with the same name</span>
-                        <span className="block text-xs text-muted-foreground mt-0.5">
-                          Check this if the student is a sibling, twin, or a coincidental name match.
-                          The record will be flagged for your Data Lead to review.
-                        </span>
-                      </label>
-                    </div>
-                  </div>
+                    matches={checkResult}
+                    siblingAcknowledged={siblingAcknowledged || assistsDifferentPersonAck}
+                    onSiblingAcknowledgedChange={on => {
+                      setSiblingAcknowledged(on);
+                      if (on) setAssistsDifferentPersonAck(true);
+                    }}
+                    onUseAsReturning={selectAsReturning}
+                    dataLead={dataLead}
+                    copied={copied}
+                    onCopyAlert={handleCopyMessage}
+                    cabinetMap={cabinetMap}
+                    drawerMap={drawerMap}
+                    siblingCheckboxId="siblingFlag"
+                  />
                 )}
               </div>
 
