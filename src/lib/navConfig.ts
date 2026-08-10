@@ -23,6 +23,7 @@ import {
   BookOpen,
   ExternalLink,
   Info,
+  Shield,
   type LucideIcon,
 } from 'lucide-react';
 import { MINTLIFY_DOCS_URL } from '@/lib/docsUrl';
@@ -102,6 +103,7 @@ export const NAV_GROUPS: NavGroup[] = [
     collapsible: true,
     items: [
       { href: '/admin/users', label: 'User Management', icon: Users, roles: ['Admin'] },
+      { href: '/admin/security', label: 'Security', icon: Shield, roles: ['Admin'] },
       { href: '/admin/schools', label: 'Schools', icon: Settings, roles: ['Admin', 'Data Lead'] },
       { href: '/admin/analytics', label: 'Analytics', icon: BarChart3, roles: ['Admin', 'Data Lead'] },
       { href: '/admin/activity-report', label: 'Activity Report', icon: TrendingUp, roles: ['Admin', 'Data Lead'] },

@@ -6,6 +6,8 @@ declare module 'next-auth' {
     role?: string;
     school?: string;
     forcePasswordChange?: boolean;
+    /** Credentials login without MFA enrolled — must set up TOTP on Profile */
+    forceMfaSetup?: boolean;
   }
 
   interface Session {
@@ -16,6 +18,7 @@ declare module 'next-auth' {
       role?: string;
       school?: string;
       forcePasswordChange?: boolean;
+      forceMfaSetup?: boolean;
     };
   }
 }
@@ -25,5 +28,6 @@ declare module 'next-auth/jwt' {
     role?: string;
     school?: string;
     forcePasswordChange?: boolean;
+    forceMfaSetup?: boolean;
   }
 }

@@ -60,7 +60,7 @@ There is **no Redis**, **no message queue**, and **no separate backend service**
 
 | Module | App routes | Purpose |
 | --- | --- | --- |
-| Authentication | `/auth/signin`, `/api/auth/*` | Login, MFA, sessions |
+| Authentication | `/auth/signin`, `/api/auth/*`, `/admin/security` | Login, MFA, 12h JWT sessions, auth event log |
 | App shell | `AppShell`, `navConfig` | Left sidebar for Admin / Data Lead / Data Member |
 | Intake | `/intake`, `/api/intake/*` | Student registration at front desk (no sidebar) |
 | Students | `/api/students`, `/admin/students/*` | CRUD, bulk upload, lookup |

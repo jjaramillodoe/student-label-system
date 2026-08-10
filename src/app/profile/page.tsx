@@ -1,8 +1,8 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { Suspense, useState, useEffect } from 'react';
 import { useSession } from 'next-auth/react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { User, Mail, Building2, Shield, Calendar, Save, Loader2, KeyRound } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -17,8 +17,26 @@ import { roleBadgeClass } from '@/lib/roleBadge';
 import { QRCodeSVG } from 'qrcode.react';
 
 export default function ProfilePage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="w-full max-w-4xl space-y-6">
+          <Skeleton className="h-10 w-64" />
+          <Skeleton className="h-96 w-full" />
+        </div>
+      }
+    >
+      <ProfilePageInner />
+    </Suspense>
+  );
+}
+
+function ProfilePageInner() {
   const { data: session, status, update } = useSession();
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const enrollMfa = searchParams.get('enrollMfa') === '1';
+  const needsMfaSetup = Boolean(session?.user?.forceMfaSetup) || enrollMfa;
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [success, setSuccess] = useState('');
@@ -156,7 +174,8 @@ export default function ProfilePage() {
       setMfaPassword('');
       setMfaCode('');
       setMfaSetup(null);
-      setSuccess('MFA enabled for your account.');
+      await update({ forceMfaSetup: false });
+      setSuccess('MFA enabled for your account. You can use the rest of the app now.');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to verify MFA setup.');
     } finally {
@@ -249,16 +268,27 @@ export default function ProfilePage() {
           </Alert>
         )}
 
+        {needsMfaSetup && !userData?.mfaEnabled && (
+          <Alert variant="destructive">
+            <Shield className="h-4 w-4" />
+            <AlertDescription>
+              Multi-factor authentication is required before you can use the rest of the app.
+              Use the MFA section below to enroll with your authenticator app.
+            </AlertDescription>
+          </Alert>
+        )}
+
         <Alert>
           <Shield className="h-4 w-4 text-muted-foreground" />
           <AlertDescription className="text-sm space-y-1">
             <p>
-              <strong>MFA is required</strong> until DOE SSO is available. Keep your authenticator app
+              <strong>MFA is required</strong> for password sign-in. Keep your authenticator app
               available; if you lose access, ask an Admin to temporarily disable MFA so you can re-enroll.
             </p>
             <p className="text-xs text-muted-foreground">
-              Shared desks may show a “Still using the app?” prompt after idle time (configured in
-              Admin → System Settings). On Intake, a draft is saved in this browser if you are signed out.
+              Sessions expire after 12 hours. Shared desks may also show a “Still using the app?” prompt
+              after idle time (Admin → System Settings). On Intake, a draft is saved in this browser if
+              you are signed out.
             </p>
           </AlertDescription>
         </Alert>

@@ -4,6 +4,7 @@ import { ObjectId } from 'mongodb';
 import * as bcrypt from 'bcrypt';
 import { authOptions } from '@/lib/authOptions';
 import clientPromise from '@/lib/mongodb';
+import { logAuthEvent } from '@/lib/authSecurity';
 
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const session = await getServerSession(authOptions);
@@ -80,6 +81,17 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
           },
         }
       );
+
+      await logAuthEvent({
+        type: 'mfa_disabled',
+        email: String(user.email || ''),
+        reason: 'Admin disabled MFA',
+        meta: {
+          byEmail: session.user?.email || '',
+          byName: session.user?.name || '',
+          userId: id,
+        },
+      });
 
       return NextResponse.json({ success: true, message: 'MFA disabled. User can re-enroll from Profile.' });
     }

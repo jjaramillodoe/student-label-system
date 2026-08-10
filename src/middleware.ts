@@ -82,6 +82,41 @@ export async function middleware(req: NextRequest) {
     return withTenantHeaders(NextResponse.redirect(signInUrl));
   }
 
+  // Credentials login without MFA: only Profile (enroll) + limited APIs
+  if (token.forceMfaSetup) {
+    if (path.startsWith('/api')) {
+      const apiOk =
+        path.startsWith('/api/auth') ||
+        path.startsWith('/api/profile') ||
+        path.startsWith('/api/users') ||
+        path.startsWith('/api/tenant');
+      if (!apiOk) {
+        return NextResponse.json(
+          { error: 'MFA enrollment required before using the app.' },
+          { status: 403 },
+        );
+      }
+    } else {
+      const allowed =
+        path.startsWith('/profile') ||
+        path.startsWith('/auth') ||
+        path.startsWith('/docs') ||
+        path.startsWith('/geo-blocked');
+      if (!allowed) {
+        return withTenantHeaders(
+          NextResponse.redirect(new URL('/profile?enrollMfa=1', req.url)),
+        );
+      }
+    }
+  }
+
+  // Forced password change: keep them on profile until updated
+  if (token.forcePasswordChange && !path.startsWith('/api') && !path.startsWith('/profile') && !path.startsWith('/auth')) {
+    return withTenantHeaders(
+      NextResponse.redirect(new URL('/profile?changePassword=1', req.url)),
+    );
+  }
+
   // Intake Members: keep them on intake / profile / docs / public pages
   if (token.role === 'Intake Member' && !path.startsWith('/api')) {
     const allowed =

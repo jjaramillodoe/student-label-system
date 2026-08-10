@@ -4,6 +4,7 @@ import AzureADProvider from 'next-auth/providers/azure-ad';
 import clientPromise from './mongodb';
 import * as bcrypt from 'bcrypt';
 import { verifyMfaToken } from './mfa';
+import { logAuthEvent } from './authSecurity';
 
 type DbUser = {
   _id: unknown;
@@ -17,6 +18,9 @@ type DbUser = {
   mfaSecret?: string;
   forcePasswordChange?: boolean;
 };
+
+/** Password sessions last 12 hours (idle timeout still signs out earlier on shared desks). */
+const SESSION_MAX_AGE_SECONDS = 12 * 60 * 60;
 
 export function isAzureAdConfigured(): boolean {
   return Boolean(
@@ -66,12 +70,24 @@ const providers: NextAuthOptions['providers'] = [
       const email = credentials.email.toLowerCase();
       const user = await loadDbUserByEmail(email);
       if (!user || !user.password) {
+        await logAuthEvent({
+          type: 'user_unknown',
+          email,
+          reason: 'Unknown email or account has no password login',
+        });
         return null;
       }
       const isValid = await bcrypt.compare(credentials.password, user.password);
       if (!isValid) {
+        await logAuthEvent({
+          type: 'login_failure',
+          email,
+          reason: 'Invalid password',
+        });
         return null;
       }
+
+      let forceMfaSetup = false;
 
       if (user.mfaEnabled && user.mfaSecret) {
         const rawMfaCode = credentials.mfaCode?.trim();
@@ -82,6 +98,11 @@ const providers: NextAuthOptions['providers'] = [
         }
 
         if (!(await verifyMfaToken(mfaCode, user.mfaSecret))) {
+          await logAuthEvent({
+            type: 'mfa_failure',
+            email,
+            reason: 'Invalid MFA code',
+          });
           throw new Error('MFA_INVALID');
         }
       } else if (user.mfaEnabled && !user.mfaSecret) {
@@ -99,9 +120,19 @@ const providers: NextAuthOptions['providers'] = [
             },
           },
         );
+        forceMfaSetup = true;
+      } else {
+        // Credentials login requires MFA enrollment (DOE password accounts)
+        forceMfaSetup = true;
       }
 
       await touchLastLogin(user._id);
+      await logAuthEvent({
+        type: 'login_success',
+        email,
+        reason: forceMfaSetup ? 'Signed in — MFA enrollment required' : 'Signed in',
+        meta: { forceMfaSetup },
+      });
 
       return {
         id: String(user._id),
@@ -110,6 +141,7 @@ const providers: NextAuthOptions['providers'] = [
         role: user.role || 'Data Member',
         school: user.school || '',
         forcePasswordChange: Boolean(user.forcePasswordChange),
+        forceMfaSetup,
       };
     },
   }),
@@ -213,11 +245,19 @@ export const authOptions: NextAuthOptions = {
       if (!dbUser) return '/auth/error?error=UserNotProvisioned';
 
       await touchLastLogin(dbUser._id);
+      await logAuthEvent({
+        type: 'login_success',
+        email,
+        reason: 'Microsoft SSO sign-in',
+        meta: { provider: 'azure-ad' },
+      });
       user.id = String(dbUser._id);
       user.name = dbUser.name || user.name || email;
       user.role = dbUser.role || 'Data Member';
       user.school = dbUser.school || '';
       user.forcePasswordChange = false;
+      // DOE Azure Conditional Access covers SSO — do not force app TOTP
+      user.forceMfaSetup = false;
       return true;
     },
     async session({ session, token }) {
@@ -227,14 +267,21 @@ export const authOptions: NextAuthOptions = {
         session.user.email = token.email as string;
         session.user.school = token.school as string;
         session.user.forcePasswordChange = Boolean(token.forcePasswordChange);
+        session.user.forceMfaSetup = Boolean(token.forceMfaSetup);
       }
       return session;
     },
     async jwt({ token, user, account, trigger, session }) {
-      if (trigger === 'update' && (session as { forcePasswordChange?: boolean } | undefined)?.forcePasswordChange !== undefined) {
-        token.forcePasswordChange = Boolean(
-          (session as { forcePasswordChange?: boolean }).forcePasswordChange,
-        );
+      const updatePayload = session as {
+        forcePasswordChange?: boolean;
+        forceMfaSetup?: boolean;
+      } | undefined;
+
+      if (trigger === 'update' && updatePayload?.forcePasswordChange !== undefined) {
+        token.forcePasswordChange = Boolean(updatePayload.forcePasswordChange);
+      }
+      if (trigger === 'update' && updatePayload?.forceMfaSetup !== undefined) {
+        token.forceMfaSetup = Boolean(updatePayload.forceMfaSetup);
       }
 
       if (user) {
@@ -243,6 +290,7 @@ export const authOptions: NextAuthOptions = {
         token.email = user.email;
         token.school = user.school || '';
         token.forcePasswordChange = Boolean(user.forcePasswordChange);
+        token.forceMfaSetup = Boolean(user.forceMfaSetup);
       }
 
       // Only hit Mongo on Azure AD sign-in (not every credentials JWT refresh)
@@ -256,10 +304,23 @@ export const authOptions: NextAuthOptions = {
               token.school = dbUser.school || '';
               token.name = dbUser.name || token.name;
               token.forcePasswordChange = Boolean(dbUser.forcePasswordChange);
+              token.forceMfaSetup = false;
             }
           } catch (err) {
             console.error('[auth] azure-ad jwt user lookup failed', err);
           }
+        }
+      }
+
+      // Keep forceMfaSetup in sync after enrollment
+      if (trigger === 'update' && token.forceMfaSetup && token.email) {
+        try {
+          const dbUser = await loadDbUserByEmail(String(token.email).toLowerCase());
+          if (dbUser?.mfaEnabled && dbUser.mfaSecret) {
+            token.forceMfaSetup = false;
+          }
+        } catch {
+          /* ignore */
         }
       }
 
@@ -272,7 +333,7 @@ export const authOptions: NextAuthOptions = {
   },
   session: {
     strategy: 'jwt',
-    maxAge: 30 * 24 * 60 * 60, // 30 days
+    maxAge: SESSION_MAX_AGE_SECONDS,
   },
   secret: process.env.NEXTAUTH_SECRET,
 };

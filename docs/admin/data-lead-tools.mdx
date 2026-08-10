@@ -66,6 +66,7 @@ Staff pages (Admin, Data Lead, Data Member) use a **left sidebar**. Grouped link
 | School Year Rollover | `/admin/school-year` | End-of-year checklist | Admin, Data Lead |
 | Label Stock | `/admin/label-stock` | Avery inventory, burn rate, restock | Admin, Data Lead |
 | Users | `/admin/users` | Roles, schools, MFA recovery | Admin |
+| Security | `/admin/security` | Failed sign-ins, MFA events, security review | Admin |
 | System Settings | `/admin/settings` | App-wide options, including **idle session prompt** | Admin |
 | Analytics | `/admin/analytics` | Live enrollment / storage / print metrics | Admin, Data Lead |
 | MotherDuck Analytics | `/admin/motherduck-analytics` | Warehouse analytics (Mongo → MotherDuck sync) | **Admin only** |
@@ -98,17 +99,18 @@ Admins can configure an **idle session prompt** under **Admin → System Setting
 | Idle minutes | 15 | How long to wait before the prompt |
 | Grace seconds | 60 | Time to click Continue before the app signs the user out |
 
-This is a **client-side** safety prompt for shared front-desk computers. It does not replace NextAuth session length.
+This is a **client-side** safety prompt for shared front-desk computers. NextAuth JWT sessions also expire after **12 hours**.
 
 ## Security
 
 <Warning>
-  **MFA is required for every account** until DOE Single Sign-On (SSO) is available. All staff (Admin, Data Lead, Data Member, Intake Member) must enable authenticator-app MFA. This protects student data while the app still uses email/password login.
+  **MFA is required for password sign-in** until DOE Single Sign-On (SSO) is available. All staff (Admin, Data Lead, Data Member, Intake Member) must enable authenticator-app MFA. Accounts without MFA are limited to Profile until they enroll.
 </Warning>
 
 - Sign in with your DOE email and password, then enter the **6-digit MFA code** from your authenticator app
 - Users set up MFA from **Profile** (QR code + verify)
 - Admins can reset passwords, force password changes, and **temporarily disable MFA** only to recover locked-out users — the user must re-enable MFA after recovery
+- Admins review failed logins and MFA events at **Admin → Security** (`/admin/security`); repeated failures can email notification recipients
 - SSO (Microsoft Entra ID / `@schools.nyc.gov`) is planned; until then MFA remains mandatory for security
 
 See also [User roles](/user-roles).
