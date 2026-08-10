@@ -27,12 +27,12 @@ const roleGuides = [
   {
     role: 'Data Member',
     scope: 'Assigned school',
-    notes: 'Add, edit, search, print, and export student records for their assigned school. Print Avery 5163 / 94205 via Download Word Doc on Letter.',
+    notes: 'Add, edit, search, print, and export student records for their assigned school. Use Needs label on Find & print for never-printed students. Print Avery 5163 / 94205 via Download Word Doc on Letter.',
   },
   {
     role: 'Intake Member',
     scope: 'Assigned school',
-    notes: 'Access only the Intake Form. Register new and returning students, run live duplicate checks, flag potential siblings, and review a success summary after save. Labels are printed later in batches from the Dashboard (Word Doc). Cannot access the main dashboard or admin tools.',
+    notes: 'Access only the Intake Form. Register new and returning students, run ASISTS + live duplicate checks, notify Data Leads with Copy alert / Email with alert, flag potential siblings, and review a success summary after save. Labels are printed later in batches from the Dashboard (Word Doc). Cannot access the main dashboard or admin tools.',
     isNew: true,
   },
 ];
@@ -47,6 +47,7 @@ const featureGroups = [
       'Create student records with auto-generated Label ID (e.g. 1979-JJ-0000001) and demographic Student ID.',
       'Search by name, email, Label ID, or Student ID.',
       'Advanced filters for status, fiscal year, dates, cabinet, and drawer.',
+      'Needs label chip on Find & print: show only students who have never appeared in print history.',
       'Save common searches for quick reuse.',
       'Archive inactive records and restore when needed.',
       'Returning archived students keep their archive box location in Intake — a new drawer is not auto-assigned.',
@@ -60,15 +61,16 @@ const featureGroups = [
     isNew: true,
     items: [
       'Available only to Intake Members (and Admins/Data Leads for testing).',
-      'NEW students: contact & address (street + separate Apt/Unit), paste/parse, NYC Geoclient verify, Google Maps link.',
-      'Live duplicate check uses name + home address — same address strengthens match; different address flags possible sibling or move.',
+      'NEW students: required Check ASISTS first (name, DOB, or both), then contact & address (street + Apt/Unit), NYC Geoclient verify, Google Maps link.',
+      'Age rules: 16+ overall; BE/ESL requires age 21, or near-eligible within 6 weeks (eligibility notice). Farther under 21 → P2G referral.',
+      'After unlock, duplicate panel shows % match and Same DOB; same DOB always surfaces for sibling review; address strengthens or weakens the match.',
       'RETURNING students: search on the same screen, visit history accordion, personal info and address locked; record today\'s visit only.',
       'NEW active students: automatically assigns the next available cabinet/drawer slot.',
       'After save, shows a registration/visit summary (location, session, times) — not a label print dialog.',
-      'Under-21 BE/ESL applicants get a copyable P2G referral message on the success screen.',
+      'Under-21 / ineligible BE/ESL applicants get a copyable P2G referral message on the success screen when applicable.',
       'Labels are printed later in batches from the Dashboard via Download Word Doc (Letter, 100%).',
-      '"This is a different person" checkbox flags potential siblings for Data Lead review.',
-      '"Copy alert message" button generates a ready-to-paste message for Teams, email, or Slack.',
+      '"This is a different person" / "Not the same person sitting here" flags potential siblings for Data Lead review.',
+      '"Copy alert message" and "Email with alert" send a structured Data Lead note (school, reporter, NEW student, matches, Duplicates link).',
       'Intake History tab shows registrations for today or this week, filtered to your own or all staff.',
     ],
   },
@@ -78,8 +80,9 @@ const featureGroups = [
     icon: CopyCheck,
     isNew: true,
     items: [
-      'Flagged section: students marked by Intake Members as potential duplicates.',
+      'Flagged section: students marked by Intake Members as potential duplicates / different person.',
       'Auto-detected section: same DOB + similar name, or same DOB + same home address (even when names differ).',
+      'Intake alert email includes subject, school, reporter, NEW student fields, match details, and /admin/duplicates link.',
       'Each pair shows formatted addresses and comparison badges: Same verified / Same address / Same building / Different address.',
       '"Matched by address" badge when the pair was found primarily by home address.',
       '"Confirm Siblings" links both records bidirectionally; sibling info appears on student detail page.',
@@ -150,8 +153,9 @@ const featureGroups = [
     icon: QrCode,
     items: [
       'Default layout: Avery 5163 on Letter (8.5"×11") — 10 labels per sheet (also Avery 94205).',
+      'Needs label on Find & print: only students never logged in print history (refreshes after you print from the app).',
       'Download Word Doc from the print preview, then print from Word at 100% with margins None.',
-      'Label shows student name, DOB, barcode (Label ID), and a large QR code.',
+      'Label shows Last, First, DOB, 5-digit batch sequence, barcode (Label ID), and a large QR code.',
       'Student QR codes link to a public detail page — no login required to scan.',
       'Archive box QR codes link to a public box page with storage location and student file list.',
       'Detail page shows: Label ID, Student ID, name, DOB, cabinet, drawer, school, and sibling links.',
@@ -211,14 +215,16 @@ const featureGroups = [
       'Data Cleanup: invalid emails, missing dates, old inactive records.',
       'Activity Report: student record event log.',
       'Schools / School Settings: configure school names, Agency IDs, and current fiscal year.',
+      'System Settings (/admin/settings): idle session prompt (default 15 minutes idle, then “Still using the app?” before sign-out).',
     ],
   },
   {
     title: 'Security',
-    description: 'Account access, MFA, and admin recovery features.',
+    description: 'Account access, MFA, idle prompt, and admin recovery features.',
     icon: Lock,
     items: [
       'MFA is required for every account until DOE SSO is available.',
+      'Idle session prompt (Admin → System Settings) asks if you are still using the app after inactivity on shared desks.',
       'Users can change their own passwords from Profile.',
       'Authenticator-app MFA with QR setup and 6-digit codes.',
       'Admins can reset passwords, force password changes, and temporarily disable MFA only to recover locked-out users (re-enable after).',
@@ -246,6 +252,7 @@ const quickLinks = [
   { href: '/admin/print-queue', label: 'Print Queue', icon: Printer },
   { href: '/admin/data-cleanup', label: 'Data Cleanup', icon: Sparkles },
   { href: '/admin/schools', label: 'Schools & Agency IDs', icon: Settings },
+  { href: '/admin/settings', label: 'System Settings', icon: Settings },
   { href: '/profile', label: 'Profile Security', icon: KeyRound },
 ];
 
@@ -487,7 +494,7 @@ address, apt, city, state, zip`}
                   { n: '5', label: 'After archiving, sync students to physical boxes if prompted. Each box gets a unique ID and printable label.' },
                   { n: '6', label: 'Print or Download PDF from the box label dialog. Attach the label to the physical box — QR links to the public box page.' },
                   { n: '7', label: 'Store boxes at the recorded location. Keep physical files for the 7-year retention period.' },
-                  { n: '8', label: 'When a returning student re-enrolls through Intake, the system reactivates their record and assigns the next open drawer automatically.' },
+                  { n: '8', label: 'When a returning archived student is logged in Intake, their archive box location and QR are shown — a new drawer is not auto-assigned for the school year.' },
                 ].map(step => (
                   <li key={step.n} className="flex gap-3">
                     <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-primary text-xs font-bold text-primary-foreground">{step.n}</span>
@@ -509,12 +516,12 @@ address, apt, city, state, zip`}
               <ol className="space-y-3 text-sm">
                 {[
                   { n: '1', label: 'Intake Member opens /intake. Choose NEW (first visit) or RETURNING (search existing record).' },
-                  { n: '2', label: 'NEW: enter name, DOB, phone, email, and address (street + Apt/Unit). Verify with NYC Geoclient when available.' },
-                  { n: '3', label: 'Live duplicate check compares name and home address. Same address strengthens the match; different address may indicate siblings or a move.' },
-                  { n: '4', label: 'If a match is found: stop if same person; otherwise check "This is a different person" and use "Copy alert message" for the Data Lead.' },
+                  { n: '2', label: 'NEW: Check ASISTS first (name, DOB, or both). Confirm same person, not the same person, or acknowledge no match before personal info unlocks.' },
+                  { n: '3', label: 'Enter name and DOB (16+; BE/ESL age 21 or within 6 weeks). Add phone, email, and address (street + Apt/Unit). Verify with NYC Geoclient when available.' },
+                  { n: '4', label: 'Review matches under DOB (% match, Same DOB). If different person: check the sibling flag and use Copy alert message or Email with alert for the Data Lead.' },
                   { n: '5', label: 'RETURNING: search, review visit history accordion, record today\'s visit only — personal info and address stay locked.' },
-                  { n: '6', label: 'Click Register Student (or Log Visit & Save). Review the success summary — location, session, and times. Under-21 BE/ESL gets a P2G referral card.' },
-                  { n: '7', label: 'Labels are printed later from the Dashboard: select students → Print → Download Word Doc → print from Word on Letter at 100%.' },
+                  { n: '6', label: 'Click Register Student (or Log Visit & Save). Review the success summary — location, session, and times. Near-eligible / under-21 cases show eligibility notice or P2G referral when applicable.' },
+                  { n: '7', label: 'Labels are printed later from the Dashboard: optionally click Needs label → select students → Print → Download Word Doc → print from Word on Letter at 100%.' },
                   { n: '8', label: 'Data Lead reviews /admin/duplicates with address comparison: Confirm Siblings, Merge, or Dismiss.' },
                 ].map(step => (
                   <li key={step.n} className="flex gap-3">
