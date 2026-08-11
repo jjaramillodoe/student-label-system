@@ -6,7 +6,7 @@ import { useRouter } from 'next/navigation';
 import PageIntro from '@/components/PageIntro';
 import {
   Users, GitMerge, CheckCheck, X, RefreshCw, Loader2,
-  AlertTriangle, ChevronRight, Info, MapPin,
+  AlertTriangle, ChevronRight, Info, MapPin, Database,
 } from 'lucide-react';
 import {
   addressMatchHint,
@@ -27,6 +27,8 @@ import { Separator } from '@/components/ui/separator';
 import { Skeleton } from '@/components/ui/skeleton';
 import UndoSnackbar from '@/components/UndoSnackbar';
 import MergeFieldReview from '@/components/MergeFieldReview';
+import LegacyRosterReviewPanel from '@/components/LegacyRosterReviewPanel';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
   buildDefaultFieldChoices,
   buildMergeFieldDiff,
@@ -638,7 +640,7 @@ export default function DuplicatesPage() {
         <PageIntro
           eyebrow="Students"
           title="Duplicate Review"
-          description="Students flagged as possible siblings or duplicates by intake staff. Review each pair and confirm, merge, or dismiss."
+          description="Review live sibling/duplicate pairs, or scan the school’s ASISTS/MDB legacy roster for garbage data and matches already in the system."
           icon={<Users className="h-5 w-5 text-primary" />}
           actions={
             <Button variant="outline" onClick={load} disabled={loading} className="gap-2">
@@ -646,6 +648,18 @@ export default function DuplicatesPage() {
             </Button>
           }
         />
+
+        <Tabs defaultValue="live" className="space-y-4">
+          <TabsList>
+            <TabsTrigger value="live" className="gap-1.5">
+              <Users className="h-3.5 w-3.5" /> Live students
+            </TabsTrigger>
+            <TabsTrigger value="legacy" className="gap-1.5">
+              <Database className="h-3.5 w-3.5" /> Legacy MDB import
+            </TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="live" className="space-y-6 mt-0">
 
         {error && (
           <Alert variant="destructive">
@@ -966,6 +980,15 @@ export default function DuplicatesPage() {
         onUndo={() => { void handleUndoMerge(); }}
         message="Records merged — secondary deleted. Undo available ~60s (or 15m from Recent merges)."
       />
+          </TabsContent>
+
+          <TabsContent value="legacy" className="mt-0">
+            <LegacyRosterReviewPanel
+              role={role}
+              userSchool={(session?.user as { school?: string } | undefined)?.school}
+            />
+          </TabsContent>
+        </Tabs>
     </div>
   );
 }

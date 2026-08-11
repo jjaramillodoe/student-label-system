@@ -3,7 +3,10 @@ title: Duplicates and siblings
 description: Review flagged and auto-detected duplicate student records with address comparison.
 ---
 
-Data Leads use **Students → Duplicates** (`/admin/duplicates`) to resolve potential duplicate records. Each pair shows **home addresses** and how they compare.
+Data Leads use **Students → Duplicates** (`/admin/duplicates`) to resolve potential duplicate records. The page has two tabs:
+
+1. **Live students** — sibling / duplicate pairs already in the system (merge, confirm, dismiss)
+2. **Legacy MDB import** — scan the school’s uploaded ASISTS/MDB roster for garbage data and matches against live students
 
 ## Who can access
 
@@ -107,7 +110,24 @@ Use **All primary** or **Prefer secondary fills** for quick defaults, then adjus
 
 ## Recent merges
 
-The bottom of Duplicate Review lists recent merges for your school (who merged, which names, field change count). Use **Undo** there while the 15-minute window remains.
+The bottom of the **Live students** tab lists recent merges for your school (who merged, which names, field change count). Use **Undo** there while the 15-minute window remains.
+
+## Legacy MDB import review
+
+Upload the school’s ASISTS Access (`.mdb` / `.accdb`) or CSV roster under **Admin → Schools** (legacy roster upload). Then open **Duplicates → Legacy MDB import**.
+
+The review scans `school_legacy_roster` for that school and reports:
+
+| Bucket | Meaning |
+| --- | --- |
+| **Garbage / low quality** | 1-letter names, placeholders (TBD/N/A), missing/invalid/future DOB, numeric names, etc. |
+| **ID conflicts** | Same ASISTS/external ID as a live student, but the **name differs** |
+| **Fuzzy matches** | Likely already filed (name/DOB similarity) — review before creating another record |
+| **Exact in system** | Same name+DOB or same ASISTS ID already registered |
+| **Dupes in MDB** | Identical rows repeated inside the import file |
+| **Legacy only** | In the MDB but not yet in this system (sample) |
+
+This tab is **read-only** — it does not merge or delete. Use Intake / live Duplicate Review for filing actions. Re-upload the MDB from School Settings when ASISTS data changes.
 
 ## Related pages
 
