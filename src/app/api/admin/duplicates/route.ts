@@ -20,6 +20,10 @@ import {
   type AppliedFieldChange,
 } from '@/lib/mergeFields';
 
+export const MERGE_HISTORY_COLLECTION = 'merge_history';
+/** How long Undo remains available from history (ms). */
+export const MERGE_HISTORY_UNDO_MS = 15 * 60 * 1000;
+
 /**
  * GET /api/admin/duplicates
  *
@@ -27,6 +31,7 @@ import {
  *   flagged      — students with siblingFlag:true + their fuzzy matches
  *   autoDetected — pairs found by scanning all students for same-DOB name similarity
  *                  (excludes already-confirmed siblings and already-flagged records)
+ *   recentMerges — durable merge history (undoable within MERGE_HISTORY_UNDO_MS)
  */
 export async function GET() {
   const session = await getServerSession(authOptions);
@@ -134,21 +139,50 @@ export async function GET() {
     }
   }
 
-  return NextResponse.json({ flagged: flaggedPairs, autoDetected: autoPairs });
+  const historyFilter: Record<string, unknown> = { undoneAt: { $exists: false } };
+  if (role !== 'Admin') historyFilter.school = school;
+  const recentMergeDocs = await db.collection(MERGE_HISTORY_COLLECTION)
+    .find(historyFilter)
+    .sort({ at: -1 })
+    .limit(20)
+    .toArray();
+  const nowMs = Date.now();
+  const recentMerges = recentMergeDocs.map((h) => {
+    const atMs = new Date(String(h.at)).getTime();
+    const undoRemainingMs = Math.max(0, MERGE_HISTORY_UNDO_MS - (nowMs - atMs));
+    return {
+      _id: String(h._id),
+      at: h.at,
+      byEmail: h.byEmail || '',
+      byName: h.byName || '',
+      school: h.school || '',
+      primaryId: h.primaryId,
+      primaryName: h.primaryName || '',
+      secondaryId: h.secondaryId,
+      secondaryName: h.secondaryName || '',
+      fieldCount: Array.isArray(h.changes) ? h.changes.length : 0,
+      drawerTransferred: Boolean(h.drawerTransferred),
+      canUndo: undoRemainingMs > 0,
+      undoRemainingMs,
+    };
+  });
+
+  return NextResponse.json({
+    flagged: flaggedPairs,
+    autoDetected: autoPairs,
+    recentMerges,
+    mergeUndoWindowMs: MERGE_HISTORY_UNDO_MS,
+  });
 }
 
 /**
  * POST /api/admin/duplicates
  * Body: {
  *   action, primaryId, secondaryId?,
- *   fieldChoices?,          // merge: per-field primary|secondary
- *   secondary?, changes?,   // undo_merge snapshot
+ *   fieldChoices?, transferDrawer?,
+ *   secondary?, changes?, historyId?, drawerTransferred?,
+ *   pairs?,  // bulk_confirm_siblings | bulk_dismiss
  * }
- *
- * action = 'merge'            — keep primaryId, apply field choices, delete secondaryId
- * action = 'undo_merge'       — restore deleted secondary + revert applied field changes
- * action = 'confirm_siblings' — both are real siblings; clear siblingFlag on both
- * action = 'dismiss'          — not a duplicate; clear siblingFlag on primaryId only
  */
 export async function POST(req: NextRequest) {
   const session = await getServerSession(authOptions);
@@ -161,29 +195,124 @@ export async function POST(req: NextRequest) {
   const body = await req.json();
   const {
     action, primaryId, secondaryId, secondary, filledFields, fieldChoices, changes,
-    transferDrawer, drawerTransferred,
+    transferDrawer, drawerTransferred, historyId, pairs,
   } = body;
-  if (!action || !primaryId) {
-    return NextResponse.json({ error: 'action and primaryId required' }, { status: 400 });
+  if (!action) {
+    return NextResponse.json({ error: 'action required' }, { status: 400 });
   }
 
   const client = await clientPromise;
   const db = client.db('student-label');
 
-  const primaryOid = new ObjectId(primaryId);
-  const primary = await db.collection('students').findOne({ _id: primaryOid });
-  if (!primary) return NextResponse.json({ error: 'Primary student not found' }, { status: 404 });
-  if (role !== 'Admin' && primary.school !== school) {
-    return NextResponse.json({ error: 'Forbidden for this school' }, { status: 403 });
+  // ── BULK CONFIRM / DISMISS (same-building helpers) ─────────────────────────
+  if (action === 'bulk_confirm_siblings' || action === 'bulk_dismiss') {
+    if (!Array.isArray(pairs) || pairs.length === 0) {
+      return NextResponse.json({ error: 'pairs array required' }, { status: 400 });
+    }
+    if (pairs.length > 50) {
+      return NextResponse.json({ error: 'Max 50 pairs per bulk action' }, { status: 400 });
+    }
+    const now = new Date().toISOString();
+    let processed = 0;
+    for (const pair of pairs) {
+      const aId = String(pair?.primaryId || '');
+      const bId = String(pair?.secondaryId || '');
+      if (!ObjectId.isValid(aId) || !ObjectId.isValid(bId)) continue;
+      const aOid = new ObjectId(aId);
+      const bOid = new ObjectId(bId);
+      const aDoc = await db.collection('students').findOne({ _id: aOid });
+      const bDoc = await db.collection('students').findOne({ _id: bOid });
+      if (!aDoc || !bDoc) continue;
+      if (role !== 'Admin' && (aDoc.school !== school || bDoc.school !== school)) continue;
+
+      if (action === 'bulk_confirm_siblings') {
+        await db.collection('students').updateOne(
+          { _id: aOid },
+          {
+            $set: { siblingFlag: false, siblingConfirmed: true, siblingReviewedAt: now },
+            $addToSet: { siblingWith: bId },
+          },
+        );
+        await db.collection('students').updateOne(
+          { _id: bOid },
+          {
+            $set: { siblingFlag: false, siblingConfirmed: true, siblingReviewedAt: now },
+            $addToSet: { siblingWith: aId },
+          },
+        );
+      } else {
+        await db.collection('students').updateOne(
+          { _id: aOid },
+          {
+            $set: { siblingFlag: false, siblingReviewedAt: now },
+            $addToSet: { siblingDismissed: bId },
+          },
+        );
+        await db.collection('students').updateOne(
+          { _id: bOid },
+          {
+            $set: { siblingFlag: false, siblingReviewedAt: now },
+            $addToSet: { siblingDismissed: aId },
+          },
+        );
+      }
+      processed += 1;
+    }
+    return NextResponse.json({ success: true, action, processed });
+  }
+
+  if (!primaryId && action !== 'undo_merge') {
+    return NextResponse.json({ error: 'primaryId required' }, { status: 400 });
   }
 
   // ── UNDO MERGE ───────────────────────────────────────────────────────────────
   if (action === 'undo_merge') {
-    if (!secondary || !secondary._id) {
-      return NextResponse.json({ error: 'secondary snapshot required' }, { status: 400 });
+    let undoPrimaryId = primaryId as string | undefined;
+    let undoSecondary = secondary as Record<string, unknown> | undefined;
+    let undoChanges: AppliedFieldChange[] = Array.isArray(changes) ? changes : [];
+    let undoFilled: string[] = Array.isArray(filledFields) ? filledFields : [];
+    let wasTransferred = Boolean(drawerTransferred);
+    let historyOid: ObjectId | null = null;
+
+    if (historyId && ObjectId.isValid(String(historyId))) {
+      historyOid = new ObjectId(String(historyId));
+      const hist = await db.collection(MERGE_HISTORY_COLLECTION).findOne({ _id: historyOid });
+      if (!hist) return NextResponse.json({ error: 'Merge history not found' }, { status: 404 });
+      if (hist.undoneAt) {
+        return NextResponse.json({ error: 'This merge was already undone' }, { status: 409 });
+      }
+      if (role !== 'Admin' && hist.school && hist.school !== school) {
+        return NextResponse.json({ error: 'Forbidden for this school' }, { status: 403 });
+      }
+      const age = Date.now() - new Date(String(hist.at)).getTime();
+      if (age > MERGE_HISTORY_UNDO_MS) {
+        return NextResponse.json({
+          error: 'Undo window expired (15 minutes). Contact an Admin if you need a manual restore.',
+        }, { status: 400 });
+      }
+      undoPrimaryId = String(hist.primaryId);
+      undoSecondary = hist.secondary as Record<string, unknown>;
+      undoChanges = Array.isArray(hist.changes) ? hist.changes : [];
+      undoFilled = undoChanges.map((c) => c.field);
+      wasTransferred = Boolean(hist.drawerTransferred);
     }
-    const secondaryOid = new ObjectId(String(secondary._id));
-    if (role !== 'Admin' && secondary.school && secondary.school !== school) {
+
+    if (!undoPrimaryId || !undoSecondary?._id) {
+      return NextResponse.json({ error: 'secondary snapshot (or historyId) required' }, { status: 400 });
+    }
+    if (!ObjectId.isValid(undoPrimaryId)) {
+      return NextResponse.json({ error: 'Invalid primaryId' }, { status: 400 });
+    }
+
+    const primaryOid = new ObjectId(undoPrimaryId);
+    const primary = await db.collection('students').findOne({ _id: primaryOid });
+    if (!primary) return NextResponse.json({ error: 'Primary student not found' }, { status: 404 });
+    if (role !== 'Admin' && primary.school !== school) {
+      return NextResponse.json({ error: 'Forbidden for this school' }, { status: 403 });
+    }
+
+    const secondaryOid = new ObjectId(String(undoSecondary._id));
+    if (role !== 'Admin' && undoSecondary.school && undoSecondary.school !== school) {
       return NextResponse.json({ error: 'Forbidden for this school' }, { status: 403 });
     }
 
@@ -192,17 +321,15 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Secondary student already exists' }, { status: 409 });
     }
 
-    const { _id: _ignored, ...rest } = secondary as Record<string, unknown>;
+    const { _id: _ignored, ...rest } = undoSecondary;
     await db.collection('students').insertOne({ ...rest, _id: secondaryOid });
 
     // If drawer was transferred (not freed), do not re-increment — slot never left the cabinet.
-    // Otherwise restore the secondary's slot count.
-    const wasTransferred = Boolean(drawerTransferred);
-    if (!wasTransferred && secondary.cabinet && secondary.drawer) {
+    if (!wasTransferred && undoSecondary.cabinet && undoSecondary.drawer) {
       try {
-        const cabinetOid = new ObjectId(String(secondary.cabinet));
+        const cabinetOid = new ObjectId(String(undoSecondary.cabinet));
         await db.collection('cabinets').updateOne(
-          { _id: cabinetOid, 'drawers._id': secondary.drawer },
+          { _id: cabinetOid, 'drawers._id': undoSecondary.drawer },
           { $inc: { currentCount: 1, 'drawers.$.currentCount': 1 } },
         );
       } catch { /* cabinet may not exist — continue */ }
@@ -211,9 +338,8 @@ export async function POST(req: NextRequest) {
     const fieldsToUnset: Record<string, ''> = { mergedFromId: '' };
     const fieldsToRestore: Record<string, unknown> = {};
 
-    const changeList: AppliedFieldChange[] = Array.isArray(changes) ? changes : [];
-    if (changeList.length > 0) {
-      for (const ch of changeList) {
+    if (undoChanges.length > 0) {
+      for (const ch of undoChanges) {
         if (!ch || typeof ch.field !== 'string') continue;
         const current = primary[ch.field];
         const stillMerged =
@@ -228,20 +354,20 @@ export async function POST(req: NextRequest) {
         }
       }
     } else {
-      // Legacy undo: only unset fill-if-missing fields still equal to secondary
-      const fieldList: string[] = Array.isArray(filledFields) ? filledFields : [];
-      for (const field of fieldList) {
+      for (const field of undoFilled) {
         if (typeof field !== 'string' || !field) continue;
-        if (primary[field] === secondary[field]) {
+        if (primary[field] === undoSecondary[field]) {
           fieldsToUnset[field] = '';
         }
       }
     }
 
-    // Clear transferred location from primary when undoing a transfer
     if (wasTransferred) {
       for (const field of LOCATION_TRANSFER_FIELDS) {
-        if (primary[field] === secondary[field] || String(primary[field] ?? '') === String(secondary[field] ?? '')) {
+        if (
+          primary[field] === undoSecondary[field]
+          || String(primary[field] ?? '') === String(undoSecondary[field] ?? '')
+        ) {
           fieldsToUnset[field] = '';
           delete fieldsToRestore[field];
         }
@@ -255,7 +381,49 @@ export async function POST(req: NextRequest) {
       await db.collection('students').updateOne({ _id: primaryOid }, update);
     }
 
-    return NextResponse.json({ success: true, action: 'undo_merge', restoredId: String(secondaryOid) });
+    if (historyOid) {
+      await db.collection(MERGE_HISTORY_COLLECTION).updateOne(
+        { _id: historyOid },
+        {
+          $set: {
+            undoneAt: new Date().toISOString(),
+            undoneByEmail: session.user?.email || '',
+          },
+        },
+      );
+    } else if (historyId == null) {
+      // Mark matching recent history by primary+secondary if present
+      await db.collection(MERGE_HISTORY_COLLECTION).updateOne(
+        {
+          primaryId: undoPrimaryId,
+          secondaryId: String(undoSecondary._id),
+          undoneAt: { $exists: false },
+        },
+        {
+          $set: {
+            undoneAt: new Date().toISOString(),
+            undoneByEmail: session.user?.email || '',
+          },
+        },
+      );
+    }
+
+    return NextResponse.json({
+      success: true,
+      action: 'undo_merge',
+      restoredId: String(secondaryOid),
+    });
+  }
+
+  if (!primaryId || !ObjectId.isValid(String(primaryId))) {
+    return NextResponse.json({ error: 'primaryId required' }, { status: 400 });
+  }
+
+  const primaryOid = new ObjectId(primaryId);
+  const primary = await db.collection('students').findOne({ _id: primaryOid });
+  if (!primary) return NextResponse.json({ error: 'Primary student not found' }, { status: 404 });
+  if (role !== 'Admin' && primary.school !== school) {
+    return NextResponse.json({ error: 'Forbidden for this school' }, { status: 403 });
   }
 
   // ── DISMISS ──────────────────────────────────────────────────────────────────
@@ -370,6 +538,22 @@ export async function POST(req: NextRequest) {
     const secondarySnapshot = { ...secondaryDoc, _id: secondaryId };
     const allChanges = [...applied.changes, ...locationChanges];
     const filledFromSecondary = allChanges.map((c) => c.field);
+    const primaryName = `${primary.firstName || ''} ${primary.lastName || ''}`.trim();
+    const secondaryName = `${secondaryDoc.firstName || ''} ${secondaryDoc.lastName || ''}`.trim();
+
+    const historyInsert = await db.collection(MERGE_HISTORY_COLLECTION).insertOne({
+      at: new Date().toISOString(),
+      byEmail: session.user?.email || '',
+      byName: session.user?.name || '',
+      school: primary.school || '',
+      primaryId,
+      primaryName,
+      secondaryId,
+      secondaryName,
+      secondary: secondarySnapshot,
+      changes: allChanges,
+      drawerTransferred: shouldTransferDrawer,
+    });
 
     return NextResponse.json({
       success: true,
@@ -381,6 +565,7 @@ export async function POST(req: NextRequest) {
         filledFields: filledFromSecondary,
         changes: allChanges,
         drawerTransferred: shouldTransferDrawer,
+        historyId: String(historyInsert.insertedId),
       },
     });
   }

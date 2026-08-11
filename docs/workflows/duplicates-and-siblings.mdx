@@ -83,8 +83,9 @@ Each student card also shows their formatted address (street + apt on one line, 
 | Action | Result |
 | --- | --- |
 | **Confirm Siblings** | Links both records bidirectionally; sibling badge appears on student pages |
-| **Merge Records** | Choose which record to keep, then pick which fields to keep (email, phone, program, notes, address group, etc.); secondary is deleted; **Undo** ~10 seconds |
+| **Merge Records** | Choose which record to keep, then pick which fields to keep (email, phone, program, notes, address group, etc.); secondary is deleted; **Undo** ~60 seconds (snackbar) or ~15 minutes from **Recent merges** |
 | **Dismiss / Not a duplicate** | Hides the pair permanently |
+| **Confirm/Dismiss all same-building** | Bulk action for pairs marked **Same building** (likely siblings in different units) |
 
 ### Merge field review
 
@@ -101,8 +102,12 @@ When you click **Merge Records**:
 Use **All primary** or **Prefer secondary fills** for quick defaults, then adjust conflicts after verifying with the student.
 
 <Warning>
-  **Merge** deletes the non-primary record and frees its drawer slot. A snackbar offers **Undo** for about 10 seconds — after that the delete is final. Verify conflicting fields before confirming.
+  **Merge** deletes the non-primary record (drawer is transferred or freed). A snackbar offers **Undo** for about 60 seconds; **Recent merges** keeps undo for about 15 minutes. After that, restore needs Admin help. Verify conflicting fields before confirming.
 </Warning>
+
+## Recent merges
+
+The bottom of Duplicate Review lists recent merges for your school (who merged, which names, field change count). Use **Undo** there while the 15-minute window remains.
 
 ## Related pages
 

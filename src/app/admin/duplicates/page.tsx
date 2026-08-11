@@ -40,7 +40,7 @@ import {
 import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
 
-const MERGE_UNDO_MS = 10_000;
+const MERGE_UNDO_MS = 60_000;
 
 type MergeUndoPayload = {
   primaryId: string;
@@ -48,7 +48,39 @@ type MergeUndoPayload = {
   filledFields: string[];
   changes: AppliedFieldChange[];
   drawerTransferred?: boolean;
+  historyId?: string;
 };
+
+type RecentMerge = {
+  _id: string;
+  at: string;
+  byEmail: string;
+  byName: string;
+  school: string;
+  primaryId: string;
+  primaryName: string;
+  secondaryId: string;
+  secondaryName: string;
+  fieldCount: number;
+  drawerTransferred: boolean;
+  canUndo: boolean;
+  undoRemainingMs: number;
+};
+
+function collectSameBuildingPairs(pairs: DuplicatePair[]): Array<{ primaryId: string; secondaryId: string }> {
+  const out: Array<{ primaryId: string; secondaryId: string }> = [];
+  const seen = new Set<string>();
+  for (const { flagged, matches } of pairs) {
+    for (const match of matches) {
+      if (match.addressComparison?.match !== 'similar') continue;
+      const key = [flagged._id, match._id].sort().join(':');
+      if (seen.has(key)) continue;
+      seen.add(key);
+      out.push({ primaryId: flagged._id, secondaryId: match._id });
+    }
+  }
+  return out;
+}
 
 interface AddressComparison {
   match: AddressMatchKind;
@@ -396,6 +428,7 @@ export default function DuplicatesPage() {
 
   const [flaggedPairs, setFlaggedPairs] = useState<DuplicatePair[]>([]);
   const [autoPairs, setAutoPairs] = useState<DuplicatePair[]>([]);
+  const [recentMerges, setRecentMerges] = useState<RecentMerge[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
@@ -449,9 +482,10 @@ export default function DuplicatesPage() {
     try {
       const res = await fetch('/api/admin/duplicates');
       if (!res.ok) throw new Error('Failed to fetch');
-      const data: DuplicatesResponse = await res.json();
+      const data = await res.json();
       setFlaggedPairs(data.flagged || []);
       setAutoPairs(data.autoDetected || []);
+      setRecentMerges(data.recentMerges || []);
     } catch {
       setError('Failed to load duplicate pairs.');
     } finally {
@@ -500,6 +534,7 @@ export default function DuplicatesPage() {
           filledFields: Array.isArray(data.undo.filledFields) ? data.undo.filledFields : [],
           changes: Array.isArray(data.undo.changes) ? data.undo.changes : [],
           drawerTransferred: Boolean(data.undo.drawerTransferred),
+          historyId: data.undo.historyId ? String(data.undo.historyId) : undefined,
         });
         setShowMergeUndo(true);
         const timer = setTimeout(() => {
@@ -518,22 +553,28 @@ export default function DuplicatesPage() {
     }
   }
 
-  async function handleUndoMerge() {
-    if (!mergeUndo) return;
+  async function handleUndoMerge(historyId?: string) {
+    const fromHistory = Boolean(historyId);
+    if (!fromHistory && !mergeUndo) return;
     setActioning(true);
     setError('');
     try {
       const res = await fetch('/api/admin/duplicates', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          action: 'undo_merge',
-          primaryId: mergeUndo.primaryId,
-          secondary: mergeUndo.secondary,
-          filledFields: mergeUndo.filledFields,
-          changes: mergeUndo.changes,
-          drawerTransferred: mergeUndo.drawerTransferred,
-        }),
+        body: JSON.stringify(
+          fromHistory
+            ? { action: 'undo_merge', historyId }
+            : {
+                action: 'undo_merge',
+                primaryId: mergeUndo!.primaryId,
+                secondary: mergeUndo!.secondary,
+                filledFields: mergeUndo!.filledFields,
+                changes: mergeUndo!.changes,
+                drawerTransferred: mergeUndo!.drawerTransferred,
+                historyId: mergeUndo!.historyId,
+              },
+        ),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Undo failed');
@@ -545,6 +586,38 @@ export default function DuplicatesPage() {
       await load();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Undo failed.');
+    } finally {
+      setActioning(false);
+    }
+  }
+
+  async function handleBulkSameBuilding(action: 'bulk_confirm_siblings' | 'bulk_dismiss') {
+    const pairs = collectSameBuildingPairs([...flaggedPairs, ...autoPairs]);
+    if (pairs.length === 0) return;
+    const label = action === 'bulk_confirm_siblings'
+      ? `Confirm ${pairs.length} same-building pair(s) as siblings?`
+      : `Dismiss ${pairs.length} same-building pair(s) as not duplicates?`;
+    if (!confirm(label)) return;
+
+    setActioning(true);
+    setError('');
+    setSuccess('');
+    try {
+      const res = await fetch('/api/admin/duplicates', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action, pairs }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Bulk action failed');
+      setSuccess(
+        action === 'bulk_confirm_siblings'
+          ? `Confirmed ${data.processed} same-building pair(s) as siblings.`
+          : `Dismissed ${data.processed} same-building pair(s).`,
+      );
+      await load();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Bulk action failed.');
     } finally {
       setActioning(false);
     }
@@ -591,14 +664,50 @@ export default function DuplicatesPage() {
           <Info className="h-4 w-4" />
           <AlertDescription>
             <strong>Confirm Siblings</strong> — keeps both records and marks them as confirmed siblings. &nbsp;
-            <strong>Merge</strong> — choose which record to keep, then pick which fields to keep when values differ; the other record is deleted (short undo window). &nbsp;
+            <strong>Merge</strong> — choose which record to keep, then pick which fields to keep when values differ; the other record is deleted (undo ~60 seconds in the snackbar, or up to 15 minutes from Recent merges). &nbsp;
             <strong>Dismiss</strong> — clears the flag; treats them as unrelated people. &nbsp;
             Home addresses are compared using NYC-standardized data when available — same address strengthens the match; different addresses may indicate siblings or a move.
           </AlertDescription>
         </Alert>
 
+        {(() => {
+          const sameBuilding = collectSameBuildingPairs([...flaggedPairs, ...autoPairs]);
+          if (sameBuilding.length === 0) return null;
+          return (
+            <Alert className="border-emerald-300 bg-emerald-50/80 dark:bg-emerald-950/20">
+              <Users className="h-4 w-4 text-emerald-700" />
+              <AlertDescription className="flex flex-col sm:flex-row sm:items-center gap-3 justify-between">
+                <span className="text-sm text-emerald-900 dark:text-emerald-200">
+                  <strong>{sameBuilding.length}</strong> same-building pair
+                  {sameBuilding.length === 1 ? '' : 's'} (likely siblings in different units).
+                </span>
+                <div className="flex flex-wrap gap-2">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="gap-1.5 border-green-400 text-green-700"
+                    disabled={actioning}
+                    onClick={() => void handleBulkSameBuilding('bulk_confirm_siblings')}
+                  >
+                    <CheckCheck size={14} /> Confirm all as siblings
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    className="gap-1.5"
+                    disabled={actioning}
+                    onClick={() => void handleBulkSameBuilding('bulk_dismiss')}
+                  >
+                    <X size={14} /> Dismiss all
+                  </Button>
+                </div>
+              </AlertDescription>
+            </Alert>
+          );
+        })()}
+
         {/* Empty state */}
-        {flaggedPairs.length === 0 && autoPairs.length === 0 && (
+        {flaggedPairs.length === 0 && autoPairs.length === 0 && recentMerges.length === 0 && (
           <Card>
             <CardContent className="flex flex-col items-center justify-center py-16 gap-3 text-center">
               <CheckCheck className="h-12 w-12 text-green-500" />
@@ -761,7 +870,7 @@ export default function DuplicatesPage() {
                   <AlertTriangle className="h-4 w-4" />
                   <AlertDescription>
                     The <strong>non-primary</strong> record will be deleted after your field choices
-                    are applied. Use Undo in the snackbar if you merge the wrong pair.
+                    are applied. Undo from the snackbar (~60s) or Recent merges (~15 minutes).
                   </AlertDescription>
                 </Alert>
               </div>
@@ -798,10 +907,64 @@ export default function DuplicatesPage() {
         </DialogContent>
       </Dialog>
 
+      {recentMerges.length > 0 && (
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base flex items-center gap-2">
+              <GitMerge className="h-4 w-4" /> Recent merges
+            </CardTitle>
+            <p className="text-sm text-muted-foreground">
+              Durable history for this school. Undo is available for about 15 minutes after a merge
+              (snackbar also offers Undo for ~60 seconds).
+            </p>
+          </CardHeader>
+          <CardContent>
+            <div className="rounded-md border divide-y">
+              {recentMerges.map((m) => (
+                <div
+                  key={m._id}
+                  className="flex flex-col sm:flex-row sm:items-center gap-2 justify-between px-3 py-2.5 text-sm"
+                >
+                  <div className="min-w-0 space-y-0.5">
+                    <p className="font-medium truncate">
+                      Kept <span className="text-foreground">{m.primaryName || m.primaryId}</span>
+                      {' · '}
+                      removed <span className="text-muted-foreground">{m.secondaryName || m.secondaryId}</span>
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      {new Date(m.at).toLocaleString()}
+                      {m.byEmail ? ` · ${m.byName || m.byEmail}` : ''}
+                      {m.fieldCount ? ` · ${m.fieldCount} field change${m.fieldCount === 1 ? '' : 's'}` : ''}
+                      {m.drawerTransferred ? ' · drawer transferred' : ''}
+                    </p>
+                  </div>
+                  {m.canUndo ? (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="gap-1.5 shrink-0"
+                      disabled={actioning}
+                      onClick={() => void handleUndoMerge(m._id)}
+                    >
+                      Undo
+                      <span className="text-[10px] text-muted-foreground tabular-nums">
+                        {Math.ceil(m.undoRemainingMs / 60000)}m
+                      </span>
+                    </Button>
+                  ) : (
+                    <span className="text-xs text-muted-foreground shrink-0">Undo expired</span>
+                  )}
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       <UndoSnackbar
         open={showMergeUndo}
         onUndo={() => { void handleUndoMerge(); }}
-        message="Records merged — secondary deleted."
+        message="Records merged — secondary deleted. Undo available ~60s (or 15m from Recent merges)."
       />
     </div>
   );
