@@ -49,7 +49,7 @@ Staff pages (Admin, Data Lead, Data Member) use a **left sidebar**. Grouped link
 </Tip>
 
 <Tip>
-  On **Duplicates**, **Merge** offers a short **Undo** window (~10 seconds) if the wrong record was removed.
+  On **Duplicates**, **Merge** offers **Undo** for about **60 seconds** (snackbar) and about **15 minutes** from **Recent merges**. Use field-level choices before confirming.
 </Tip>
 
 <Tip>
@@ -62,7 +62,7 @@ Staff pages (Admin, Data Lead, Data Member) use a **left sidebar**. Grouped link
 | --- | --- | --- | --- |
 | Activity Report | `/admin/activity-report` | Student record event log | Admin, Data Lead |
 | Enrollment | `/admin/enrollment` | Registration metrics and intake time issues | Admin, Data Lead, Data Member |
-| Schools / School Settings | `/admin/schools` | School names, Agency IDs, **subdomain slug**, fiscal year, intake sessions | Admin, Data Lead |
+| Schools / School Settings | `/admin/schools` | School names, Agency IDs, **subdomain slug**, fiscal year, intake sessions, **ASISTS / legacy roster upload** | Admin, Data Lead |
 | School Year Rollover | `/admin/school-year` | End-of-year checklist | Admin, Data Lead |
 | Label Stock | `/admin/label-stock` | Avery inventory, burn rate, restock | Admin, Data Lead |
 | Users | `/admin/users` | Roles, schools, MFA recovery | Admin |
@@ -79,6 +79,18 @@ Staff pages (Admin, Data Lead, Data Member) use a **left sidebar**. Grouped link
 <Tip>
   Set **start and end times** for each intake session in School Settings. Intake Members cannot save times outside those windows.
 </Tip>
+
+## ASISTS / legacy roster (School Settings)
+
+Each school can upload an ASISTS Access (`.mdb` / `.accdb`) or CSV roster under **Admin → Schools**. Intake uses that roster for the **Check ASISTS** gate on NEW registrations.
+
+After upload:
+
+1. A quick **quality scan** summarizes error- and warning-level rows (1-letter names, bad DOBs, placeholders)
+2. Use **Review import quality** to open **Duplicates → Legacy MDB import** for that school (`/admin/duplicates?tab=legacy&school=…`)
+3. Export any review bucket as CSV; re-upload when ASISTS data changes
+
+Full bucket list and merge workflow: [Duplicates and siblings](/workflows/duplicates-and-siblings#legacy-mdb-import-review).
 
 ## School subdomains (optional)
 

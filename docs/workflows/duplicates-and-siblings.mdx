@@ -120,7 +120,7 @@ Deep link: `/admin/duplicates?tab=legacy&school=Your%20School%20Name`
 
 Or open **Students → Duplicates → Legacy MDB import**.
 
-The review scans `school_legacy_roster` for that school and reports:
+The review scans the school’s uploaded legacy roster against live students and reports:
 
 | Bucket | Meaning |
 | --- | --- |
@@ -133,11 +133,12 @@ The review scans `school_legacy_roster` for that school and reports:
 
 Use **Export CSV** to download the active bucket (for spreadsheet cleanup or ASISTS follow-up). This tab is **read-only** — it does not merge or delete. Use Intake / live Duplicate Review for filing actions. Re-upload the MDB from School Settings when ASISTS data changes.
 
+<Frame caption="Duplicates — Live students tab (flagged siblings, auto-detected pairs, merge)">
+  <img src="/images/screenshots/duplicates-page.png" alt="Duplicate Review Live students tab with confirm, merge, and dismiss actions" />
+</Frame>
+
 ## Related pages
 
 - [Intake workflow](/workflows/intake) — how intake flags siblings and runs address-aware duplicate checks
 - [Address and NYC verification](/reference/address-and-verification)
-
-<Frame caption="Students → Duplicates — review flagged siblings and auto-detected pairs">
-  <img src="/images/screenshots/duplicates-page.png" alt="Duplicate Review page with confirm, merge, and dismiss guidance" />
-</Frame>
+- [Data Lead tools](/admin/data-lead-tools#asists--legacy-roster-school-settings) — roster upload on School Settings
