@@ -243,9 +243,6 @@ export async function GET() {
         ? {
             databaseConnected: system.database.connected,
             syncReadyPercent: system.students.syncReadyPercent,
-            thoughtspotConfigured: system.integrations.some(
-              (i) => i.id === 'thoughtspot' && i.configured,
-            ),
             motherduckConfigured:
               system.integrations.some((i) => i.id === 'motherduck' && i.configured)
               || isMotherDuckConfigured(),

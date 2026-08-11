@@ -3,7 +3,6 @@ import {
   checkMongoDb,
   checkMotherDuckEnv,
   checkSyncApiEnv,
-  checkThoughtSpotEnv,
 } from '@/lib/healthChecks';
 import { DEFAULT_INTAKE_ACTIVITIES, DEFAULT_INTAKE_SESSIONS } from '@/lib/intakeDefaults';
 import { getCurrentFiscalYear } from '@/lib/fiscalYear';
@@ -137,7 +136,6 @@ export async function getSystemStats(): Promise<SystemStats> {
     totalStudents > 0 ? Math.round((withUpdatedAt / totalStudents) * 1000) / 10 : 100;
 
   const syncApi = checkSyncApiEnv();
-  const thoughtspot = checkThoughtSpotEnv();
   const motherduck = checkMotherDuckEnv();
 
   const devToolKeys = [
@@ -160,12 +158,6 @@ export async function getSystemStats(): Promise<SystemStats> {
       label: 'Sync API key',
       configured: syncApi.ok,
       note: syncApi.ok ? 'Configured' : 'Not configured',
-    },
-    {
-      id: 'thoughtspot',
-      label: 'ThoughtSpot',
-      configured: thoughtspot.ok,
-      note: thoughtspot.ok ? 'Configured' : 'Not configured',
     },
     {
       id: 'motherduck',

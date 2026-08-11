@@ -92,7 +92,7 @@ export const openApiSpec = {
       '',
       '### Role notes',
       '- Most admin/storage routes require **Admin** or **Data Lead** (school-scoped for Data Lead)',
-      '- **Email Validation** and **ThoughtSpot token** are **Admin-only**',
+      '- **Email Validation** and **MotherDuck** are **Admin-only**',
       '',
       'Production: [nycadultedlabels.nyc](https://nycadultedlabels.nyc) · Docs UI: [/docs/api](https://nycadultedlabels.nyc/docs/api)',
     ].join('\n'),
@@ -118,7 +118,6 @@ export const openApiSpec = {
     { name: 'Admin', description: 'Admin / Data Lead tools' },
     { name: 'Users', description: 'User management & profile' },
     { name: 'Reports', description: 'Dashboard and analytics' },
-    { name: 'Integrations', description: 'ThoughtSpot (Admin-only)' },
   ],
   components: {
     securitySchemes: {
@@ -1495,22 +1494,6 @@ export const openApiSpec = {
             description: 'Stats object',
             content: { 'application/json': { schema: jsonObject } },
           },
-        },
-      },
-    },
-    '/api/thoughtspot/token': {
-      get: {
-        tags: ['Integrations'],
-        summary: 'ThoughtSpot embed token',
-        description: '**Admin-only.** Short-lived token for Visual Embed SDK.',
-        security: sessionSecurity,
-        responses: {
-          '200': {
-            description: 'Plain-text bearer token',
-            content: { 'text/plain': { schema: { type: 'string' } } },
-          },
-          '403': err,
-          '503': err,
         },
       },
     },

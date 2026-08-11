@@ -79,7 +79,6 @@ type AnalyticsPayload = {
   system: {
     databaseConnected: boolean;
     syncReadyPercent: number;
-    thoughtspotConfigured: boolean;
     motherduckConfigured: boolean;
   } | null;
 };

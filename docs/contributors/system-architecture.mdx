@@ -27,7 +27,6 @@ flowchart TB
     PA[Microsoft Power Automate]
     DV[Microsoft Dataverse]
     MD[MotherDuck optional]
-    TS[ThoughtSpot optional legacy]
     EmailVal[Email validation API optional]
   end
 
@@ -38,7 +37,6 @@ flowchart TB
   Next -->|GET /api/sync/v1/students| PA
   PA --> DV
   Next -->|pg wire sync + query| MD
-  Next --> TS
   Next --> EmailVal
 ```
 
@@ -105,7 +103,6 @@ Sync relies on `updatedAt` for delta queries. See the repo file `docs/mongodb-st
 | MongoDB | App → database | Required — `MONGODB_URI` |
 | Power Automate | Inbound HTTP to app | Nightly student sync to Dataverse |
 | MotherDuck | App → warehouse (Postgres wire) | Optional analytics — `MOTHERDUCK_TOKEN` |
-| ThoughtSpot | App → cloud + embed | Optional legacy liveboard |
 | Email validation | App → external API | Optional — `EMAIL_VALIDATION_API_KEY` |
 
 Power Automate calls:

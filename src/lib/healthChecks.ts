@@ -70,14 +70,6 @@ export const MONITORED_ENDPOINTS: EndpointInfo[] = [
     status: 'unknown',
   },
   {
-    id: 'thoughtspot-token',
-    method: 'GET',
-    path: '/api/thoughtspot/token',
-    purpose: 'ThoughtSpot embed auth',
-    auth: 'session',
-    status: 'unknown',
-  },
-  {
     id: 'motherduck-status',
     method: 'GET',
     path: '/api/admin/motherduck/status',
@@ -138,24 +130,6 @@ export function checkSyncApiEnv(): HealthCheckResult {
   };
 }
 
-export function checkThoughtSpotEnv(): HealthCheckResult {
-  const host = envConfigured('THOUGHTSPOT_HOST') || envConfigured('NEXT_PUBLIC_THOUGHTSPOT_HOST');
-  const secret = envConfigured('THOUGHTSPOT_SECRET_KEY');
-  const liveboard = envConfigured('THOUGHTSPOT_ENROLLMENT_LIVEBOARD_ID');
-
-  const configured = host && secret && liveboard;
-  return {
-    ok: Boolean(configured),
-    details: {
-      host,
-      secretKey: secret,
-      liveboardId: liveboard,
-      configured: Boolean(configured),
-    },
-    message: configured ? undefined : 'ThoughtSpot embed is not fully configured',
-  };
-}
-
 export function checkMotherDuckEnv(): HealthCheckResult {
   const token = envConfigured('MOTHERDUCK_TOKEN');
   const database = process.env.MOTHERDUCK_DATABASE?.trim() || 'student_label_analytics';
@@ -210,15 +184,6 @@ export function resolveEndpointStatuses(
       };
     }
 
-    if (endpoint.id === 'thoughtspot-token') {
-      const ts = checks.thoughtspotEnv;
-      return {
-        ...endpoint,
-        status: ts?.ok ? 'ready' : 'misconfigured',
-        statusNote: ts?.ok ? 'NextAuth session required' : ts?.message,
-      };
-    }
-
     if (endpoint.id === 'motherduck-status' || endpoint.id === 'motherduck-sync') {
       const md = checks.motherduckEnv;
       return {
@@ -246,7 +211,6 @@ export function aggregateStatus(checks: {
   coreEnv: HealthCheckResult;
   syncApiEnv: HealthCheckResult;
   syncData: HealthCheckResult;
-  thoughtspotEnv?: HealthCheckResult;
   motherduckEnv?: HealthCheckResult;
 }): HealthStatus {
   const required = [checks.mongodb, checks.coreEnv, checks.syncApiEnv, checks.syncData];
@@ -255,7 +219,7 @@ export function aggregateStatus(checks: {
   if (requiredFailed > 0) {
     return requiredFailed === required.length ? 'unhealthy' : 'degraded';
   }
-  // Optional analytics warehouses (ThoughtSpot / MotherDuck) do not fail readiness
+  // Optional MotherDuck warehouse does not fail readiness
   return 'healthy';
 }
 

@@ -6,7 +6,6 @@ import {
   checkSyncApiEnv,
   checkSyncStudentsSample,
   checkMotherDuckEnv,
-  checkThoughtSpotEnv,
   resolveEndpointStatuses,
   statusToHttpCode,
 } from '@/lib/healthChecks';
@@ -18,7 +17,6 @@ export async function GET() {
   const [mongodb, syncData] = await Promise.all([checkMongoDb(), checkSyncStudentsSample()]);
   const coreEnv = checkCoreEnv();
   const syncApiEnv = checkSyncApiEnv();
-  const thoughtspotEnv = checkThoughtSpotEnv();
   const motherduckEnv = checkMotherDuckEnv();
 
   const checks = {
@@ -26,7 +24,6 @@ export async function GET() {
     coreEnv,
     syncApiEnv,
     syncData,
-    thoughtspotEnv,
     motherduckEnv,
   };
 

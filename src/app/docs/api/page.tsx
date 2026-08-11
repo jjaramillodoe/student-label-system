@@ -49,7 +49,7 @@ export default function ApiDocsPage() {
           <Link href="/auth/signin" className="underline">
             /auth/signin
           </Link>{' '}
-          in this browser for session routes. Email Validation and ThoughtSpot are <strong>Admin-only</strong>.
+          in this browser for session routes. Email Validation and MotherDuck are <strong>Admin-only</strong>.
         </p>
         <ApiDocsSwagger />
       </div>

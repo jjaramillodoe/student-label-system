@@ -43,7 +43,7 @@ curl -s https://nycadultedlabels.nyc/api/health/deep | jq
 Returns:
 
 - **`status`:** `healthy` | `degraded` | `unhealthy`
-- **`checks`:** MongoDB ping, core env, sync API key, sync data sample, ThoughtSpot config, MotherDuck config
+- **`checks`:** MongoDB ping, core env, sync API key, sync data sample, MotherDuck config
 - **`endpoints`:** Monitored routes with `ready` / `misconfigured` and auth notes (includes MotherDuck status/sync)
 
 HTTP **503** when status is `unhealthy` (useful for monitors).

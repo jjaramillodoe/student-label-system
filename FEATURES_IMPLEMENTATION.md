@@ -22,7 +22,6 @@ Last updated: July 2026. This file replaces the older in-progress checklist (man
 | Label stock tracking | Done |
 | Email validation (EmailAwesome) | Done |
 | Power Automate / Dataverse sync API | Done |
-| ThoughtSpot embed (env-gated) | Done |
 | In-app `/docs` + Mintlify docs site | Done |
 
 ## Not planned unless requested
