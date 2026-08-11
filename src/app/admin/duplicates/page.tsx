@@ -26,6 +26,14 @@ import {
 import { Separator } from '@/components/ui/separator';
 import { Skeleton } from '@/components/ui/skeleton';
 import UndoSnackbar from '@/components/UndoSnackbar';
+import MergeFieldReview from '@/components/MergeFieldReview';
+import {
+  buildDefaultFieldChoices,
+  buildMergeFieldDiff,
+  type AppliedFieldChange,
+  type MergeFieldChoices,
+  type MergeSource,
+} from '@/lib/mergeFields';
 
 const MERGE_UNDO_MS = 10_000;
 
@@ -33,6 +41,7 @@ type MergeUndoPayload = {
   primaryId: string;
   secondary: Record<string, unknown> & { _id: string };
   filledFields: string[];
+  changes: AppliedFieldChange[];
 };
 
 interface AddressComparison {
@@ -58,6 +67,9 @@ interface StudentRecord {
   phone?: string;
   gender?: string;
   program?: string;
+  notes?: string;
+  fiscalYear?: string;
+  startDate?: string;
   status?: string;
   cabinet?: string;
   drawer?: string;
@@ -229,7 +241,11 @@ function StudentCard({
         <AddressBlock student={student} />
         <Field label="Email"    value={student.email} />
         <Field label="Phone"    value={student.phone} />
+        <Field label="Gender"   value={student.gender} />
         <Field label="Program"  value={student.program} />
+        <Field label="Notes"    value={student.notes} />
+        <Field label="Fiscal year" value={student.fiscalYear} />
+        <Field label="Start date" value={student.startDate} />
         <Field label="Status"   value={student.status} />
         <Field label="Registered" value={student.createdAt
           ? new Date(student.createdAt).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' })
@@ -357,10 +373,35 @@ export default function DuplicatesPage() {
     matchIndex: number;
     primaryId: string;
   } | null>(null);
+  const [fieldChoices, setFieldChoices] = useState<MergeFieldChoices>({});
   const [actioning, setActioning] = useState(false);
   const [mergeUndo, setMergeUndo] = useState<MergeUndoPayload | null>(null);
   const [showMergeUndo, setShowMergeUndo] = useState(false);
   const [mergeUndoTimer, setMergeUndoTimer] = useState<ReturnType<typeof setTimeout> | null>(null);
+
+  // Rebuild default field choices whenever primary selection changes
+  useEffect(() => {
+    if (!mergeDialog) {
+      setFieldChoices({});
+      return;
+    }
+    const match = mergeDialog.pair.matches[mergeDialog.matchIndex];
+    if (!match) return;
+    const primary =
+      mergeDialog.primaryId === mergeDialog.pair.flagged._id
+        ? mergeDialog.pair.flagged
+        : match;
+    const secondary =
+      mergeDialog.primaryId === mergeDialog.pair.flagged._id
+        ? match
+        : mergeDialog.pair.flagged;
+    setFieldChoices(
+      buildDefaultFieldChoices(
+        primary as unknown as Record<string, unknown>,
+        secondary as unknown as Record<string, unknown>,
+      ),
+    );
+  }, [mergeDialog?.primaryId, mergeDialog?.matchIndex, mergeDialog?.pair.flagged._id]);
 
   useEffect(() => {
     if (status === 'loading') return;
@@ -389,6 +430,7 @@ export default function DuplicatesPage() {
     action: 'dismiss' | 'confirm_siblings' | 'merge',
     primaryId: string,
     secondaryId?: string,
+    mergeChoices?: MergeFieldChoices,
   ) {
     setActioning(true);
     setError('');
@@ -397,7 +439,12 @@ export default function DuplicatesPage() {
       const res = await fetch('/api/admin/duplicates', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action, primaryId, secondaryId }),
+        body: JSON.stringify({
+          action,
+          primaryId,
+          secondaryId,
+          ...(action === 'merge' && mergeChoices ? { fieldChoices: mergeChoices } : {}),
+        }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Action failed');
@@ -416,6 +463,7 @@ export default function DuplicatesPage() {
           primaryId: data.undo.primaryId || primaryId,
           secondary: data.undo.secondary,
           filledFields: Array.isArray(data.undo.filledFields) ? data.undo.filledFields : [],
+          changes: Array.isArray(data.undo.changes) ? data.undo.changes : [],
         });
         setShowMergeUndo(true);
         const timer = setTimeout(() => {
@@ -447,6 +495,7 @@ export default function DuplicatesPage() {
           primaryId: mergeUndo.primaryId,
           secondary: mergeUndo.secondary,
           filledFields: mergeUndo.filledFields,
+          changes: mergeUndo.changes,
         }),
       });
       const data = await res.json();
@@ -505,7 +554,7 @@ export default function DuplicatesPage() {
           <Info className="h-4 w-4" />
           <AlertDescription>
             <strong>Confirm Siblings</strong> — keeps both records and marks them as confirmed siblings. &nbsp;
-            <strong>Merge</strong> — choose which record to keep; the other is deleted and its drawer space freed (short undo window). &nbsp;
+            <strong>Merge</strong> — choose which record to keep, then pick which fields to keep when values differ; the other record is deleted (short undo window). &nbsp;
             <strong>Dismiss</strong> — clears the flag; treats them as unrelated people. &nbsp;
             Home addresses are compared using NYC-standardized data when available — same address strengthens the match; different addresses may indicate siblings or a move.
           </AlertDescription>
@@ -574,23 +623,32 @@ export default function DuplicatesPage() {
           </div>
         )}
 
-      {/* Merge dialog — pick which record to keep */}
+      {/* Merge dialog — pick primary + which fields to keep */}
       <Dialog open={!!mergeDialog} onOpenChange={(open) => { if (!open) setMergeDialog(null); }}>
-        <DialogContent className="max-w-2xl">
+        <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <GitMerge className="h-5 w-5 text-blue-600" /> Merge Records
             </DialogTitle>
             <DialogDescription>
-              Select which record to <strong>keep</strong> as the primary.
-              Missing fields are copied onto the primary. The other record is deleted and its drawer
-              space freed — you can undo for about 10 seconds afterward.
+              1) Choose which student record to <strong>keep</strong> (primary).
+              2) For each field below, pick the value to keep after verification.
+              The other record is deleted — you can undo for about 10 seconds afterward.
             </DialogDescription>
           </DialogHeader>
 
           {mergeDialog && (() => {
             const { pair, matchIndex, primaryId } = mergeDialog;
             const match = pair.matches[matchIndex];
+            const primaryStudent = primaryId === pair.flagged._id ? pair.flagged : match;
+            const secondaryStudent = primaryId === pair.flagged._id ? match : pair.flagged;
+            const diffRows = buildMergeFieldDiff(
+              primaryStudent as unknown as Record<string, unknown>,
+              secondaryStudent as unknown as Record<string, unknown>,
+            );
+            const onChoice = (key: keyof MergeFieldChoices, source: MergeSource) => {
+              setFieldChoices((prev) => ({ ...prev, [key]: source }));
+            };
             return (
               <div className="space-y-4">
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -608,12 +666,19 @@ export default function DuplicatesPage() {
                   />
                 </div>
 
+                <MergeFieldReview
+                  rows={diffRows}
+                  choices={fieldChoices}
+                  onChange={onChoice}
+                  primaryLabel={formatFullName(primaryStudent) || 'Primary'}
+                  secondaryLabel={formatFullName(secondaryStudent) || 'Secondary'}
+                />
+
                 <Alert variant="destructive" className="text-sm">
                   <AlertTriangle className="h-4 w-4" />
                   <AlertDescription>
-                    The <strong>non-primary</strong> record will be deleted.
-                    Missing fields on the primary are filled from it first. Use Undo in the snackbar
-                    if you merge the wrong pair.
+                    The <strong>non-primary</strong> record will be deleted after your field choices
+                    are applied. Use Undo in the snackbar if you merge the wrong pair.
                   </AlertDescription>
                 </Alert>
               </div>
@@ -633,7 +698,7 @@ export default function DuplicatesPage() {
                 const secondaryId = mergeDialog.primaryId === mergeDialog.pair.flagged._id
                   ? match._id
                   : mergeDialog.pair.flagged._id;
-                doAction('merge', mergeDialog.primaryId, secondaryId);
+                void doAction('merge', mergeDialog.primaryId, secondaryId, fieldChoices);
               }}
             >
               {actioning && <Loader2 size={14} className="animate-spin" />}

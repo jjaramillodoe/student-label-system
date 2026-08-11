@@ -83,11 +83,23 @@ Each student card also shows their formatted address (street + apt on one line, 
 | Action | Result |
 | --- | --- |
 | **Confirm Siblings** | Links both records bidirectionally; sibling badge appears on student pages |
-| **Merge Records** | Copies missing fields (including address and apt) from secondary to primary and removes the duplicate; **Undo** available for ~10 seconds |
+| **Merge Records** | Choose which record to keep, then pick which fields to keep (email, phone, program, notes, address group, etc.); secondary is deleted; **Undo** ~10 seconds |
 | **Dismiss / Not a duplicate** | Hides the pair permanently |
 
+### Merge field review
+
+When you click **Merge Records**:
+
+1. Select the **primary** student (the record that remains)
+2. Review the **field diff** — each row shows Same / Conflict / Only primary / Only secondary
+3. Click a value to keep it (defaults: primary wins on conflicts; secondary fills empties)
+4. **Home address** is chosen as one group (street, apt, city, ZIP + verification)
+5. Confirm — secondary is deleted and its drawer slot is freed
+
+Use **All primary** or **Prefer secondary fills** for quick defaults, then adjust conflicts after verifying with the student.
+
 <Warning>
-  **Merge** deletes the non-primary record and frees its drawer slot. A snackbar offers **Undo** for about 10 seconds — after that the delete is final. Choose the record with the most complete data as primary.
+  **Merge** deletes the non-primary record and frees its drawer slot. A snackbar offers **Undo** for about 10 seconds — after that the delete is final. Verify conflicting fields before confirming.
 </Warning>
 
 ## Related pages

@@ -11,6 +11,12 @@ import {
   isSameAddressPair,
   type StudentAddressRecord,
 } from '@/lib/addressDuplicate';
+import {
+  applyFillIfMissing,
+  applyMergeFieldChoices,
+  isValidMergeChoices,
+  type AppliedFieldChange,
+} from '@/lib/mergeFields';
 
 /**
  * GET /api/admin/duplicates
@@ -131,10 +137,14 @@ export async function GET() {
 
 /**
  * POST /api/admin/duplicates
- * Body: { action, primaryId, secondaryId?, secondary?, filledFields? }
+ * Body: {
+ *   action, primaryId, secondaryId?,
+ *   fieldChoices?,          // merge: per-field primary|secondary
+ *   secondary?, changes?,   // undo_merge snapshot
+ * }
  *
- * action = 'merge'            — keep primaryId, delete secondaryId, decrement its drawer count
- * action = 'undo_merge'       — restore deleted secondary + revert filled fields on primary
+ * action = 'merge'            — keep primaryId, apply field choices, delete secondaryId
+ * action = 'undo_merge'       — restore deleted secondary + revert applied field changes
  * action = 'confirm_siblings' — both are real siblings; clear siblingFlag on both
  * action = 'dismiss'          — not a duplicate; clear siblingFlag on primaryId only
  */
@@ -147,7 +157,7 @@ export async function POST(req: NextRequest) {
   }
 
   const body = await req.json();
-  const { action, primaryId, secondaryId, secondary, filledFields } = body;
+  const { action, primaryId, secondaryId, secondary, filledFields, fieldChoices, changes } = body;
   if (!action || !primaryId) {
     return NextResponse.json({ error: 'action and primaryId required' }, { status: 400 });
   }
@@ -191,18 +201,41 @@ export async function POST(req: NextRequest) {
     }
 
     const fieldsToUnset: Record<string, ''> = { mergedFromId: '' };
-    const fieldList: string[] = Array.isArray(filledFields) ? filledFields : [];
-    for (const field of fieldList) {
-      if (typeof field !== 'string' || !field) continue;
-      // Only clear if primary still has the value we copied from secondary
-      if (primary[field] === secondary[field]) {
-        fieldsToUnset[field] = '';
+    const fieldsToRestore: Record<string, unknown> = {};
+
+    const changeList: AppliedFieldChange[] = Array.isArray(changes) ? changes : [];
+    if (changeList.length > 0) {
+      for (const ch of changeList) {
+        if (!ch || typeof ch.field !== 'string') continue;
+        const current = primary[ch.field];
+        const stillMerged =
+          ch.next == null
+            ? current == null || current === ''
+            : current === ch.next || String(current) === String(ch.next);
+        if (!stillMerged) continue;
+        if (ch.previous == null || ch.previous === '') {
+          fieldsToUnset[ch.field] = '';
+        } else {
+          fieldsToRestore[ch.field] = ch.previous;
+        }
+      }
+    } else {
+      // Legacy undo: only unset fill-if-missing fields still equal to secondary
+      const fieldList: string[] = Array.isArray(filledFields) ? filledFields : [];
+      for (const field of fieldList) {
+        if (typeof field !== 'string' || !field) continue;
+        if (primary[field] === secondary[field]) {
+          fieldsToUnset[field] = '';
+        }
       }
     }
-    await db.collection('students').updateOne(
-      { _id: primaryOid },
-      { $unset: fieldsToUnset },
-    );
+
+    const update: Record<string, unknown> = {};
+    if (Object.keys(fieldsToRestore).length) update.$set = fieldsToRestore;
+    if (Object.keys(fieldsToUnset).length) update.$unset = fieldsToUnset;
+    if (Object.keys(update).length) {
+      await db.collection('students').updateOne({ _id: primaryOid }, update);
+    }
 
     return NextResponse.json({ success: true, action: 'undo_merge', restoredId: String(secondaryOid) });
   }
@@ -261,26 +294,32 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Forbidden for this school' }, { status: 403 });
     }
 
-    // Merge: fill any missing fields on primary from secondary
-    const mergedFields: Record<string, any> = {
+    if (fieldChoices != null && !isValidMergeChoices(fieldChoices)) {
+      return NextResponse.json({ error: 'Invalid fieldChoices' }, { status: 400 });
+    }
+
+    const primaryRec = primary as Record<string, unknown>;
+    const secondaryRec = secondaryDoc as Record<string, unknown>;
+    const applied = fieldChoices != null
+      ? applyMergeFieldChoices(primaryRec, secondaryRec, fieldChoices)
+      : applyFillIfMissing(primaryRec, secondaryRec);
+
+    const setFields: Record<string, unknown> = {
       siblingFlag: false,
       siblingConfirmed: false,
       siblingReviewedAt: new Date().toISOString(),
       mergedFromId: secondaryId,
     };
-    const fillIfMissing = [
-      'email', 'phone', 'gender', 'program', 'notes', 'fiscalYear', 'startDate',
-      'address', 'apt', 'city', 'state', 'zip',
-    ];
-    const filledFromSecondary: string[] = [];
-    for (const field of fillIfMissing) {
-      if (!primary[field] && secondaryDoc[field]) {
-        mergedFields[field] = secondaryDoc[field];
-        filledFromSecondary.push(field);
-      }
+    const unsetFields: Record<string, ''> = {};
+
+    for (const [key, value] of Object.entries(applied.setFields)) {
+      if (value === null) unsetFields[key] = '';
+      else setFields[key] = value;
     }
 
-    await db.collection('students').updateOne({ _id: primaryOid }, { $set: mergedFields });
+    const updateDoc: Record<string, unknown> = { $set: setFields };
+    if (Object.keys(unsetFields).length) updateDoc.$unset = unsetFields;
+    await db.collection('students').updateOne({ _id: primaryOid }, updateDoc);
 
     // Decrement the secondary's drawer/cabinet count before deleting
     if (secondaryDoc.cabinet && secondaryDoc.drawer) {
@@ -296,6 +335,7 @@ export async function POST(req: NextRequest) {
     await db.collection('students').deleteOne({ _id: secondaryOid });
 
     const secondarySnapshot = { ...secondaryDoc, _id: secondaryId };
+    const filledFromSecondary = applied.changes.map((c) => c.field);
 
     return NextResponse.json({
       success: true,
@@ -305,6 +345,7 @@ export async function POST(req: NextRequest) {
         primaryId,
         secondary: secondarySnapshot,
         filledFields: filledFromSecondary,
+        changes: applied.changes,
       },
     });
   }
