@@ -1,8 +1,8 @@
 'use client';
 
-import { useEffect, useState, useCallback } from 'react';
+import { Suspense, useEffect, useState, useCallback } from 'react';
 import { useSession } from 'next-auth/react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import PageIntro from '@/components/PageIntro';
 import {
   Users, GitMerge, CheckCheck, X, RefreshCw, Loader2,
@@ -424,9 +424,33 @@ function PairCard({
 }
 
 export default function DuplicatesPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="w-full space-y-4">
+          {Array.from({ length: 3 }).map((_, i) => (
+            <Skeleton key={i} className="h-48 w-full rounded-xl" />
+          ))}
+        </div>
+      }
+    >
+      <DuplicatesPageInner />
+    </Suspense>
+  );
+}
+
+function DuplicatesPageInner() {
   const { data: session, status } = useSession();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const role = (session?.user as any)?.role;
+  const initialTab = searchParams.get('tab') === 'legacy' ? 'legacy' : 'live';
+  const initialSchool = searchParams.get('school')?.trim() || '';
+  const [tab, setTab] = useState(initialTab);
+
+  useEffect(() => {
+    setTab(searchParams.get('tab') === 'legacy' ? 'legacy' : 'live');
+  }, [searchParams]);
 
   const [flaggedPairs, setFlaggedPairs] = useState<DuplicatePair[]>([]);
   const [autoPairs, setAutoPairs] = useState<DuplicatePair[]>([]);
@@ -649,7 +673,18 @@ export default function DuplicatesPage() {
           }
         />
 
-        <Tabs defaultValue="live" className="space-y-4">
+        <Tabs
+          value={tab}
+          onValueChange={(value) => {
+            setTab(value);
+            const params = new URLSearchParams(searchParams.toString());
+            if (value === 'legacy') params.set('tab', 'legacy');
+            else params.delete('tab');
+            const qs = params.toString();
+            router.replace(qs ? `/admin/duplicates?${qs}` : '/admin/duplicates', { scroll: false });
+          }}
+          className="space-y-4"
+        >
           <TabsList>
             <TabsTrigger value="live" className="gap-1.5">
               <Users className="h-3.5 w-3.5" /> Live students
@@ -986,6 +1021,7 @@ export default function DuplicatesPage() {
             <LegacyRosterReviewPanel
               role={role}
               userSchool={(session?.user as { school?: string } | undefined)?.school}
+              initialSchool={initialSchool}
             />
           </TabsContent>
         </Tabs>

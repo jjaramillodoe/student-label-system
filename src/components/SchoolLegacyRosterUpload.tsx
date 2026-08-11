@@ -1,8 +1,9 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
+import Link from 'next/link';
 import {
-  AlertCircle, CheckCircle2, Database, Loader2, Trash2, Upload,
+  AlertCircle, CheckCircle2, Database, Loader2, Search, Trash2, Upload,
 } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
@@ -11,6 +12,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { parseLegacyCsv, parseMdbBuffer, type LegacyRosterRow } from '@/lib/legacyRoster';
+import { detectLegacyGarbage } from '@/lib/legacyRosterReview';
 
 type RosterMeta = {
   uploadedAt?: string;
@@ -182,11 +184,24 @@ export default function SchoolLegacyRosterUpload({ schoolName }: { schoolName: s
         tableName: parsed.tableName,
       });
 
+      let garbageErrors = 0;
+      let garbageWarnings = 0;
+      for (const row of parsed.rows) {
+        const flags = detectLegacyGarbage(row);
+        if (flags.some((f) => f.severity === 'error')) garbageErrors += 1;
+        else if (flags.some((f) => f.severity === 'warning')) garbageWarnings += 1;
+      }
+
       setProgress('');
       setSuccess(
         `Imported ${result.count.toLocaleString()} students`
         + (result.tableName ? ` from table “${result.tableName}”` : '')
-        + '. Intake will check this roster for NEW registrations.',
+        + '. Intake will check this roster for NEW registrations.'
+        + (garbageErrors || garbageWarnings
+          ? ` Quality scan: ${garbageErrors.toLocaleString()} error-level row(s)`
+            + (garbageWarnings ? `, ${garbageWarnings.toLocaleString()} warning(s)` : '')
+            + ' — open Legacy MDB import review.'
+          : ' Quality scan: no obvious garbage rows.'),
       );
     } catch (err) {
       setProgress('');
@@ -309,6 +324,16 @@ export default function SchoolLegacyRosterUpload({ schoolName }: { schoolName: s
             {uploading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
             {uploading ? 'Importing…' : meta ? 'Replace roster' : 'Upload roster'}
           </Button>
+          {meta && rowCount > 0 && (
+            <Button type="button" variant="outline" className="gap-2" asChild>
+              <Link
+                href={`/admin/duplicates?tab=legacy&school=${encodeURIComponent(schoolName)}`}
+              >
+                <Search className="h-4 w-4" />
+                Review import quality
+              </Link>
+            </Button>
+          )}
           {meta && (
             <Button
               type="button"

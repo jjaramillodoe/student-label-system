@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
 import {
-  AlertTriangle, Database, Loader2, RefreshCw, Search,
+  AlertTriangle, Database, Download, Loader2, RefreshCw, Search,
 } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
@@ -17,6 +17,39 @@ import {
 } from '@/components/ui/table';
 import { formatFullName } from '@/lib/personName';
 import type { GarbageFlag, LegacyReviewRow, LiveMatchSummary } from '@/lib/legacyRosterReview';
+
+function csvEscape(value: string): string {
+  if (/[",\n\r]/.test(value)) return `"${value.replace(/"/g, '""')}"`;
+  return value;
+}
+
+function downloadCsv(filename: string, headers: string[], rows: string[][]) {
+  const lines = [
+    headers.map(csvEscape).join(','),
+    ...rows.map((row) => row.map(csvEscape).join(',')),
+  ];
+  const blob = new Blob([`${lines.join('\n')}\n`], { type: 'text/csv;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+function reviewRowsToCsv(rows: LegacyReviewRow[]): string[][] {
+  return rows.map((row) => [
+    row.firstName || '',
+    row.lastName || '',
+    row.dob || '',
+    row.externalId || '',
+    row.garbage.map((g) => g.label).join('; '),
+    row.liveMatches
+      .map((m) => `${formatFullName(m)} (${matchKindLabel(m.matchKind)}${m.similarity ? ` ${m.similarity}%` : ''})`)
+      .join('; '),
+    row.sourceTable || '',
+  ]);
+}
 
 type ReviewSummary = {
   rosterCount: number;
@@ -163,12 +196,14 @@ function LegacyRowTable({
 export default function LegacyRosterReviewPanel({
   role,
   userSchool,
+  initialSchool = '',
 }: {
   role?: string;
   userSchool?: string;
+  initialSchool?: string;
 }) {
   const [schools, setSchools] = useState<string[]>([]);
-  const [school, setSchool] = useState(userSchool || '');
+  const [school, setSchool] = useState(initialSchool || userSchool || '');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [data, setData] = useState<ReviewPayload | null>(null);
@@ -179,6 +214,10 @@ export default function LegacyRosterReviewPanel({
       setSchool(userSchool);
       return;
     }
+    if (initialSchool) setSchool(initialSchool);
+  }, [role, userSchool, initialSchool]);
+
+  useEffect(() => {
     if (role !== 'Admin') return;
     void (async () => {
       try {
@@ -190,12 +229,12 @@ export default function LegacyRosterReviewPanel({
           .filter((n: unknown): n is string => typeof n === 'string' && n.trim().length > 0)
           .sort((a: string, b: string) => a.localeCompare(b));
         setSchools(names);
-        if (!school && names[0]) setSchool(names[0]);
+        setSchool((prev) => prev || initialSchool || names[0] || '');
       } catch {
         /* ignore */
       }
     })();
-  }, [role, userSchool]);
+  }, [role, initialSchool]);
 
   const load = useCallback(async () => {
     if (!school) return;
@@ -226,6 +265,56 @@ export default function LegacyRosterReviewPanel({
   }, [school, load]);
 
   const summary = data?.summary;
+
+  const exportSection = () => {
+    if (!data || !school) return;
+    const stamp = new Date().toISOString().slice(0, 10);
+    const safeSchool = school.replace(/[^\w.-]+/g, '_');
+    const headers = [
+      'firstName', 'lastName', 'dob', 'externalId', 'issues', 'liveMatches', 'sourceTable',
+    ];
+
+    if (section === 'dupes') {
+      const rows = data.withinLegacyDupes.flatMap((group) =>
+        group.rows.map((r) => [
+          r.firstName || '',
+          r.lastName || '',
+          r.dob || '',
+          r.externalId || '',
+          `Duplicate group (${group.rows.length} copies)`,
+          '',
+          '',
+        ]),
+      );
+      downloadCsv(`legacy-review-${safeSchool}-mdb-dupes-${stamp}.csv`, headers, rows);
+      return;
+    }
+
+    const rows =
+      section === 'garbage' ? data.garbage
+        : section === 'idConflicts' ? data.idConflicts
+          : section === 'fuzzy' ? data.fuzzyMatches
+            : section === 'exact' ? data.exactMatches
+              : data.legacyOnlySample;
+
+    downloadCsv(
+      `legacy-review-${safeSchool}-${section}-${stamp}.csv`,
+      headers,
+      reviewRowsToCsv(rows),
+    );
+  };
+
+  const sectionRowCount = (() => {
+    if (!data) return 0;
+    if (section === 'dupes') {
+      return data.withinLegacyDupes.reduce((n, g) => n + g.rows.length, 0);
+    }
+    if (section === 'garbage') return data.garbage.length;
+    if (section === 'idConflicts') return data.idConflicts.length;
+    if (section === 'fuzzy') return data.fuzzyMatches.length;
+    if (section === 'exact') return data.exactMatches.length;
+    return data.legacyOnlySample.length;
+  })();
 
   return (
     <div className="space-y-4">
@@ -262,6 +351,15 @@ export default function LegacyRosterReviewPanel({
         <Button variant="outline" className="gap-2" onClick={() => void load()} disabled={loading || !school}>
           <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
           Run review
+        </Button>
+        <Button
+          variant="outline"
+          className="gap-2"
+          onClick={exportSection}
+          disabled={!data || sectionRowCount === 0}
+        >
+          <Download className="h-4 w-4" />
+          Export CSV
         </Button>
         <Button variant="ghost" size="sm" asChild>
           <Link href="/admin/schools">Upload / replace MDB</Link>

@@ -114,7 +114,11 @@ The bottom of the **Live students** tab lists recent merges for your school (who
 
 ## Legacy MDB import review
 
-Upload the school’s ASISTS Access (`.mdb` / `.accdb`) or CSV roster under **Admin → Schools** (legacy roster upload). Then open **Duplicates → Legacy MDB import**.
+Upload the school’s ASISTS Access (`.mdb` / `.accdb`) or CSV roster under **Admin → Schools** (legacy roster upload). After upload, a quick quality scan summarizes error/warning rows and a **Review import quality** button opens the review tab for that school.
+
+Deep link: `/admin/duplicates?tab=legacy&school=Your%20School%20Name`
+
+Or open **Students → Duplicates → Legacy MDB import**.
 
 The review scans `school_legacy_roster` for that school and reports:
 
@@ -127,7 +131,7 @@ The review scans `school_legacy_roster` for that school and reports:
 | **Dupes in MDB** | Identical rows repeated inside the import file |
 | **Legacy only** | In the MDB but not yet in this system (sample) |
 
-This tab is **read-only** — it does not merge or delete. Use Intake / live Duplicate Review for filing actions. Re-upload the MDB from School Settings when ASISTS data changes.
+Use **Export CSV** to download the active bucket (for spreadsheet cleanup or ASISTS follow-up). This tab is **read-only** — it does not merge or delete. Use Intake / live Duplicate Review for filing actions. Re-upload the MDB from School Settings when ASISTS data changes.
 
 ## Related pages
 
