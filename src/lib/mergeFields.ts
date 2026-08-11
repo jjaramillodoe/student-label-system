@@ -245,3 +245,111 @@ export function isValidMergeChoices(raw: unknown): raw is MergeFieldChoices {
   }
   return true;
 }
+
+/** Contact + address fields used for the “more complete” hint. */
+const COMPLETENESS_FIELDS = [
+  'email',
+  'phone',
+  'gender',
+  'program',
+  'notes',
+  'fiscalYear',
+  'startDate',
+  'address',
+  'apt',
+  'city',
+  'state',
+  'zip',
+] as const;
+
+export type CompletenessScore = {
+  filled: number;
+  total: number;
+  pct: number;
+};
+
+export function completenessScore(student: Record<string, unknown>): CompletenessScore {
+  let filled = 0;
+  for (const key of COMPLETENESS_FIELDS) {
+    if (!isEmptyValue(student[key])) filled += 1;
+  }
+  const total = COMPLETENESS_FIELDS.length;
+  return {
+    filled,
+    total,
+    pct: Math.round((filled / total) * 100),
+  };
+}
+
+export function hasDrawerLocation(student: Record<string, unknown>): boolean {
+  return !isEmptyValue(student.cabinet) && !isEmptyValue(student.drawer);
+}
+
+export function canTransferDrawer(
+  primary: Record<string, unknown>,
+  secondary: Record<string, unknown>,
+): boolean {
+  return !hasDrawerLocation(primary) && hasDrawerLocation(secondary);
+}
+
+export const LOCATION_TRANSFER_FIELDS = [
+  'cabinet',
+  'drawer',
+  'drawerSection',
+] as const;
+
+function nameTokens(student: Record<string, unknown>): string[] {
+  const full = `${student.firstName ?? ''} ${student.lastName ?? ''}`.trim().toLowerCase();
+  return full.replace(/[^a-z ]/g, '').split(/\s+/).filter(Boolean);
+}
+
+function nameLetterCount(student: Record<string, unknown>): number {
+  return `${student.firstName ?? ''}${student.lastName ?? ''}`.toLowerCase().replace(/[^a-z]/g, '').length;
+}
+
+/**
+ * Soft warnings when the chosen primary looks less complete or inconsistent
+ * compared to the secondary (Data Lead should verify before merging).
+ */
+export function primaryQualityWarnings(
+  primary: Record<string, unknown>,
+  secondary: Record<string, unknown>,
+): string[] {
+  const warnings: string[] = [];
+  const pTokens = nameTokens(primary);
+  const sTokens = nameTokens(secondary);
+  const pLetters = nameLetterCount(primary);
+  const sLetters = nameLetterCount(secondary);
+
+  if (sTokens.length > pTokens.length && sLetters >= pLetters + 3) {
+    warnings.push(
+      'Secondary name looks more complete (extra middle name or longer spelling). Consider switching primary, or confirm the shorter name is correct.',
+    );
+  } else if (pLetters > 0 && sLetters > pLetters + 4) {
+    warnings.push(
+      'Secondary name spelling is longer — check for typos or omitted middle names on the primary.',
+    );
+  }
+
+  const pDob = String(primary.dob ?? '').trim();
+  const sDob = String(secondary.dob ?? '').trim();
+  if (pDob && sDob && pDob !== sDob) {
+    warnings.push(
+      `DOB differs (primary ${pDob} vs secondary ${sDob}). Merge keeps the primary DOB — confirm before continuing.`,
+    );
+  } else if (!pDob && sDob) {
+    warnings.push(
+      'Primary is missing DOB while secondary has one. Merge keeps the primary record’s DOB field as-is.',
+    );
+  }
+
+  const pScore = completenessScore(primary);
+  const sScore = completenessScore(secondary);
+  if (sScore.filled >= pScore.filled + 3) {
+    warnings.push(
+      `Secondary has more filled contact/address fields (${sScore.filled}/${sScore.total} vs ${pScore.filled}/${pScore.total}). You can still keep this primary and pick fields below.`,
+    );
+  }
+
+  return warnings;
+}

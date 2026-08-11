@@ -30,10 +30,15 @@ import MergeFieldReview from '@/components/MergeFieldReview';
 import {
   buildDefaultFieldChoices,
   buildMergeFieldDiff,
+  canTransferDrawer,
+  completenessScore,
+  primaryQualityWarnings,
   type AppliedFieldChange,
   type MergeFieldChoices,
   type MergeSource,
 } from '@/lib/mergeFields';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Label } from '@/components/ui/label';
 
 const MERGE_UNDO_MS = 10_000;
 
@@ -42,6 +47,7 @@ type MergeUndoPayload = {
   secondary: Record<string, unknown> & { _id: string };
   filledFields: string[];
   changes: AppliedFieldChange[];
+  drawerTransferred?: boolean;
 };
 
 interface AddressComparison {
@@ -73,6 +79,7 @@ interface StudentRecord {
   status?: string;
   cabinet?: string;
   drawer?: string;
+  drawerSection?: string;
   createdAt?: string;
   siblingFlag?: boolean;
   siblingConfirmed?: boolean;
@@ -198,12 +205,22 @@ function StudentCard({
   role,
   isPrimary,
   onSetPrimary,
+  completenessHint,
+  showCompleteness = false,
 }: {
   student: StudentRecord;
   role: 'flagged' | 'match';
   isPrimary: boolean;
   onSetPrimary?: () => void;
+  completenessHint?: 'more' | 'less' | 'tie' | null;
+  showCompleteness?: boolean;
 }) {
+  const score = completenessScore(student as unknown as Record<string, unknown>);
+  const location =
+    student.cabinet && student.drawer
+      ? `Drawer ${student.drawer}${student.drawerSection ? ` · ${student.drawerSection}` : ''}`
+      : undefined;
+
   return (
     <div
       className={`rounded-lg border p-4 flex flex-col gap-2 transition-all ${
@@ -230,6 +247,21 @@ function StudentCard({
               Confirmed sibling
             </span>
           )}
+          {showCompleteness && (
+            <span
+              className={`text-[10px] ${
+                completenessHint === 'more'
+                  ? 'ui-badge-success'
+                  : completenessHint === 'less'
+                    ? 'ui-badge-muted'
+                    : 'ui-badge-muted'
+              }`}
+              title="Filled contact and address fields"
+            >
+              {score.filled}/{score.total} fields
+              {completenessHint === 'more' ? ' · more complete' : ''}
+            </span>
+          )}
         </div>
       </div>
 
@@ -246,6 +278,7 @@ function StudentCard({
         <Field label="Notes"    value={student.notes} />
         <Field label="Fiscal year" value={student.fiscalYear} />
         <Field label="Start date" value={student.startDate} />
+        <Field label="Location" value={location || 'Unassigned'} />
         <Field label="Status"   value={student.status} />
         <Field label="Registered" value={student.createdAt
           ? new Date(student.createdAt).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' })
@@ -374,6 +407,7 @@ export default function DuplicatesPage() {
     primaryId: string;
   } | null>(null);
   const [fieldChoices, setFieldChoices] = useState<MergeFieldChoices>({});
+  const [transferDrawer, setTransferDrawer] = useState(true);
   const [actioning, setActioning] = useState(false);
   const [mergeUndo, setMergeUndo] = useState<MergeUndoPayload | null>(null);
   const [showMergeUndo, setShowMergeUndo] = useState(false);
@@ -383,6 +417,7 @@ export default function DuplicatesPage() {
   useEffect(() => {
     if (!mergeDialog) {
       setFieldChoices({});
+      setTransferDrawer(true);
       return;
     }
     const match = mergeDialog.pair.matches[mergeDialog.matchIndex];
@@ -395,12 +430,10 @@ export default function DuplicatesPage() {
       mergeDialog.primaryId === mergeDialog.pair.flagged._id
         ? match
         : mergeDialog.pair.flagged;
-    setFieldChoices(
-      buildDefaultFieldChoices(
-        primary as unknown as Record<string, unknown>,
-        secondary as unknown as Record<string, unknown>,
-      ),
-    );
+    const pRec = primary as unknown as Record<string, unknown>;
+    const sRec = secondary as unknown as Record<string, unknown>;
+    setFieldChoices(buildDefaultFieldChoices(pRec, sRec));
+    setTransferDrawer(canTransferDrawer(pRec, sRec));
   }, [mergeDialog?.primaryId, mergeDialog?.matchIndex, mergeDialog?.pair.flagged._id]);
 
   useEffect(() => {
@@ -431,6 +464,7 @@ export default function DuplicatesPage() {
     primaryId: string,
     secondaryId?: string,
     mergeChoices?: MergeFieldChoices,
+    mergeTransferDrawer?: boolean,
   ) {
     setActioning(true);
     setError('');
@@ -444,6 +478,7 @@ export default function DuplicatesPage() {
           primaryId,
           secondaryId,
           ...(action === 'merge' && mergeChoices ? { fieldChoices: mergeChoices } : {}),
+          ...(action === 'merge' ? { transferDrawer: Boolean(mergeTransferDrawer) } : {}),
         }),
       });
       const data = await res.json();
@@ -464,6 +499,7 @@ export default function DuplicatesPage() {
           secondary: data.undo.secondary,
           filledFields: Array.isArray(data.undo.filledFields) ? data.undo.filledFields : [],
           changes: Array.isArray(data.undo.changes) ? data.undo.changes : [],
+          drawerTransferred: Boolean(data.undo.drawerTransferred),
         });
         setShowMergeUndo(true);
         const timer = setTimeout(() => {
@@ -496,6 +532,7 @@ export default function DuplicatesPage() {
           secondary: mergeUndo.secondary,
           filledFields: mergeUndo.filledFields,
           changes: mergeUndo.changes,
+          drawerTransferred: mergeUndo.drawerTransferred,
         }),
       });
       const data = await res.json();
@@ -642,10 +679,21 @@ export default function DuplicatesPage() {
             const match = pair.matches[matchIndex];
             const primaryStudent = primaryId === pair.flagged._id ? pair.flagged : match;
             const secondaryStudent = primaryId === pair.flagged._id ? match : pair.flagged;
-            const diffRows = buildMergeFieldDiff(
-              primaryStudent as unknown as Record<string, unknown>,
-              secondaryStudent as unknown as Record<string, unknown>,
-            );
+            const pRec = primaryStudent as unknown as Record<string, unknown>;
+            const sRec = secondaryStudent as unknown as Record<string, unknown>;
+            const diffRows = buildMergeFieldDiff(pRec, sRec);
+            const warnings = primaryQualityWarnings(pRec, sRec);
+            const pScore = completenessScore(pRec);
+            const sScore = completenessScore(sRec);
+            const drawerEligible = canTransferDrawer(pRec, sRec);
+            const completenessFor = (studentId: string) => {
+              const isPrimaryCard = studentId === primaryId;
+              const thisScore = isPrimaryCard ? pScore : sScore;
+              const otherScore = isPrimaryCard ? sScore : pScore;
+              if (thisScore.filled > otherScore.filled) return 'more' as const;
+              if (thisScore.filled < otherScore.filled) return 'less' as const;
+              return 'tie' as const;
+            };
             const onChoice = (key: keyof MergeFieldChoices, source: MergeSource) => {
               setFieldChoices((prev) => ({ ...prev, [key]: source }));
             };
@@ -656,15 +704,30 @@ export default function DuplicatesPage() {
                     student={pair.flagged}
                     role="flagged"
                     isPrimary={primaryId === pair.flagged._id}
+                    showCompleteness
+                    completenessHint={completenessFor(pair.flagged._id)}
                     onSetPrimary={() => setMergeDialog(d => d ? { ...d, primaryId: pair.flagged._id } : d)}
                   />
                   <StudentCard
                     student={match}
                     role="match"
                     isPrimary={primaryId === match._id}
+                    showCompleteness
+                    completenessHint={completenessFor(match._id)}
                     onSetPrimary={() => setMergeDialog(d => d ? { ...d, primaryId: match._id } : d)}
                   />
                 </div>
+
+                {warnings.length > 0 && (
+                  <Alert className="border-amber-300 bg-amber-50 dark:bg-amber-950/20 text-sm">
+                    <AlertTriangle className="h-4 w-4 text-amber-600" />
+                    <AlertDescription className="space-y-1 text-amber-900 dark:text-amber-200">
+                      {warnings.map((w) => (
+                        <p key={w}>{w}</p>
+                      ))}
+                    </AlertDescription>
+                  </Alert>
+                )}
 
                 <MergeFieldReview
                   rows={diffRows}
@@ -673,6 +736,26 @@ export default function DuplicatesPage() {
                   primaryLabel={formatFullName(primaryStudent) || 'Primary'}
                   secondaryLabel={formatFullName(secondaryStudent) || 'Secondary'}
                 />
+
+                {drawerEligible && (
+                  <div className="flex items-start gap-3 rounded-md border px-3 py-2.5">
+                    <Checkbox
+                      id="transfer-drawer"
+                      checked={transferDrawer}
+                      onCheckedChange={(v) => setTransferDrawer(v === true)}
+                      disabled={actioning}
+                    />
+                    <div className="space-y-0.5">
+                      <Label htmlFor="transfer-drawer" className="text-sm font-medium cursor-pointer">
+                        Transfer drawer location to primary
+                      </Label>
+                      <p className="text-xs text-muted-foreground">
+                        Primary is unassigned; secondary has a cabinet/drawer. Keep that slot on the
+                        surviving record instead of freeing it.
+                      </p>
+                    </div>
+                  </div>
+                )}
 
                 <Alert variant="destructive" className="text-sm">
                   <AlertTriangle className="h-4 w-4" />
@@ -698,7 +781,13 @@ export default function DuplicatesPage() {
                 const secondaryId = mergeDialog.primaryId === mergeDialog.pair.flagged._id
                   ? match._id
                   : mergeDialog.pair.flagged._id;
-                void doAction('merge', mergeDialog.primaryId, secondaryId, fieldChoices);
+                void doAction(
+                  'merge',
+                  mergeDialog.primaryId,
+                  secondaryId,
+                  fieldChoices,
+                  transferDrawer,
+                );
               }}
             >
               {actioning && <Loader2 size={14} className="animate-spin" />}

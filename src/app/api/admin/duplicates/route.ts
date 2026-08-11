@@ -14,7 +14,9 @@ import {
 import {
   applyFillIfMissing,
   applyMergeFieldChoices,
+  canTransferDrawer,
   isValidMergeChoices,
+  LOCATION_TRANSFER_FIELDS,
   type AppliedFieldChange,
 } from '@/lib/mergeFields';
 
@@ -157,7 +159,10 @@ export async function POST(req: NextRequest) {
   }
 
   const body = await req.json();
-  const { action, primaryId, secondaryId, secondary, filledFields, fieldChoices, changes } = body;
+  const {
+    action, primaryId, secondaryId, secondary, filledFields, fieldChoices, changes,
+    transferDrawer, drawerTransferred,
+  } = body;
   if (!action || !primaryId) {
     return NextResponse.json({ error: 'action and primaryId required' }, { status: 400 });
   }
@@ -190,7 +195,10 @@ export async function POST(req: NextRequest) {
     const { _id: _ignored, ...rest } = secondary as Record<string, unknown>;
     await db.collection('students').insertOne({ ...rest, _id: secondaryOid });
 
-    if (secondary.cabinet && secondary.drawer) {
+    // If drawer was transferred (not freed), do not re-increment — slot never left the cabinet.
+    // Otherwise restore the secondary's slot count.
+    const wasTransferred = Boolean(drawerTransferred);
+    if (!wasTransferred && secondary.cabinet && secondary.drawer) {
       try {
         const cabinetOid = new ObjectId(String(secondary.cabinet));
         await db.collection('cabinets').updateOne(
@@ -226,6 +234,16 @@ export async function POST(req: NextRequest) {
         if (typeof field !== 'string' || !field) continue;
         if (primary[field] === secondary[field]) {
           fieldsToUnset[field] = '';
+        }
+      }
+    }
+
+    // Clear transferred location from primary when undoing a transfer
+    if (wasTransferred) {
+      for (const field of LOCATION_TRANSFER_FIELDS) {
+        if (primary[field] === secondary[field] || String(primary[field] ?? '') === String(secondary[field] ?? '')) {
+          fieldsToUnset[field] = '';
+          delete fieldsToRestore[field];
         }
       }
     }
@@ -317,12 +335,27 @@ export async function POST(req: NextRequest) {
       else setFields[key] = value;
     }
 
+    const shouldTransferDrawer =
+      Boolean(transferDrawer) && canTransferDrawer(primaryRec, secondaryRec);
+    const locationChanges: AppliedFieldChange[] = [];
+
+    if (shouldTransferDrawer) {
+      for (const field of LOCATION_TRANSFER_FIELDS) {
+        const next = secondaryRec[field];
+        if (next == null || next === '') continue;
+        const previous = primaryRec[field] ?? null;
+        setFields[field] = next;
+        locationChanges.push({ field, previous, next });
+      }
+    }
+
     const updateDoc: Record<string, unknown> = { $set: setFields };
     if (Object.keys(unsetFields).length) updateDoc.$unset = unsetFields;
     await db.collection('students').updateOne({ _id: primaryOid }, updateDoc);
 
-    // Decrement the secondary's drawer/cabinet count before deleting
-    if (secondaryDoc.cabinet && secondaryDoc.drawer) {
+    // If location was transferred, keep the drawer count (primary now occupies the slot).
+    // Otherwise free the secondary's drawer when deleting it.
+    if (!shouldTransferDrawer && secondaryDoc.cabinet && secondaryDoc.drawer) {
       try {
         const cabinetOid = new ObjectId(secondaryDoc.cabinet);
         await db.collection('cabinets').updateOne(
@@ -335,7 +368,8 @@ export async function POST(req: NextRequest) {
     await db.collection('students').deleteOne({ _id: secondaryOid });
 
     const secondarySnapshot = { ...secondaryDoc, _id: secondaryId };
-    const filledFromSecondary = applied.changes.map((c) => c.field);
+    const allChanges = [...applied.changes, ...locationChanges];
+    const filledFromSecondary = allChanges.map((c) => c.field);
 
     return NextResponse.json({
       success: true,
@@ -345,7 +379,8 @@ export async function POST(req: NextRequest) {
         primaryId,
         secondary: secondarySnapshot,
         filledFields: filledFromSecondary,
-        changes: applied.changes,
+        changes: allChanges,
+        drawerTransferred: shouldTransferDrawer,
       },
     });
   }

@@ -90,11 +90,13 @@ Each student card also shows their formatted address (street + apt on one line, 
 
 When you click **Merge Records**:
 
-1. Select the **primary** student (the record that remains)
-2. Review the **field diff** — each row shows Same / Conflict / Only primary / Only secondary
-3. Click a value to keep it (defaults: primary wins on conflicts; secondary fills empties)
-4. **Home address** is chosen as one group (street, apt, city, ZIP + verification)
-5. Confirm — secondary is deleted and its drawer slot is freed
+1. Select the **primary** student (the record that remains) — each card shows a **completeness** count (filled contact/address fields)
+2. Read any **warnings** (e.g. secondary name looks more complete, DOB differs)
+3. Review the **field diff** — each row shows Same / Conflict / Only primary / Only secondary
+4. Click a value to keep it (defaults: primary wins on conflicts; secondary fills empties)
+5. **Home address** is chosen as one group (street, apt, city, ZIP + verification)
+6. If primary is unassigned and secondary has a drawer, optionally **transfer drawer location** to the primary (default on when available)
+7. Confirm — secondary is deleted; drawer is transferred or freed depending on that option
 
 Use **All primary** or **Prefer secondary fills** for quick defaults, then adjust conflicts after verifying with the student.
 
