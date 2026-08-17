@@ -1415,7 +1415,7 @@ export const openApiSpec = {
       post: {
         tags: ['Users'],
         summary: 'Reset password / MFA recovery',
-        description: 'Admin-only.',
+        description: 'Admin-only. Actions: reset-password, force-password-change, clear-force-password-change, set-mfa-bypass (per-user MFA on/off for testing), disable-mfa (reset enrollment), unlock-account.',
         security: sessionSecurity,
         parameters: [idParam],
         requestBody: {

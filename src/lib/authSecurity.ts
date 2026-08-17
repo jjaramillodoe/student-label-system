@@ -14,6 +14,7 @@ export type AuthEventType =
   | 'login_success'
   | 'mfa_failure'
   | 'mfa_disabled'
+  | 'mfa_enabled'
   | 'user_unknown'
   | 'account_locked'
   | 'account_unlocked'
@@ -180,6 +181,48 @@ export async function unlockAccount(userId: unknown, email: string, by: {
   });
 }
 
+/**
+ * Admin testing/QA exemption: skip MFA challenge and enrollment until re-enabled.
+ * Does not clear an existing authenticator enrollment.
+ */
+export async function applyMfaBypass(
+  userId: unknown,
+  email: string,
+  bypass: boolean,
+  by: { byEmail?: string; byName?: string },
+): Promise<{ changed: boolean }> {
+  const client = await clientPromise;
+  const db = client.db('student-label');
+  const users = db.collection('users');
+  const existing = await users.findOne(
+    { _id: userId as never },
+    { projection: { mfaBypass: 1 } },
+  );
+  if (!existing) return { changed: false };
+  if (Boolean(existing.mfaBypass) === bypass) return { changed: false };
+
+  await users.updateOne(
+    { _id: userId as never },
+    { $set: { mfaBypass: bypass, updatedAt: new Date().toISOString() } },
+  );
+
+  await logAuthEvent({
+    type: bypass ? 'mfa_disabled' : 'mfa_enabled',
+    email,
+    reason: bypass
+      ? 'Admin disabled MFA (login bypass for testing/QA)'
+      : 'Admin re-enabled MFA requirement',
+    meta: {
+      byEmail: by.byEmail || '',
+      byName: by.byName || '',
+      userId: String(userId),
+      bypass,
+    },
+  });
+
+  return { changed: true };
+}
+
 export async function listLockedAccounts(): Promise<Array<{
   _id: string;
   email: string;
@@ -270,13 +313,16 @@ async function maybeAlertMfaDisabled(db: Db, event: AuthEvent) {
 
   const by = event.meta?.byEmail ? String(event.meta.byEmail) : 'an Admin';
   const appUrl = appBaseUrl();
+  const isBypass = event.meta?.bypass === true;
   await sendEmail({
     to: recipients,
     subject: `[Security] MFA disabled for ${event.email}`,
     text: [
       `MFA was disabled for ${event.email} by ${by}.`,
       '',
-      'The user must re-enroll MFA from Profile before password login is fully protected.',
+      isBypass
+        ? 'This account can sign in without an authenticator code until an Admin re-enables MFA. Use only for testing/QA.'
+        : 'The user must re-enroll MFA from Profile before password login is fully protected.',
       appUrl ? `${appUrl}/admin/security` : '',
     ].filter(Boolean).join('\n'),
   });

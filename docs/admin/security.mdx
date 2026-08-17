@@ -13,7 +13,7 @@ Admins use **Admin → Security** (`/admin/security`) to review sign-in activity
 
 1. Sign in with your DOE email and password
 2. Enter the **6-digit code** from your authenticator app (or enroll on Profile if prompted)
-3. Keep the authenticator app available — if you lose the device, ask an Admin to **temporarily disable MFA**, then re-enroll from Profile
+3. Keep the authenticator app available — if you lose the device, ask an Admin to **reset MFA**, then re-enroll from Profile
 
 Microsoft SSO (when enabled) does not force app TOTP; DOE Conditional Access covers those accounts.
 
@@ -30,7 +30,7 @@ Idle sign-out does not replace the 12-hour session limit.
 
 Open [Admin → Security](https://nycadultedlabels.nyc/admin/security) to:
 
-- Filter **auth events** (bad password, unknown user, bad MFA, lock/unlock, MFA disabled, user created, successful sign-in)
+- Filter **auth events** (bad password, unknown user, bad MFA, lock/unlock, MFA disabled/enabled, user created, successful sign-in)
 - See counts for failures, MFA failures, successes, and **currently locked** accounts
 - **Unlock** a locked account immediately
 
@@ -52,17 +52,21 @@ When email notifications are configured, Admins / recipients can be notified for
 | --- | --- |
 | Repeated failures | 5+ failed attempts for one email in 15 minutes |
 | Account locked | After the lockout threshold |
-| MFA disabled | Admin recovery action |
+| MFA disabled | Admin recovery reset, or per-user MFA bypass for testing/QA |
 | New user created | Single create, or one summary for bulk upload |
 
 ## User recovery (Admin)
 
-From **Admin → Users → Security**:
+From **Admin → Users** (`/admin/users`):
 
+- Toggle **MFA Enabled** on the user edit modal, security dialog, or row action menu
+- When MFA is **disabled**, that account skips the authenticator challenge at sign-in (testing/QA). A red **MFA Disabled** badge appears on the user, and an audit event is logged
+- **Reset MFA** clears the authenticator enrollment so the user can re-enroll from Profile (does not by itself skip MFA at login)
 - Reset password (forces change on next login)
 - Force / clear password change
-- Temporarily disable MFA (user must re-enroll)
 - Unlock a locked account
+
+Re-enable MFA when testing is done. Existing authenticator enrollment is kept across the bypass toggle and applies again on the next password sign-in.
 
 See also [User roles](/user-roles) and [Data Lead tools](/admin/data-lead-tools#security).
 

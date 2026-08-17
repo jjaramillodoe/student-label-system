@@ -53,7 +53,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
   try {
-    const { name, email, role, school, password, allowedIntakeSessions } = await req.json();
+    const { name, email, role, school, password, allowedIntakeSessions, mfaBypass } = await req.json();
     const normalizedEmail = typeof email === 'string' ? email.toLowerCase().trim() : '';
     if (!name || !normalizedEmail || !role || !school || !password) {
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
@@ -81,6 +81,7 @@ export async function POST(req: NextRequest) {
           ? allowedIntakeSessions.filter((s: unknown) => typeof s === 'string' && s.trim())
           : [],
       password: hashedPassword,
+      mfaBypass: mfaBypass === true,
       createdAt: now,
       lastLogin: null
     };
@@ -88,15 +89,31 @@ export async function POST(req: NextRequest) {
     await logAuthEvent({
       type: 'user_created',
       email: normalizedEmail,
-      reason: 'Admin created user',
+      reason: mfaBypass === true
+        ? 'Admin created user with MFA disabled'
+        : 'Admin created user',
       meta: {
         role,
         school,
         byEmail: session.user?.email || '',
         byName: session.user?.name || '',
         userId: String(result.insertedId),
+        mfaBypass: mfaBypass === true,
       },
     });
+    if (mfaBypass === true) {
+      await logAuthEvent({
+        type: 'mfa_disabled',
+        email: normalizedEmail,
+        reason: 'Admin created user with MFA disabled (login bypass for testing/QA)',
+        meta: {
+          byEmail: session.user?.email || '',
+          byName: session.user?.name || '',
+          userId: String(result.insertedId),
+          bypass: true,
+        },
+      });
+    }
     const { password: _, ...userWithoutPassword } = userData;
     return NextResponse.json({ ...userWithoutPassword, _id: result.insertedId });
   } catch (error) {

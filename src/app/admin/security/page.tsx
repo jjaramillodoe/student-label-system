@@ -43,6 +43,7 @@ const TYPE_BADGE: Record<string, string> = {
   user_unknown: 'ui-badge-danger',
   mfa_failure: 'ui-badge-warning',
   mfa_disabled: 'ui-badge-warning',
+  mfa_enabled: 'ui-badge-success',
   account_locked: 'ui-badge-danger',
   account_unlocked: 'ui-badge-success',
   user_created: 'ui-badge-muted',
@@ -55,6 +56,7 @@ function typeLabel(type: string) {
     case 'user_unknown': return 'Unknown user';
     case 'mfa_failure': return 'Bad MFA';
     case 'mfa_disabled': return 'MFA disabled';
+    case 'mfa_enabled': return 'MFA enabled';
     case 'account_locked': return 'Account locked';
     case 'account_unlocked': return 'Unlocked';
     case 'user_created': return 'User created';
@@ -269,6 +271,7 @@ export default function AdminSecurityPage() {
                 <SelectItem value="user_unknown">Unknown user</SelectItem>
                 <SelectItem value="mfa_failure">Bad MFA</SelectItem>
                 <SelectItem value="mfa_disabled">MFA disabled</SelectItem>
+                <SelectItem value="mfa_enabled">MFA enabled</SelectItem>
                 <SelectItem value="account_locked">Account locked</SelectItem>
                 <SelectItem value="account_unlocked">Unlocked</SelectItem>
                 <SelectItem value="user_created">User created</SelectItem>

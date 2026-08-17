@@ -23,3 +23,14 @@ export async function verifyMfaToken(token: string, secret: string) {
 
   return result.valid;
 }
+
+/** Password-login MFA policy. Admin `mfaBypass` skips the challenge for testing/QA. */
+export function credentialsMfaMode(user: {
+  mfaBypass?: boolean;
+  mfaEnabled?: boolean;
+  mfaSecret?: string;
+}): 'bypass' | 'challenge' | 'enroll' {
+  if (user.mfaBypass) return 'bypass';
+  if (user.mfaEnabled && user.mfaSecret) return 'challenge';
+  return 'enroll';
+}

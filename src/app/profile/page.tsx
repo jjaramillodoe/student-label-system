@@ -268,7 +268,17 @@ function ProfilePageInner() {
           </Alert>
         )}
 
-        {needsMfaSetup && !userData?.mfaEnabled && (
+        {userData?.mfaBypass && (
+          <Alert>
+            <Shield className="h-4 w-4" />
+            <AlertDescription>
+              An administrator has disabled MFA for this account. You can sign in without an
+              authenticator code until MFA is re-enabled.
+            </AlertDescription>
+          </Alert>
+        )}
+
+        {needsMfaSetup && !userData?.mfaEnabled && !userData?.mfaBypass && (
           <Alert variant="destructive">
             <Shield className="h-4 w-4" />
             <AlertDescription>
@@ -282,8 +292,17 @@ function ProfilePageInner() {
           <Shield className="h-4 w-4 text-muted-foreground" />
           <AlertDescription className="text-sm space-y-1">
             <p>
-              <strong>MFA is required</strong> for password sign-in. Keep your authenticator app
-              available; if you lose access, ask an Admin to temporarily disable MFA so you can re-enroll.
+              {userData?.mfaBypass ? (
+                <>
+                  <strong>MFA is currently disabled</strong> for this account by an administrator.
+                  Password sign-in does not require an authenticator code.
+                </>
+              ) : (
+                <>
+                  <strong>MFA is required</strong> for password sign-in. Keep your authenticator app
+                  available; if you lose access, ask an Admin to temporarily disable MFA so you can re-enroll.
+                </>
+              )}
             </p>
             <p className="text-xs text-muted-foreground">
               Sessions expire after 12 hours. Shared desks may also show a “Still using the app?” prompt
@@ -539,11 +558,21 @@ function ProfilePageInner() {
                   <div>
                     <p className="text-sm font-medium">MFA Status</p>
                     <p className="text-sm text-muted-foreground">
-                      {userData?.mfaEnabled ? 'Enabled' : 'Disabled'}
+                      {userData?.mfaBypass
+                        ? 'Disabled by an administrator (testing/QA bypass)'
+                        : userData?.mfaEnabled
+                          ? 'Enabled'
+                          : 'Disabled'}
                     </p>
                   </div>
-                  <span className={userData?.mfaEnabled ? 'ui-badge-success' : 'ui-badge-muted'}>
-                    {userData?.mfaEnabled ? 'On' : 'Off'}
+                  <span className={
+                    userData?.mfaBypass
+                      ? 'ui-badge-warning'
+                      : userData?.mfaEnabled
+                        ? 'ui-badge-success'
+                        : 'ui-badge-muted'
+                  }>
+                    {userData?.mfaBypass ? 'Admin disabled' : userData?.mfaEnabled ? 'On' : 'Off'}
                   </span>
                 </div>
                 <div className="space-y-2">

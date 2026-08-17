@@ -4,7 +4,7 @@ import { ObjectId } from 'mongodb';
 import * as bcrypt from 'bcrypt';
 import { authOptions } from '@/lib/authOptions';
 import clientPromise from '@/lib/mongodb';
-import { isAccountLocked, logAuthEvent, unlockAccount } from '@/lib/authSecurity';
+import { applyMfaBypass, isAccountLocked, logAuthEvent, unlockAccount } from '@/lib/authSecurity';
 
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const session = await getServerSession(authOptions);
@@ -15,7 +15,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
 
   try {
     const { id } = await params;
-    const { action, password } = await req.json();
+    const { action, password, bypass } = await req.json();
 
     if (!ObjectId.isValid(id)) {
       return NextResponse.json({ error: 'Invalid user ID' }, { status: 400 });
@@ -67,6 +67,21 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       return NextResponse.json({ success: true, message: 'Forced password change cleared.' });
     }
 
+    if (action === 'set-mfa-bypass') {
+      const nextBypass = bypass === true;
+      await applyMfaBypass(user._id, String(user.email || ''), nextBypass, {
+        byEmail: session.user?.email || '',
+        byName: session.user?.name || '',
+      });
+      return NextResponse.json({
+        success: true,
+        mfaBypass: nextBypass,
+        message: nextBypass
+          ? 'MFA disabled. This user can sign in without an authenticator code.'
+          : 'MFA re-enabled. This user must complete MFA at next password sign-in.',
+      });
+    }
+
     if (action === 'disable-mfa') {
       await users.updateOne(
         { _id: new ObjectId(id) },
@@ -85,15 +100,16 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       await logAuthEvent({
         type: 'mfa_disabled',
         email: String(user.email || ''),
-        reason: 'Admin disabled MFA',
+        reason: 'Admin reset MFA enrollment',
         meta: {
           byEmail: session.user?.email || '',
           byName: session.user?.name || '',
           userId: id,
+          reset: true,
         },
       });
 
-      return NextResponse.json({ success: true, message: 'MFA disabled. User can re-enroll from Profile.' });
+      return NextResponse.json({ success: true, message: 'MFA enrollment reset. User can re-enroll from Profile.' });
     }
 
     if (action === 'unlock-account') {

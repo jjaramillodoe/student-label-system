@@ -3,7 +3,7 @@ import React, { useEffect, useState } from "react";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import Link from 'next/link';
-import { Plus, Edit2, Trash2, Search, Mail, Shield, Loader2, AlertCircle, Users as UsersIcon, ArrowRightLeft, Eye, EyeOff, KeyRound, ShieldOff, Upload } from 'lucide-react';
+import { Plus, Edit2, Trash2, Search, Mail, Shield, Loader2, AlertCircle, Users as UsersIcon, ArrowRightLeft, Eye, EyeOff, KeyRound, ShieldOff, ShieldCheck, Upload, MoreHorizontal } from 'lucide-react';
 import PageIntro from '@/components/PageIntro';
 import BulkUploadUsersDialog from '@/components/BulkUploadUsersDialog';
 import { Input } from '@/components/ui/input';
@@ -38,6 +38,14 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Checkbox } from '@/components/ui/checkbox';
+import { Switch } from '@/components/ui/switch';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { DEFAULT_INTAKE_SESSIONS } from '@/lib/intakeDefaults';
 import { intakeSessionNames, normalizeIntakeSessions } from '@/lib/intakeSession';
 
@@ -51,6 +59,7 @@ interface User {
   createdAt: string;
   lastLogin?: string;
   mfaEnabled?: boolean;
+  mfaBypass?: boolean;
   forcePasswordChange?: boolean;
   lockedUntil?: string | null;
   failedLoginCount?: number;
@@ -72,7 +81,7 @@ const ROLE_PERMISSION_PREVIEW = {
     scope: 'All schools',
     summary: 'Full system control, including user security and system setup.',
     permissions: [
-      'Manage users, roles, passwords, and MFA recovery',
+      'Manage users, roles, passwords, MFA recovery, and per-user MFA bypass',
       'View and manage students, cabinets, reports, and audit logs across all schools',
       'Run admin tools such as seeding, cleanup, imports, duplicates, and bulk moves',
     ],
@@ -110,6 +119,16 @@ const ROLE_PERMISSION_PREVIEW = {
 
 type RoleName = keyof typeof ROLE_PERMISSION_PREVIEW;
 
+const EMPTY_FORM = {
+  name: '',
+  email: '',
+  password: '',
+  role: 'Data Member',
+  school: '',
+  allowedIntakeSessions: [] as string[],
+  mfaBypass: false,
+};
+
 export default function UsersPage() {
   const { data: session, status } = useSession();
   const router = useRouter();
@@ -123,14 +142,7 @@ export default function UsersPage() {
   const [editingUser, setEditingUser] = useState<User | null>(null);
   const [securityUser, setSecurityUser] = useState<User | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
-  const [form, setForm] = useState({
-    name: '',
-    email: '',
-    password: '',
-    role: 'Data Member',
-    school: '',
-    allowedIntakeSessions: [] as string[],
-  });
+  const [form, setForm] = useState(EMPTY_FORM);
   const [securityPassword, setSecurityPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [showSecurityPassword, setShowSecurityPassword] = useState(false);
@@ -246,7 +258,7 @@ export default function UsersPage() {
       
       await fetchUsers();
       setIsModalOpen(false);
-      setForm({ name: '', email: '', password: '', role: 'Data Member', school: '', allowedIntakeSessions: [] });
+      setForm(EMPTY_FORM);
       setEditingUser(null);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to save user');
@@ -270,7 +282,7 @@ export default function UsersPage() {
     }
   };
 
-  const handleSecurityAction = async (action: string) => {
+  const handleSecurityAction = async (action: string, extra?: { bypass?: boolean }) => {
     if (!securityUser) return;
 
     setLoading(true);
@@ -280,7 +292,7 @@ export default function UsersPage() {
       const res = await fetch(`/api/admin/users/${securityUser._id}/security`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action, password: securityPassword }),
+        body: JSON.stringify({ action, password: securityPassword, ...extra }),
       });
       const data = await res.json();
 
@@ -300,6 +312,9 @@ export default function UsersPage() {
         if (action === 'disable-mfa') {
           return { ...current, mfaEnabled: false };
         }
+        if (action === 'set-mfa-bypass') {
+          return { ...current, mfaBypass: extra?.bypass === true };
+        }
         if (action === 'unlock-account') {
           return { ...current, lockedUntil: null, failedLoginCount: 0 };
         }
@@ -310,6 +325,63 @@ export default function UsersPage() {
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to update user security');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleMfaBypassToggle = async (user: User, bypass: boolean) => {
+    if (bypass && !confirm(
+      `Disable MFA for ${user.email}?\n\nThey will be able to sign in without an authenticator code. Use only for testing/QA.`,
+    )) {
+      return;
+    }
+
+    setLoading(true);
+    setError('');
+    try {
+      const res = await fetch(`/api/admin/users/${user._id}/security`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'set-mfa-bypass', bypass }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error || 'Failed to update MFA setting');
+      }
+      await fetchUsers();
+      setSecurityUser(current => current && current._id === user._id
+        ? { ...current, mfaBypass: bypass }
+        : current);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to update MFA setting');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleResetMfa = async (user: User) => {
+    if (!confirm(`Reset MFA enrollment for ${user.email}? Their authenticator will be cleared.`)) {
+      return;
+    }
+    setLoading(true);
+    setError('');
+    try {
+      const res = await fetch(`/api/admin/users/${user._id}/security`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'disable-mfa' }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error || 'Failed to reset MFA');
+      }
+      await fetchUsers();
+      setSecurityUser(current => current && current._id === user._id
+        ? { ...current, mfaEnabled: false }
+        : current);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to reset MFA');
     } finally {
       setLoading(false);
     }
@@ -327,7 +399,7 @@ export default function UsersPage() {
 
   const handleCloseModal = () => {
     setIsModalOpen(false);
-    setForm({ name: '', email: '', password: '', role: 'Data Member', school: '', allowedIntakeSessions: [] });
+    setForm(EMPTY_FORM);
     setEditingUser(null);
     setShowPassword(false);
   };
@@ -388,14 +460,7 @@ export default function UsersPage() {
             </Button>
             <Button onClick={() => {
               setEditingUser(null);
-              setForm({
-                name: '',
-                email: '',
-                password: '',
-                role: 'Data Member',
-                school: '',
-                allowedIntakeSessions: [],
-              });
+              setForm(EMPTY_FORM);
               setIsModalOpen(true);
             }}>
               <Plus className="mr-2 h-4 w-4" />
@@ -494,9 +559,11 @@ export default function UsersPage() {
                           {user.role}
                         </Badge>
                         <div className="flex gap-1 mt-2 flex-wrap">
-                          {user.mfaEnabled && (
+                          {user.mfaBypass ? (
+                            <Badge variant="destructive" className="text-xs">MFA Disabled</Badge>
+                          ) : user.mfaEnabled ? (
                             <Badge variant="outline" className="text-xs">MFA</Badge>
-                          )}
+                          ) : null}
                           {user.forcePasswordChange && (
                             <Badge variant="destructive" className="text-xs">Must change password</Badge>
                           )}
@@ -522,7 +589,7 @@ export default function UsersPage() {
                         {formatDate(user.lastLogin)}
                       </TableCell>
                       <TableCell className="text-right">
-                        <div className="flex justify-end gap-2">
+                        <div className="flex justify-end gap-1">
                           <Button
                             variant="ghost"
                             size="sm"
@@ -552,17 +619,55 @@ export default function UsersPage() {
                                         ? user.allowedIntakeSessions.filter(s => schoolSessions.includes(s))
                                         : schoolSessions)
                                     : [],
+                                mfaBypass: Boolean(user.mfaBypass),
                               });
                               setIsModalOpen(true);
                             }}
+                            title="Edit user"
                           >
                             <Edit2 className="h-4 w-4" />
                           </Button>
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button variant="ghost" size="sm" title="User actions" disabled={loading}>
+                                <MoreHorizontal className="h-4 w-4" />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end" className="w-52">
+                              {user.mfaBypass ? (
+                                <DropdownMenuItem onClick={() => void handleMfaBypassToggle(user, false)}>
+                                  <ShieldCheck className="mr-2 h-4 w-4" />
+                                  Enable MFA
+                                </DropdownMenuItem>
+                              ) : (
+                                <DropdownMenuItem onClick={() => void handleMfaBypassToggle(user, true)}>
+                                  <ShieldOff className="mr-2 h-4 w-4" />
+                                  Disable MFA
+                                </DropdownMenuItem>
+                              )}
+                              <DropdownMenuItem
+                                onClick={() => void handleResetMfa(user)}
+                                disabled={!user.mfaEnabled}
+                              >
+                                <KeyRound className="mr-2 h-4 w-4" />
+                                Reset MFA
+                              </DropdownMenuItem>
+                              <DropdownMenuSeparator />
+                              <DropdownMenuItem
+                                onClick={() => handleDelete(user._id)}
+                                className="text-destructive focus:text-destructive"
+                              >
+                                <Trash2 className="mr-2 h-4 w-4" />
+                                Delete user
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
                           <Button
                             variant="ghost"
                             size="sm"
                             onClick={() => handleDelete(user._id)}
                             className="text-destructive hover:text-destructive"
+                            title="Delete user"
                           >
                             <Trash2 className="h-4 w-4" />
                           </Button>
@@ -818,6 +923,31 @@ export default function UsersPage() {
               </div>
             )}
 
+            <div className="rounded-lg border p-4 space-y-3">
+              <div className="flex items-start justify-between gap-3">
+                <div className="space-y-1">
+                  <Label htmlFor="mfaEnabled" className="text-sm font-medium">
+                    MFA Enabled
+                  </Label>
+                  <p className="text-xs text-muted-foreground">
+                    When off, this account skips the authenticator challenge at sign-in.
+                    Use only for testing/QA. Takes effect on the next sign-in.
+                  </p>
+                </div>
+                <Switch
+                  id="mfaEnabled"
+                  checked={!form.mfaBypass}
+                  onCheckedChange={(checked) => setForm(prev => ({ ...prev, mfaBypass: !checked }))}
+                  disabled={loading}
+                />
+              </div>
+              {form.mfaBypass && (
+                <p className="text-xs text-amber-700 dark:text-amber-400">
+                  MFA Disabled — this user can sign in with password only. An audit log entry is recorded.
+                </p>
+              )}
+            </div>
+
             <DialogFooter>
               <Button
                 type="button"
@@ -858,7 +988,7 @@ export default function UsersPage() {
               User Security Recovery
             </DialogTitle>
             <DialogDescription>
-              Reset passwords, force password changes, or disable MFA for locked-out users.
+              Reset passwords, force password changes, toggle MFA, or reset authenticator enrollment.
             </DialogDescription>
           </DialogHeader>
 
@@ -870,15 +1000,46 @@ export default function UsersPage() {
                 <div className="flex gap-2 mt-2 flex-wrap">
                   <Badge variant={getRoleVariant(securityUser.role) as any}>{securityUser.role}</Badge>
                   <Badge variant="secondary">{securityUser.school}</Badge>
-                  <Badge variant={securityUser.mfaEnabled ? 'default' : 'outline'}>
-                    MFA {securityUser.mfaEnabled ? 'Enabled' : 'Disabled'}
-                  </Badge>
+                  {securityUser.mfaBypass ? (
+                    <Badge variant="destructive">MFA Disabled</Badge>
+                  ) : (
+                    <Badge variant={securityUser.mfaEnabled ? 'default' : 'outline'}>
+                      MFA {securityUser.mfaEnabled ? 'Enrolled' : 'Not enrolled'}
+                    </Badge>
+                  )}
                   {securityUser.forcePasswordChange && (
                     <Badge variant="destructive">Password change required</Badge>
                   )}
                   {userIsLocked(securityUser) && (
                     <Badge variant="destructive">Locked until {new Date(securityUser.lockedUntil!).toLocaleString()}</Badge>
                   )}
+                </div>
+              </div>
+
+              <div className="rounded-lg border p-4 space-y-3">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="space-y-1">
+                    <Label htmlFor="securityMfaEnabled" className="text-sm font-medium">
+                      MFA Enabled
+                    </Label>
+                    <p className="text-xs text-muted-foreground">
+                      Turn off so this user can sign in without an authenticator code (testing/QA).
+                      Existing enrollment is kept and applies again when you turn MFA back on.
+                    </p>
+                  </div>
+                  <Switch
+                    id="securityMfaEnabled"
+                    checked={!securityUser.mfaBypass}
+                    onCheckedChange={(checked) => {
+                      if (!checked && !confirm(
+                        `Disable MFA for ${securityUser.email}?\n\nThey will be able to sign in without an authenticator code. Use only for testing/QA.`,
+                      )) {
+                        return;
+                      }
+                      void handleSecurityAction('set-mfa-bypass', { bypass: !checked });
+                    }}
+                    disabled={loading}
+                  />
                 </div>
               </div>
 
@@ -948,7 +1109,7 @@ export default function UsersPage() {
                   className="gap-2"
                 >
                   <ShieldOff className="h-4 w-4" />
-                  Disable MFA
+                  Reset MFA
                 </Button>
                 <Button
                   type="button"

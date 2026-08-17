@@ -4,6 +4,7 @@ import * as bcrypt from 'bcrypt';
 import { ObjectId } from 'mongodb';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/authOptions';
+import { applyMfaBypass } from '@/lib/authSecurity';
 
 export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -32,7 +33,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
   try {
-    const { name, email, role, school, password, allowedIntakeSessions } = await req.json();
+    const { name, email, role, school, password, allowedIntakeSessions, mfaBypass } = await req.json();
     const normalizedEmail = typeof email === 'string' ? email.toLowerCase().trim() : '';
     if (!name || !normalizedEmail || !role || !school) {
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
@@ -73,6 +74,14 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
 
     if (!result) {
       return NextResponse.json({ error: 'User not found' }, { status: 404 });
+    }
+
+    if (typeof mfaBypass === 'boolean') {
+      await applyMfaBypass(existingUser._id, normalizedEmail, mfaBypass, {
+        byEmail: session.user?.email || '',
+        byName: session.user?.name || '',
+      });
+      result.mfaBypass = mfaBypass;
     }
 
     const { password: pw, mfaSecret, mfaPendingSecret, ...userWithoutPassword } = result;

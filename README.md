@@ -437,6 +437,7 @@ npm run add-district-admins
   password: string,        // Hashed with bcrypt
   lastLogin?: string,      // Updated on each login
   mfaEnabled?: boolean,
+  mfaBypass?: boolean,   // Admin testing/QA: skip MFA challenge at login
   mfaSecret?: string,      // Excluded from API responses
   mfaPendingSecret?: string,
   forcePasswordChange?: boolean,

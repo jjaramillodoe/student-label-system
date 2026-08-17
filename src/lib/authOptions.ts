@@ -3,7 +3,7 @@ import CredentialsProvider from 'next-auth/providers/credentials';
 import AzureADProvider from 'next-auth/providers/azure-ad';
 import clientPromise from './mongodb';
 import * as bcrypt from 'bcrypt';
-import { verifyMfaToken } from './mfa';
+import { credentialsMfaMode, verifyMfaToken } from './mfa';
 import {
   clearCredentialFailures,
   isAccountLocked,
@@ -21,6 +21,7 @@ type DbUser = {
   lastLogin?: string;
   mfaEnabled?: boolean;
   mfaSecret?: string;
+  mfaBypass?: boolean;
   forcePasswordChange?: boolean;
   failedLoginCount?: number;
   lockedUntil?: string | null;
@@ -111,8 +112,9 @@ const providers: NextAuthOptions['providers'] = [
       }
 
       let forceMfaSetup = false;
+      const mfaMode = credentialsMfaMode(user);
 
-      if (user.mfaEnabled && user.mfaSecret) {
+      if (mfaMode === 'challenge') {
         const rawMfaCode = credentials.mfaCode?.trim();
         const mfaCode = rawMfaCode && rawMfaCode !== 'undefined' ? rawMfaCode : '';
 
@@ -120,7 +122,7 @@ const providers: NextAuthOptions['providers'] = [
           throw new Error('MFA_REQUIRED');
         }
 
-        if (!(await verifyMfaToken(mfaCode, user.mfaSecret))) {
+        if (!(await verifyMfaToken(mfaCode, user.mfaSecret!))) {
           const result = await recordCredentialFailure(user._id, email);
           await logAuthEvent({
             type: 'mfa_failure',
@@ -133,23 +135,23 @@ const providers: NextAuthOptions['providers'] = [
           if (result.locked) throw new Error('ACCOUNT_LOCKED');
           throw new Error('MFA_INVALID');
         }
-      } else if (user.mfaEnabled && !user.mfaSecret) {
-        const client = await clientPromise;
-        const db = client.db('student-label');
-        await db.collection('users').updateOne(
-          { _id: user._id as never },
-          {
-            $set: {
-              mfaEnabled: false,
-              updatedAt: new Date().toISOString(),
+      } else if (mfaMode === 'enroll') {
+        if (user.mfaEnabled && !user.mfaSecret) {
+          const client = await clientPromise;
+          const db = client.db('student-label');
+          await db.collection('users').updateOne(
+            { _id: user._id as never },
+            {
+              $set: {
+                mfaEnabled: false,
+                updatedAt: new Date().toISOString(),
+              },
+              $unset: {
+                mfaPendingSecret: '',
+              },
             },
-            $unset: {
-              mfaPendingSecret: '',
-            },
-          },
-        );
-        forceMfaSetup = true;
-      } else {
+          );
+        }
         // Credentials login requires MFA enrollment (DOE password accounts)
         forceMfaSetup = true;
       }
@@ -159,8 +161,13 @@ const providers: NextAuthOptions['providers'] = [
       await logAuthEvent({
         type: 'login_success',
         email,
-        reason: forceMfaSetup ? 'Signed in — MFA enrollment required' : 'Signed in',
-        meta: { forceMfaSetup },
+        reason:
+          mfaMode === 'bypass'
+            ? 'Signed in — MFA bypassed (admin exemption)'
+            : forceMfaSetup
+              ? 'Signed in — MFA enrollment required'
+              : 'Signed in',
+        meta: { forceMfaSetup, mfaBypass: mfaMode === 'bypass' },
       });
 
       return {
@@ -345,7 +352,7 @@ export const authOptions: NextAuthOptions = {
       if (trigger === 'update' && token.forceMfaSetup && token.email) {
         try {
           const dbUser = await loadDbUserByEmail(String(token.email).toLowerCase());
-          if (dbUser?.mfaEnabled && dbUser.mfaSecret) {
+          if (dbUser?.mfaBypass || (dbUser?.mfaEnabled && dbUser.mfaSecret)) {
             token.forceMfaSetup = false;
           }
         } catch {

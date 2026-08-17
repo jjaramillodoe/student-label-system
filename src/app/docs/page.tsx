@@ -230,7 +230,7 @@ const featureGroups = [
       'Idle session prompt (Admin → System Settings) asks if you are still using the app after inactivity on shared desks.',
       'Users can change their own passwords from Profile.',
       'Authenticator-app MFA with QR setup and 6-digit codes.',
-      'Admins can reset passwords, force password changes, and temporarily disable MFA only to recover locked-out users (re-enable after).',
+      'Admins can reset passwords, force password changes, reset MFA enrollment, and disable MFA per user for testing/QA (bypass login challenge; shown as MFA Disabled).',
       'Role permission preview explains each role before assignment.',
       'All role and school assignments stored in MongoDB.',
     ],

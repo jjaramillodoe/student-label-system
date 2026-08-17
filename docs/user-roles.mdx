@@ -6,7 +6,7 @@ description: Permissions for Admin, Data Lead, Data Member, and Intake Member.
 ## Security requirement — MFA until SSO
 
 <Warning>
-  **Password sign-in requires MFA** (authenticator app) until DOE Single Sign-On is available. This applies to all roles. After sign-in without MFA, you are sent to **Profile** to enroll before using the rest of the app. Admins may disable MFA only to unlock an account; the user must turn MFA back on afterward.
+  **Password sign-in requires MFA** (authenticator app) until DOE Single Sign-On is available. This applies to all roles unless an Admin has disabled MFA for that specific account (testing/QA). After sign-in without MFA, you are sent to **Profile** to enroll before using the rest of the app. Admins can **reset MFA** so a locked-out user can re-enroll, or **disable MFA** so a test account can sign in without an authenticator code.
 </Warning>
 
 Set up MFA from **Profile** after your first sign-in. Sessions last up to **12 hours**. After **8** failed password/MFA attempts, the account locks for about **30 minutes** (an Admin can unlock sooner). Contact an Admin if you lose your authenticator device.
