@@ -42,6 +42,7 @@ import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
 import { MINTLIFY_DOCS_URL } from '@/lib/docsUrl';
 import { extractStudentIdFromQrPayload } from '@/lib/qrPayload';
+import { useLogStudentSearch } from '@/lib/useLogStudentSearch';
 import { formatFullName, formatFullNameLower } from '@/lib/personName';
 
 type ToolItem = {
@@ -177,6 +178,8 @@ export default function CommandPalette() {
       })
       .slice(0, 8);
   }, [students, normalized]);
+
+  useLogStudentSearch(query, filteredStudents.length, 'command-palette', open);
 
   type Row =
     | { kind: 'tool'; item: ToolItem }

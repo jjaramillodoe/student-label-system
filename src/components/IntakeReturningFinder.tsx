@@ -43,7 +43,7 @@ export default function IntakeReturningFinder({
     }
     setStudentSearchLoading(true);
     try {
-      const res = await fetch(`/api/students?search=${encodeURIComponent(query)}`);
+      const res = await fetch(`/api/students?search=${encodeURIComponent(query)}&source=intake`);
       const data = await res.json();
       setStudentSearchResults(Array.isArray(data) ? data.slice(0, 10) : []);
     } catch {

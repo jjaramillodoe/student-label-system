@@ -4,6 +4,7 @@ import { authOptions } from '@/lib/authOptions';
 import clientPromise from '@/lib/mongodb';
 import { getSystemStats } from '@/lib/systemStats';
 import { isMotherDuckConfigured } from '@/lib/motherduck';
+import { SEARCH_EVENTS_COLLECTION } from '@/lib/searchAnalytics';
 
 export const dynamic = 'force-dynamic';
 
@@ -82,6 +83,13 @@ export async function GET() {
 
     const printSchoolFilter =
       isAdmin ? {} : userSchool ? { 'user.school': userSchool } : {};
+    const escapeSchool = (value: string) => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const eventSchoolFilter =
+      !isAdmin && userSchool
+        ? { school: { $regex: `^${escapeSchool(userSchool)}$`, $options: 'i' } }
+        : {};
+    const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
+    const nowIso = new Date().toISOString();
 
     const [
       studentsTotal,
@@ -97,6 +105,16 @@ export async function GET() {
       byStatusRows,
       enrollmentTrendRows,
       printsTrendRows,
+      searchesLast7Days,
+      searchesZeroLast7Days,
+      searchTrendRows,
+      searchByKindRows,
+      searchBySourceRows,
+      savedSearchCount,
+      usersTotal,
+      usersLocked,
+      usersMfaBypass,
+      usersForcePassword,
     ] = await Promise.all([
       db.collection('students').countDocuments(schoolFilter),
       db.collection('students').countDocuments({ ...schoolFilter, archived: { $ne: true } }),
@@ -176,6 +194,38 @@ export async function GET() {
           },
         },
       ]).toArray(),
+      db.collection(SEARCH_EVENTS_COLLECTION).countDocuments({
+        ...eventSchoolFilter,
+        at: { $gte: sevenDaysAgo },
+      }),
+      db.collection(SEARCH_EVENTS_COLLECTION).countDocuments({
+        ...eventSchoolFilter,
+        at: { $gte: sevenDaysAgo },
+        zeroResults: true,
+      }),
+      db.collection(SEARCH_EVENTS_COLLECTION).aggregate<{ _id: string; count: number }>([
+        { $match: { ...eventSchoolFilter, at: { $gte: trendStartIso } } },
+        { $group: { _id: { $substr: [{ $ifNull: ['$at', ''] }, 0, 10] }, count: { $sum: 1 } } },
+      ]).toArray(),
+      db.collection(SEARCH_EVENTS_COLLECTION).aggregate<{ _id: string; count: number }>([
+        { $match: { ...eventSchoolFilter, at: { $gte: trendStartIso } } },
+        { $group: { _id: { $ifNull: ['$kind', 'other'] }, count: { $sum: 1 } } },
+        { $sort: { count: -1 } },
+      ]).toArray(),
+      db.collection(SEARCH_EVENTS_COLLECTION).aggregate<{ _id: string; count: number }>([
+        { $match: { ...eventSchoolFilter, at: { $gte: trendStartIso } } },
+        { $group: { _id: { $ifNull: ['$source', 'lookup'] }, count: { $sum: 1 } } },
+        { $sort: { count: -1 } },
+      ]).toArray(),
+      db.collection('saved_searches').estimatedDocumentCount(),
+      isAdmin ? db.collection('users').countDocuments() : Promise.resolve(0),
+      isAdmin
+        ? db.collection('users').countDocuments({ lockedUntil: { $gt: nowIso } })
+        : Promise.resolve(0),
+      isAdmin ? db.collection('users').countDocuments({ mfaBypass: true }) : Promise.resolve(0),
+      isAdmin
+        ? db.collection('users').countDocuments({ forcePasswordChange: true })
+        : Promise.resolve(0),
     ]);
 
     const totalCapacity = cabinets.reduce((sum, c) => sum + (c.totalCapacity || 0), 0);
@@ -239,6 +289,27 @@ export async function GET() {
         auditLogsLast7Days: auditLast7Days,
         printsTrend: mergeTrend(emptyTrend, printsTrendRows),
       },
+      searches: {
+        last7Days: searchesLast7Days,
+        last14Days: searchTrendRows.reduce((sum, row) => sum + row.count, 0),
+        zeroResultsLast7Days: searchesZeroLast7Days,
+        zeroResultRate:
+          searchesLast7Days > 0
+            ? Math.round((searchesZeroLast7Days / searchesLast7Days) * 100)
+            : 0,
+        savedCount: savedSearchCount,
+        trend: mergeTrend(emptyTrend, searchTrendRows),
+        byKind: searchByKindRows.map((r) => ({ kind: r._id || 'other', count: r.count })),
+        bySource: searchBySourceRows.map((r) => ({ source: r._id || 'lookup', count: r.count })),
+      },
+      accounts: isAdmin
+        ? {
+            total: usersTotal,
+            locked: usersLocked,
+            mfaBypass: usersMfaBypass,
+            forcePasswordChange: usersForcePassword,
+          }
+        : null,
       system: system
         ? {
             databaseConnected: system.database.connected,

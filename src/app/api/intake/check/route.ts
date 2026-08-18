@@ -12,6 +12,7 @@ import {
 } from '@/lib/addressDuplicate';
 import { LEGACY_ROSTER_COLLECTION, matchLegacyRoster, schoolNameFilter } from '@/lib/legacyRoster';
 import { enrichStudentsWithCabinetNames, loadCabinetDrawerLookup } from '@/lib/cabinetNames';
+import { logSearchEvent } from '@/lib/searchAnalytics';
 
 const STUDENT_PROJECTION = {
   firstName: 1,
@@ -197,6 +198,13 @@ export async function POST(request: Request) {
     }
 
     const { byCabinetId } = await loadCabinetDrawerLookup(db);
+    void logSearchEvent({
+      query: `${firstName} ${lastName} ${dob}`.trim(),
+      resultCount: exact.length + fuzzy.length + legacyExact.length + legacyFuzzy.length,
+      source: 'intake-check',
+      school: session.user?.school || null,
+      role: session.user?.role || null,
+    });
     return NextResponse.json({
       exact: enrichStudentsWithCabinetNames(exact, byCabinetId),
       fuzzy: enrichStudentsWithCabinetNames(fuzzy, byCabinetId),

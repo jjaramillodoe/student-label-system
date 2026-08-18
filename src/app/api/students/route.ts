@@ -3,6 +3,7 @@ import clientPromise from '@/lib/mongodb';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/authOptions';
 import { buildStudentSearchOrConditions } from '@/lib/studentSearch';
+import { logSearchEvent } from '@/lib/searchAnalytics';
 import { ObjectId } from 'mongodb';
 import { cleanIdComponent, generateLabelId, resolveAgencyId, resolveStudentId } from '@/lib/studentId';
 import {
@@ -64,6 +65,15 @@ export async function GET(req: NextRequest) {
     const cursor = db.collection('students').find(query).sort({ createdAt: -1 });
     if (search && search.trim()) cursor.limit(20);
     const students = await cursor.toArray();
+    if (search && search.trim() && session) {
+      void logSearchEvent({
+        query: search,
+        resultCount: students.length,
+        source: req.nextUrl.searchParams.get('source') || 'lookup',
+        school: userSchool || null,
+        role: userRole || null,
+      });
+    }
     const { byCabinetId } = await loadCabinetDrawerLookup(db);
     return NextResponse.json(enrichStudentsWithCabinetNames(students, byCabinetId));
   } catch (error) {

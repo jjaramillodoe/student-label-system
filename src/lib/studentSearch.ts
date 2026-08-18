@@ -154,6 +154,21 @@ export function parseStudentSearchQuery(search: string): {
   return { raw, namePart, firstName, lastName, dobIso };
 }
 
+export type SearchKind = 'dob' | 'name' | 'name_dob' | 'id' | 'other';
+
+/** Classify a student search without storing the raw query (PII). */
+export function classifySearchKind(search: string): SearchKind {
+  const trimmed = search.trim();
+  if (!trimmed) return 'other';
+  const { namePart, dobIso } = parseStudentSearchQuery(trimmed);
+  if (dobIso && !namePart) return 'dob';
+  if (dobIso && namePart) return 'name_dob';
+  const compact = trimmed.replace(/\s+/g, '');
+  if (/^[A-Z0-9-]{6,}$/i.test(compact) && /\d/.test(compact)) return 'id';
+  if (namePart) return 'name';
+  return 'other';
+}
+
 /**
  * Mongo $or clauses for student / legacy roster search.
  *

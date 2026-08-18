@@ -14,6 +14,8 @@ import {
   Loader2,
   Printer,
   RefreshCw,
+  Search,
+  Shield,
   TrendingUp,
   UserPlus,
   Users,
@@ -76,6 +78,22 @@ type AnalyticsPayload = {
     auditLogsLast7Days: number;
     printsTrend: TrendPoint[];
   };
+  searches: {
+    last7Days: number;
+    last14Days: number;
+    zeroResultsLast7Days: number;
+    zeroResultRate: number;
+    savedCount: number;
+    trend: TrendPoint[];
+    byKind: Array<{ kind: string; count: number }>;
+    bySource: Array<{ source: string; count: number }>;
+  };
+  accounts: {
+    total: number;
+    locked: number;
+    mfaBypass: number;
+    forcePasswordChange: number;
+  } | null;
   system: {
     databaseConnected: boolean;
     syncReadyPercent: number;
@@ -94,6 +112,27 @@ const printsChartConfig = {
 const schoolChartConfig = {
   count: { label: 'Students', color: 'hsl(var(--chart-1))' },
 } satisfies ChartConfig;
+
+const searchesChartConfig = {
+  count: { label: 'Searches', color: 'hsl(var(--chart-3))' },
+} satisfies ChartConfig;
+
+const KIND_LABELS: Record<string, string> = {
+  name: 'Name',
+  dob: 'Date of birth',
+  name_dob: 'Name + DOB',
+  id: 'Student / Label ID',
+  other: 'Other',
+};
+
+const SOURCE_LABELS: Record<string, string> = {
+  dashboard: 'Dashboard',
+  intake: 'Intake lookup',
+  'intake-check': 'Intake duplicate check',
+  'all-students': 'All Students',
+  'command-palette': 'Command palette',
+  lookup: 'Student lookup',
+};
 
 const STATUS_COLORS = [
   'hsl(var(--chart-1))',
@@ -185,7 +224,7 @@ export default function AnalyticsPage() {
         description={
           data?.scope === 'school' && data.school
             ? `Enrollment, storage, and print activity for ${data.school}.`
-            : 'District-wide enrollment, storage utilization, and activity at a glance.'
+            : 'District-wide enrollment, searches, storage utilization, and activity at a glance.'
         }
         icon={<BarChart3 className="h-5 w-5 text-primary" />}
         actions={
@@ -219,7 +258,7 @@ export default function AnalyticsPage() {
         </div>
       ) : data ? (
         <>
-          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
             <AnalyticsMetricCard
               label="Students"
               value={data.students.total}
@@ -252,6 +291,26 @@ export default function AnalyticsPage() {
               description={`${data.activity.auditLogsLast7Days.toLocaleString()} audit events (7d)`}
               icon={Printer}
             />
+            <AnalyticsMetricCard
+              label="Searches (7d)"
+              value={data.searches?.last7Days ?? 0}
+              description={
+                data.searches
+                  ? `${data.searches.zeroResultRate}% zero results · ${data.searches.savedCount.toLocaleString()} saved searches`
+                  : 'Search activity starts collecting after this release'
+              }
+              icon={Search}
+              tone="info"
+            />
+            {isAdmin && data.accounts && (
+              <AnalyticsMetricCard
+                label="Accounts"
+                value={data.accounts.total}
+                description={`${data.accounts.mfaBypass.toLocaleString()} MFA disabled · ${data.accounts.locked.toLocaleString()} locked · ${data.accounts.forcePasswordChange.toLocaleString()} must change password`}
+                icon={Shield}
+                tone={data.accounts.mfaBypass || data.accounts.locked ? 'warning' : 'default'}
+              />
+            )}
           </div>
 
           {data.students.unassigned > 0 && (
@@ -341,6 +400,110 @@ export default function AnalyticsPage() {
               </CardContent>
             </Card>
           </div>
+
+          {data.searches && (
+            <div className="grid gap-4 xl:grid-cols-2">
+              <Card className="border-border/80 shadow-none">
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-base flex items-center gap-2">
+                    <Search className="h-4 w-4 text-muted-foreground" />
+                    Searches · 14 days
+                  </CardTitle>
+                  <CardDescription>
+                    Student lookups from Dashboard, Intake, All Students, and command palette.
+                    Raw search text is not stored.
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <ChartContainer config={searchesChartConfig} className="aspect-[2/1] w-full">
+                    <AreaChart data={data.searches.trend} margin={{ left: 0, right: 8, top: 8, bottom: 0 }}>
+                      <CartesianGrid vertical={false} strokeDasharray="3 3" />
+                      <XAxis
+                        dataKey="label"
+                        tickLine={false}
+                        axisLine={false}
+                        tickMargin={8}
+                        minTickGap={24}
+                      />
+                      <YAxis
+                        allowDecimals={false}
+                        tickLine={false}
+                        axisLine={false}
+                        width={28}
+                      />
+                      <ChartTooltip content={<ChartTooltipContent indicator="line" />} />
+                      <Area
+                        type="monotone"
+                        dataKey="count"
+                        stroke="var(--color-count)"
+                        fill="var(--color-count)"
+                        fillOpacity={0.15}
+                        strokeWidth={2}
+                      />
+                    </AreaChart>
+                  </ChartContainer>
+                </CardContent>
+              </Card>
+
+              <Card className="border-border/80 shadow-none">
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-base flex items-center gap-2">
+                    <Activity className="h-4 w-4 text-muted-foreground" />
+                    Search mix · 14 days
+                  </CardTitle>
+                  <CardDescription>
+                    {data.searches.last14Days.toLocaleString()} searches
+                    {data.searches.zeroResultsLast7Days > 0
+                      ? ` · ${data.searches.zeroResultsLast7Days.toLocaleString()} with no matches (7d)`
+                      : ''}
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div>
+                    <p className="text-xs font-medium text-muted-foreground mb-2">By query type</p>
+                    <div className="space-y-2">
+                      {data.searches.byKind.length === 0 ? (
+                        <p className="text-xs text-muted-foreground">
+                          No searches logged yet. Numbers appear after staff look up students.
+                        </p>
+                      ) : (
+                        data.searches.byKind.map((row) => {
+                          const max = Math.max(1, ...data.searches.byKind.map((k) => k.count));
+                          return (
+                            <div key={row.kind} className="flex items-center gap-3 text-sm">
+                              <span className="w-28 shrink-0 text-muted-foreground">
+                                {KIND_LABELS[row.kind] || row.kind}
+                              </span>
+                              <Progress value={Math.round((row.count / max) * 100)} className="h-1.5 flex-1" />
+                              <span className="w-10 text-right tabular-nums">{row.count.toLocaleString()}</span>
+                            </div>
+                          );
+                        })
+                      )}
+                    </div>
+                  </div>
+                  <div>
+                    <p className="text-xs font-medium text-muted-foreground mb-2">By source</p>
+                    <div className="flex flex-wrap gap-2">
+                      {(data.searches.bySource.length ? data.searches.bySource : []).map((row) => (
+                        <span key={row.source} className="ui-badge-muted text-xs">
+                          {SOURCE_LABELS[row.source] || row.source}
+                          <span className="ml-1 tabular-nums font-medium text-foreground">
+                            {row.count.toLocaleString()}
+                          </span>
+                        </span>
+                      ))}
+                      {data.searches.bySource.length === 0 && (
+                        <p className="text-xs text-muted-foreground">
+                          No searches logged yet. Numbers appear after staff look up students.
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+          )}
 
           <div className="grid gap-4 lg:grid-cols-2">
             {statusPieData.length > 0 && (

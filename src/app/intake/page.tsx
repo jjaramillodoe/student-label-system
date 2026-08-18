@@ -586,7 +586,7 @@ export default function IntakePage() {
     setCheckResult(r => ({ ...r, status: 'checking' }));
     try {
       const [liveRes, legacyRes] = await Promise.all([
-        fetch(`/api/students?search=${encodeURIComponent(q)}`),
+        fetch(`/api/students?search=${encodeURIComponent(q)}&source=intake`),
         fetch(`/api/admin/schools/legacy-roster/search?q=${encodeURIComponent(q)}`),
       ]);
       const liveData = await liveRes.json();
@@ -666,7 +666,7 @@ export default function IntakePage() {
     setSchoolLookupDone(false);
     try {
       const [liveRes, legacyRes] = await Promise.all([
-        fetch(`/api/students?search=${encodeURIComponent(q)}`),
+        fetch(`/api/students?search=${encodeURIComponent(q)}&source=intake`),
         fetch(`/api/admin/schools/legacy-roster/search?q=${encodeURIComponent(q)}`),
       ]);
       const liveData = await liveRes.json();

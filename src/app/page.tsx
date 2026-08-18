@@ -26,6 +26,7 @@ import { Cabinet } from '../types/cabinet';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { extractStudentIdFromQrPayload } from '@/lib/qrPayload';
+import { useLogStudentSearch } from '@/lib/useLogStudentSearch';
 import { downloadCsvFile, objectsToCsv } from '@/lib/csv';
 import { getStoredPrintLayout, setStoredPrintLayout } from '@/lib/printLayoutStorage';
 import { formatFullName, formatFullNameLower } from '@/lib/personName';
@@ -324,6 +325,8 @@ function Dashboard() {
            matchesStartDate && matchesEndDate && matchesCabinet && 
            matchesDrawer && matchesEmail;
   });
+
+  useLogStudentSearch(search, filteredStudents.length, 'dashboard');
 
   const hasActiveFilters = Boolean(
     search ||

@@ -12,7 +12,9 @@ The app has two analytics surfaces:
 
 ## In-app Analytics
 
-**Admin → Analytics** shows enrollment, cabinet fill, print activity, and school breakdowns from MongoDB. Data Leads see school-scoped metrics; Admins see district-wide totals.
+**Admin → Analytics** shows enrollment, student searches, cabinet fill, print activity, and school breakdowns from MongoDB. Data Leads see school-scoped metrics; Admins see district-wide totals plus an account snapshot (MFA disabled, locked, forced password change).
+
+Search analytics count lookups from **Dashboard**, **Intake**, **All Students**, and the command palette. Raw search text is not stored — only query type (name, DOB, ID), source, and whether it returned matches. Events expire after 180 days.
 
 Use **Refresh** to reload the snapshot. Deeper tools (Enrollment, Activity Report, Print Reports, Cabinets) are linked from the same page.
 

@@ -20,6 +20,7 @@ import clientPromise from '@/lib/mongodb';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/authOptions';
 import { ObjectId } from 'mongodb';
+import { logSearchEvent } from '@/lib/searchAnalytics';
 
 // ─── Cabinet / Drawer resolution ─────────────────────────────────────────────
 
@@ -236,6 +237,16 @@ export async function GET(req: NextRequest) {
     .toArray();
 
   const students = enrichWithNames(rawStudents, cabinetMap);
+
+  if (search && page === 1 && format !== 'csv') {
+    void logSearchEvent({
+      query: search,
+      resultCount: total,
+      source: 'all-students',
+      school: userSchool || schoolParam || null,
+      role: role || null,
+    });
+  }
 
   const schools: string[] = role === 'Admin'
     ? await db.collection('students').distinct('school')

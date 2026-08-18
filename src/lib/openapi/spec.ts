@@ -1271,6 +1271,39 @@ export const openApiSpec = {
     '/api/admin/notifications': {
       ...sessionMutations('Admin', { post: 'Test / run intake digest notification' }),
     },
+    '/api/admin/analytics': {
+      get: {
+        tags: ['Admin'],
+        summary: 'In-app analytics snapshot',
+        description:
+          'Admin and Data Lead. Enrollment, cabinets, prints, search activity, and (Admin) account health.',
+        security: sessionSecurity,
+        responses: {
+          '200': {
+            description: 'Analytics payload',
+            content: { 'application/json': { schema: jsonObject } },
+          },
+          '403': err,
+        },
+      },
+    },
+    '/api/search-events': {
+      post: {
+        tags: ['Students'],
+        summary: 'Record a client-side student search',
+        description: 'Stores query type and result count only — not the raw search string.',
+        security: sessionSecurity,
+        requestBody: {
+          content: { 'application/json': { schema: jsonObject } },
+        },
+        responses: {
+          '200': {
+            description: 'Recorded',
+            content: { 'application/json': { schema: jsonObject } },
+          },
+        },
+      },
+    },
     '/api/admin/system-stats': {
       get: {
         tags: ['Admin'],
