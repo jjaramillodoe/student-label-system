@@ -59,3 +59,19 @@ export function authorizeStudentAccess(opts: {
 
   return { ok: true };
 }
+
+/**
+ * Non-admins cannot reassign a student to a different school on PUT.
+ * Omitting school, or sending the current school, is allowed.
+ */
+export function authorizeStudentSchoolChange(opts: {
+  role?: string | null;
+  currentSchool?: string | null;
+  requestedSchool?: unknown;
+}): StudentAccessResult {
+  const { role, currentSchool, requestedSchool } = opts;
+  if (requestedSchool == null) return { ok: true };
+  if (role === 'Admin') return { ok: true };
+  if (requestedSchool === currentSchool) return { ok: true };
+  return { ok: false, status: 403, error: 'Forbidden — cannot move a student to another school' };
+}

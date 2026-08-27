@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { authorizeStudentAccess } from './studentAccess';
+import { authorizeStudentAccess, authorizeStudentSchoolChange } from './studentAccess';
 
 describe('authorizeStudentAccess', () => {
   it('requires a role (session)', () => {
@@ -66,5 +66,59 @@ describe('authorizeStudentAccess', () => {
       action: 'read',
       studentExists: false,
     })).toEqual({ ok: false, status: 404, error: 'Student not found' });
+  });
+
+  it('rejects unknown roles', () => {
+    expect(authorizeStudentAccess({
+      role: 'Visitor',
+      userSchool: 'School A',
+      action: 'read',
+      studentExists: true,
+      studentSchool: 'School A',
+    })).toMatchObject({ ok: false, status: 403 });
+  });
+
+  it('rejects school-scoped roles with no school assigned', () => {
+    expect(authorizeStudentAccess({
+      role: 'Data Lead',
+      userSchool: null,
+      action: 'read',
+      studentExists: true,
+      studentSchool: 'School A',
+    })).toMatchObject({ ok: false, status: 403 });
+  });
+});
+
+describe('authorizeStudentSchoolChange', () => {
+  it('allows omitting school or keeping the current school', () => {
+    expect(authorizeStudentSchoolChange({
+      role: 'Data Lead',
+      currentSchool: 'School A',
+    }).ok).toBe(true);
+    expect(authorizeStudentSchoolChange({
+      role: 'Data Member',
+      currentSchool: 'School A',
+      requestedSchool: 'School A',
+    }).ok).toBe(true);
+  });
+
+  it('allows Admin to move a student to another school', () => {
+    expect(authorizeStudentSchoolChange({
+      role: 'Admin',
+      currentSchool: 'School A',
+      requestedSchool: 'School B',
+    }).ok).toBe(true);
+  });
+
+  it('blocks non-admins from changing school', () => {
+    expect(authorizeStudentSchoolChange({
+      role: 'Data Lead',
+      currentSchool: 'School A',
+      requestedSchool: 'School B',
+    })).toEqual({
+      ok: false,
+      status: 403,
+      error: 'Forbidden — cannot move a student to another school',
+    });
   });
 });

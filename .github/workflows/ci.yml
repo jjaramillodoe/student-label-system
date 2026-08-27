@@ -1,0 +1,28 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    env:
+      NEXT_TELEMETRY_DISABLED: "1"
+      # Compile-time placeholders only — mongodb.ts does not connect during `next build`.
+      MONGODB_URI: mongodb://127.0.0.1:27017/student-label-ci
+      NEXTAUTH_SECRET: ci-nextauth-secret-at-least-32-characters
+      NEXTAUTH_URL: http://localhost:3000
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      # Auth, merge, ID helpers, and related tests. Full-repo `npm run lint:all` still reports
+      # pre-existing Next 16 eslint debt (~350 errors) and is not a merge gate yet.
+      - run: npm test
+      - run: npm run lint
+      - run: npm run build

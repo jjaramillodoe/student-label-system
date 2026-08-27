@@ -11,7 +11,7 @@ import {
 } from '@/lib/beEslEligibility';
 import { getSchoolIntakeSessions, validateIntakeSessionTimes } from '@/lib/intakeSession';
 import { syncTopLevelIntakeFields } from '@/lib/intakeVisitFix';
-import { authorizeStudentAccess } from '@/lib/studentAccess';
+import { authorizeStudentAccess, authorizeStudentSchoolChange } from '@/lib/studentAccess';
 import { normalizeMongoId, serializeMongoDocument } from '@/lib/utils';
 import { usaNameError } from '@/lib/usaName';
 import { assignDrawerSection } from '@/lib/drawerSections';
@@ -81,11 +81,13 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
 
     const body = await req.json();
 
-    if (userRole !== 'Admin' && body.school != null && body.school !== oldStudent.school) {
-      return NextResponse.json(
-        { error: 'Forbidden — cannot move a student to another school' },
-        { status: 403 },
-      );
+    const schoolChange = authorizeStudentSchoolChange({
+      role: userRole,
+      currentSchool: oldStudent.school,
+      requestedSchool: body.school,
+    });
+    if (!schoolChange.ok) {
+      return NextResponse.json({ error: schoolChange.error }, { status: schoolChange.status });
     }
 
     if (body.firstName != null) {

@@ -6,6 +6,9 @@ import {
   resolveNotificationRecipients,
 } from '@/lib/notifications';
 import { isEmailConfigured, sendEmail } from '@/lib/email';
+import { LOCKOUT_DURATION_MS, LOCKOUT_THRESHOLD } from '@/lib/authLockout';
+
+export { isAccountLocked, LOCKOUT_DURATION_MS, LOCKOUT_THRESHOLD } from '@/lib/authLockout';
 
 export const AUTH_EVENTS_COLLECTION = 'auth_events';
 
@@ -30,11 +33,6 @@ export type AuthEvent = {
   meta?: Record<string, unknown>;
 };
 
-/** Failures before temporary lock (password + MFA fails count). */
-export const LOCKOUT_THRESHOLD = 8;
-/** Lock duration after threshold. */
-export const LOCKOUT_DURATION_MS = 30 * 60 * 1000;
-
 const FAILURE_ALERT_THRESHOLD = 5;
 const FAILURE_WINDOW_MS = 15 * 60 * 1000;
 const ALERT_COOLDOWN_MS = 60 * 60 * 1000;
@@ -45,14 +43,6 @@ function normalizeEmail(email: string): string {
 
 function appBaseUrl(): string {
   return (process.env.NEXT_PUBLIC_APP_URL || process.env.NEXTAUTH_URL || '').replace(/\/$/, '');
-}
-
-export function isAccountLocked(user: {
-  lockedUntil?: string | Date | null;
-}): boolean {
-  if (!user?.lockedUntil) return false;
-  const until = new Date(user.lockedUntil).getTime();
-  return Number.isFinite(until) && until > Date.now();
 }
 
 export async function logAuthEvent(input: {

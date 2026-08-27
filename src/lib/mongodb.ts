@@ -8,8 +8,6 @@ function requireMongoUri(): string {
   return uri;
 }
 
-const uri = requireMongoUri();
-
 const options: MongoClientOptions = {
   // Fail faster than the driver default (30s) so API routes can surface errors cleanly
   serverSelectionTimeoutMS: 15_000,
@@ -31,7 +29,7 @@ declare global {
  */
 function getClientPromise(): Promise<MongoClient> {
   if (!global._mongoClientPromise) {
-    const client = new MongoClient(uri, options);
+    const client = new MongoClient(requireMongoUri(), options);
     global._mongoClientPromise = client.connect().catch((err) => {
       global._mongoClientPromise = undefined;
       throw err;
