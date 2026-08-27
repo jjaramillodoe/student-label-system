@@ -110,12 +110,12 @@ export default function BulkMovePage() {
 
     try {
       const [studentData, cabinetRes] = await Promise.all([
-        fetchAllStudentPages(),
+        fetchAllStudentPages<Student>(),
         fetch('/api/cabinets'),
       ]);
       const cabinetData = await cabinetRes.json();
 
-      setStudents(Array.isArray(studentData) ? studentData : []);
+      setStudents(studentData);
       setCabinets(Array.isArray(cabinetData) ? cabinetData : []);
     } catch {
       setError('Failed to load students and cabinets');
