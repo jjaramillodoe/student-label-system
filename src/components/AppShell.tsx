@@ -78,7 +78,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
       || pathname.startsWith('/archive');
     return (
       <>
-        {children}
+        <main id="main-content">{children}</main>
         {!hideFooter && <Footer />}
       </>
     );
@@ -99,7 +99,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   if (!shellEligible) {
     return (
       <div className="min-h-screen flex flex-col">
-        <div className="flex-1">{children}</div>
+        <main id="main-content" className="flex-1">{children}</main>
         <Footer />
       </div>
     );
@@ -128,7 +128,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
           onToggleDarkMode={() => setDarkMode((d) => !d)}
           onOpenMobileNav={() => setMobileOpen(true)}
         />
-        <main className="w-full max-w-full flex-1 px-4 sm:px-6 py-6">
+        <main id="main-content" className="w-full max-w-full flex-1 px-4 sm:px-6 py-6">
           {children}
         </main>
         <Footer />

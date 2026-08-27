@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth';
-import { authOptions } from '@/lib/authOptions';
+import { requireAdminOrDataLead } from '@/lib/requireSession';
 import clientPromise from '@/lib/mongodb';
 import {
   LEGACY_ROSTER_COLLECTION,
@@ -29,12 +28,10 @@ function sameSchool(a?: string | null, b?: string | null) {
  * Admin / Data Lead: scan uploaded ASISTS/MDB roster vs live students + garbage flags.
  */
 export async function GET(req: NextRequest) {
-  const session = await getServerSession(authOptions);
-  const role = (session?.user as { role?: string } | undefined)?.role;
-  const userSchool = (session?.user as { school?: string } | undefined)?.school;
-  if (!session || !['Admin', 'Data Lead'].includes(role || '')) {
-    return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
-  }
+  const auth = await requireAdminOrDataLead();
+  if (!auth.ok) return auth.response;
+  const role = auth.user.role;
+  const userSchool = auth.user.school;
 
   const schoolParam = req.nextUrl.searchParams.get('school')?.trim()
     || (role !== 'Admin' ? userSchool : '')

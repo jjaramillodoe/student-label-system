@@ -1,9 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth';
-import { authOptions } from '@/lib/authOptions';
 import clientPromise from '@/lib/mongodb';
 import { ObjectId } from 'mongodb';
 import { isAllowedAdminUser } from '@/lib/allowedUsers';
+import { escapeRegex } from '@/lib/studentSearch';
+import { destructiveHttpGuard } from '@/lib/destructiveHttp';
+import { requireSession } from '@/lib/requireSession';
 
 const CABINET_NAMES = ['Main Cabinet', 'Storage Cabinet', 'Archive Cabinet', 'Records Cabinet', 'Files Cabinet'];
 const DRAWER_NAMES = ['Drawer A', 'Drawer B', 'Drawer C', 'Drawer D', 'Drawer E'];
@@ -41,14 +42,15 @@ function generateStudentId(birthYear: string, firstName: string, lastName: strin
 
 export async function POST(req: NextRequest) {
   try {
-    const session = await getServerSession(authOptions);
-    if (!session) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
+    const blocked = destructiveHttpGuard();
+    if (blocked) return blocked;
+
+    const auth = await requireSession();
+    if (!auth.ok) return auth.response;
 
     // Only allow specific admin users to seed cabinets
-    const userRole = (session.user as any)?.role;
-    const userEmail = session.user?.email;
+    const userRole = auth.user.role;
+    const userEmail = auth.user.email;
     if (!isAllowedAdminUser(userEmail, userRole)) {
       return NextResponse.json({ 
         error: 'Forbidden: Only authorized admin users can seed cabinets' 
@@ -56,7 +58,7 @@ export async function POST(req: NextRequest) {
     }
 
     const body = await req.json();
-    const userSchool = (session.user as any)?.school;
+    const userSchool = auth.user.school;
     const cabinetsPerSchool = body.cabinetsPerSchool ?? 2; // Default 2 cabinets per school
     const drawersPerCabinet = body.drawersPerCabinet ?? 5; // Default 5 drawers per cabinet
     const drawerCapacity = body.drawerCapacity ?? 100; // Default 100 per drawer
@@ -182,7 +184,7 @@ export async function POST(req: NextRequest) {
               if (!yearCounters[birthYear][initials]) {
                 // Check existing students with same year and initials
                 const existing = await db.collection('students').find({
-                  studentId: { $regex: `^${birthYear}-${initials}-` }
+                  studentId: { $regex: `^${escapeRegex(birthYear)}-${escapeRegex(initials)}-` }
                 }).toArray();
 
                 let maxNum = 0;

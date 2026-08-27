@@ -23,6 +23,15 @@ const idParam = {
 };
 
 function sessionGet(tag: string, summary: string, description?: string) {
+  return sessionGetSchema(tag, summary, jsonObject, description);
+}
+
+function sessionGetSchema(
+  tag: string,
+  summary: string,
+  schema: object,
+  description?: string,
+) {
   return {
     get: {
       tags: [tag],
@@ -32,7 +41,7 @@ function sessionGet(tag: string, summary: string, description?: string) {
       responses: {
         '200': {
           description: 'OK',
-          content: { 'application/json': { schema: jsonObject } },
+          content: { 'application/json': { schema } },
         },
         '401': err,
         '403': err,
@@ -80,14 +89,15 @@ export const openApiSpec = {
   openapi: '3.0.3',
   info: {
     title: 'Student Label System API',
-    version: '1.1.0',
+    version: '1.2.0',
     description: [
       'REST API for the NYC Adult Education **Student Label System**.',
       '',
       '### Authentication',
-      '- **Public** — health, tenant, student lookup, archive box, this OpenAPI document',
+      '- **Public** — liveness health, tenant, student lookup, archive box, this OpenAPI document',
       '- **Sync API key** — `Authorization: Bearer <SYNC_API_KEY>` for `/api/sync/v1/*`',
-      '- **Cron secret** — `Authorization: Bearer <CRON_SECRET>` (or `?secret=`) for `/api/cron/*`',
+      '- **Cron secret** — `Authorization: Bearer <CRON_SECRET>` for `/api/cron/*` (Vercel Cron sends this header when `CRON_SECRET` is set)',
+      '- **Health probe** — Admin session or `Authorization: Bearer <HEALTH_PROBE_SECRET>` (falls back to `CRON_SECRET`) for `/api/health/deep`',
       '- **Session** — NextAuth cookie after signing in at `/auth/signin` (same browser for Swagger “Try it out”)',
       '',
       '### Role notes',
@@ -131,7 +141,7 @@ export const openApiSpec = {
         type: 'http',
         scheme: 'bearer',
         bearerFormat: 'CRON_SECRET',
-        description: 'Vercel Cron / scheduler bearer, or `?secret=` query param.',
+        description: 'Vercel Cron / scheduler bearer. Query-string secrets are not accepted.',
       },
       SessionCookie: {
         type: 'apiKey',
@@ -258,13 +268,235 @@ export const openApiSpec = {
       },
       Student: {
         type: 'object',
-        description: 'Full MongoDB student document (session routes return more fields than SyncStudent).',
+        description: 'Session student record. Shape is broader than PublicStudentLookup; extra Mongo fields may be present.',
         additionalProperties: true,
+        properties: {
+          _id: { type: 'string' },
+          firstName: { type: 'string' },
+          lastName: { type: 'string' },
+          dob: { type: 'string' },
+          labelId: { type: 'string' },
+          studentId: { type: 'string' },
+          school: { type: 'string' },
+          status: { type: 'string' },
+          fiscalYear: { type: 'string' },
+          archived: { type: 'boolean' },
+          cabinet: { type: 'string' },
+          drawer: { type: 'string' },
+        },
       },
       Cabinet: {
         type: 'object',
         description: 'Cabinet with drawers (capacity, sections, map position).',
         additionalProperties: true,
+        properties: {
+          _id: { type: 'string' },
+          name: { type: 'string' },
+          identifier: { type: 'string', nullable: true },
+          school: { type: 'string' },
+          status: { type: 'string' },
+          totalCapacity: { type: 'integer' },
+          currentCount: { type: 'integer' },
+        },
+      },
+      StudentsList: {
+        type: 'object',
+        additionalProperties: false,
+        required: ['students', 'total', 'page', 'limit'],
+        properties: {
+          students: {
+            type: 'array',
+            items: { $ref: '#/components/schemas/Student' },
+          },
+          total: { type: 'integer' },
+          page: { type: 'integer' },
+          limit: { type: 'integer' },
+        },
+      },
+      PublicSiblingLookup: {
+        type: 'object',
+        additionalProperties: false,
+        required: ['_id'],
+        properties: {
+          _id: { type: 'string' },
+          firstName: { type: 'string' },
+          lastName: { type: 'string' },
+          labelId: { type: 'string' },
+          studentId: { type: 'string' },
+        },
+      },
+      PublicStudentLookup: {
+        type: 'object',
+        description: 'Whitelisted QR lookup payload. Must match PUBLIC_STUDENT_LOOKUP_KEYS.',
+        additionalProperties: false,
+        required: ['_id', 'siblings'],
+        properties: {
+          _id: { type: 'string' },
+          firstName: { type: 'string' },
+          lastName: { type: 'string' },
+          labelId: { type: 'string' },
+          studentId: { type: 'string' },
+          dob: { type: 'string' },
+          school: { type: 'string' },
+          status: { type: 'string' },
+          program: { type: 'string' },
+          archived: { type: 'boolean' },
+          cabinet: { type: 'string' },
+          drawer: { type: 'string' },
+          drawerSection: { type: 'string' },
+          cabinetName: { type: 'string', nullable: true },
+          drawerName: { type: 'string', nullable: true },
+          archiveBoxLabel: { type: 'string', nullable: true },
+          archiveLocation: { type: 'string', nullable: true },
+          archiveSchoolYear: { type: 'string', nullable: true },
+          archiveBoxId: { type: 'string', nullable: true },
+          siblingFlag: { type: 'boolean' },
+          siblingConfirmed: { type: 'boolean' },
+          siblings: {
+            type: 'array',
+            items: { $ref: '#/components/schemas/PublicSiblingLookup' },
+          },
+        },
+      },
+      PublicArchiveBoxStudent: {
+        type: 'object',
+        additionalProperties: false,
+        required: ['_id'],
+        properties: {
+          _id: { type: 'string' },
+          firstName: { type: 'string' },
+          lastName: { type: 'string' },
+          labelId: { type: 'string' },
+          studentId: { type: 'string' },
+        },
+      },
+      PublicArchiveBox: {
+        type: 'object',
+        additionalProperties: false,
+        required: ['box', 'archive', 'students'],
+        properties: {
+          box: {
+            type: 'object',
+            additionalProperties: false,
+            required: ['_id', 'label'],
+            properties: {
+              _id: { type: 'string' },
+              label: { type: 'string' },
+              boxNumber: { type: 'integer' },
+              filesPerBox: { type: 'integer' },
+              maxCapacity: { type: 'integer' },
+              currentCount: { type: 'integer' },
+            },
+          },
+          archive: {
+            type: 'object',
+            additionalProperties: false,
+            properties: {
+              cabinetName: { type: 'string' },
+              cabinetIdentifier: { type: 'string', nullable: true },
+              school: { type: 'string', nullable: true },
+              schoolYear: { type: 'string' },
+              location: { type: 'string' },
+              archiveDate: { type: 'string' },
+            },
+          },
+          students: {
+            type: 'array',
+            items: { $ref: '#/components/schemas/PublicArchiveBoxStudent' },
+          },
+        },
+      },
+      Tenant: {
+        type: 'object',
+        additionalProperties: false,
+        required: ['mode'],
+        properties: {
+          mode: { type: 'string', enum: ['apex', 'school', 'unknown'] },
+          rootDomain: { type: 'string', nullable: true },
+          slug: { type: 'string', nullable: true },
+          school: {
+            type: 'object',
+            nullable: true,
+            additionalProperties: false,
+            properties: {
+              _id: { type: 'string' },
+              name: { type: 'string' },
+              type: { type: 'string' },
+              agencyId: { type: 'string', nullable: true },
+              slug: { type: 'string' },
+            },
+          },
+          portalUrl: { type: 'string', nullable: true },
+          message: { type: 'string' },
+          error: { type: 'string' },
+        },
+      },
+      PrintFromIdsBody: {
+        type: 'object',
+        additionalProperties: false,
+        properties: {
+          ids: {
+            type: 'array',
+            items: { type: 'string', description: 'Mongo student ObjectId' },
+          },
+          students: {
+            type: 'array',
+            description: 'Legacy: only `_id` is read; PII in the payload is ignored.',
+            items: {
+              type: 'object',
+              additionalProperties: true,
+              properties: { _id: { type: 'string' } },
+            },
+          },
+          skipStock: { type: 'boolean' },
+        },
+      },
+      ScanCapped: {
+        type: 'object',
+        description:
+          'Admin diagnostic scans cap the student set. `truncated` means more records exist than were loaded.',
+        additionalProperties: true,
+        properties: {
+          truncated: { type: 'boolean' },
+          scanned: { type: 'integer' },
+          cap: { type: 'integer' },
+        },
+      },
+      AppSettings: {
+        type: 'object',
+        additionalProperties: false,
+        properties: {
+          showSeedTestData: { type: 'boolean' },
+          showSeedCabinets: { type: 'boolean' },
+          showClearAllData: { type: 'boolean' },
+          showMigrateDrawers: { type: 'boolean' },
+          notifyLowStockEmail: { type: 'boolean' },
+          notifyIntakeIssuesEmail: { type: 'boolean' },
+          notificationRecipients: { type: 'string' },
+          idleTimeoutEnabled: { type: 'boolean' },
+          idleTimeoutMinutes: { type: 'integer' },
+          idlePromptGraceSeconds: { type: 'integer' },
+        },
+      },
+      PasswordChangeBody: {
+        type: 'object',
+        additionalProperties: false,
+        required: ['currentPassword', 'newPassword'],
+        properties: {
+          currentPassword: { type: 'string' },
+          newPassword: {
+            type: 'string',
+            minLength: 10,
+            description: 'At least 10 characters, including a letter and a number.',
+          },
+        },
+      },
+      OkSuccess: {
+        type: 'object',
+        additionalProperties: false,
+        properties: {
+          success: { type: 'boolean' },
+        },
       },
       ErrorResponse: {
         type: 'object',
@@ -298,8 +530,9 @@ export const openApiSpec = {
         tags: ['Health'],
         summary: 'Readiness probe',
         description:
-          'Checks MongoDB, environment configuration, and monitored endpoint readiness. HTTP 503 when unhealthy.',
+          'Checks MongoDB, environment configuration, and monitored endpoint readiness. Requires an Admin session cookie or `Authorization: Bearer <HEALTH_PROBE_SECRET>` (falls back to `CRON_SECRET`). HTTP 503 when unhealthy.',
         operationId: 'getHealthDeep',
+        security: [{ SessionCookie: [] }, { CronSecret: [] }],
         responses: {
           '200': {
             description: 'Healthy or degraded',
@@ -307,6 +540,7 @@ export const openApiSpec = {
               'application/json': { schema: { $ref: '#/components/schemas/HealthDeep' } },
             },
           },
+          '401': err,
           '503': {
             description: 'Unhealthy',
             content: {
@@ -327,7 +561,7 @@ export const openApiSpec = {
         responses: {
           '200': {
             description: 'Tenant mode and school info',
-            content: { 'application/json': { schema: jsonObject } },
+            content: { 'application/json': { schema: { $ref: '#/components/schemas/Tenant' } } },
           },
         },
       },
@@ -346,9 +580,10 @@ export const openApiSpec = {
         responses: {
           '200': {
             description: 'Public student payload',
-            content: { 'application/json': { schema: jsonObject } },
+            content: { 'application/json': { schema: { $ref: '#/components/schemas/PublicStudentLookup' } } },
           },
           '404': err,
+          '429': err,
         },
       },
     },
@@ -356,7 +591,7 @@ export const openApiSpec = {
       get: {
         tags: ['Public'],
         summary: 'Public archive box',
-        description: 'Box metadata and student list for QR archive labels.',
+        description: 'Box metadata and student names + filing IDs for QR archive labels. Does not include DOB. Rate-limited.',
         operationId: 'getArchiveBoxPublic',
         parameters: [
           { name: 'boxId', in: 'query', required: true, schema: { type: 'string' } },
@@ -364,9 +599,10 @@ export const openApiSpec = {
         responses: {
           '200': {
             description: 'Archive box payload',
-            content: { 'application/json': { schema: jsonObject } },
+            content: { 'application/json': { schema: { $ref: '#/components/schemas/PublicArchiveBox' } } },
           },
           '404': err,
+          '429': err,
         },
       },
     },
@@ -409,6 +645,7 @@ export const openApiSpec = {
           },
           '400': err,
           '401': err,
+          '429': err,
           '503': err,
         },
       },
@@ -419,7 +656,7 @@ export const openApiSpec = {
       get: {
         tags: ['Cron'],
         summary: 'Intake issues email digest',
-        description: 'Scheduled job — requires CRON_SECRET.',
+        description: 'Scheduled job — requires `Authorization: Bearer <CRON_SECRET>`. Vercel Cron sends this header automatically when `CRON_SECRET` is set.',
         operationId: 'cronIntakeDigest',
         security: [{ CronSecret: [] }],
         responses: {
@@ -458,15 +695,7 @@ export const openApiSpec = {
             description: 'Paginated students',
             content: {
               'application/json': {
-                schema: {
-                  type: 'object',
-                  properties: {
-                    students: { type: 'array', items: { $ref: '#/components/schemas/Student' } },
-                    total: { type: 'integer' },
-                    page: { type: 'integer' },
-                    limit: { type: 'integer' },
-                  },
-                },
+                schema: { $ref: '#/components/schemas/StudentsList' },
               },
             },
           },
@@ -624,7 +853,7 @@ export const openApiSpec = {
           '200': {
             description: 'Students list or CSV',
             content: {
-              'application/json': { schema: jsonObject },
+              'application/json': { schema: { $ref: '#/components/schemas/StudentsList' } },
               'text/csv': { schema: { type: 'string' } },
             },
           },
@@ -916,13 +1145,18 @@ export const openApiSpec = {
       ...sessionGet('Cabinets', 'Audit cabinet capacity vs student counts'),
     },
     '/api/admin/cabinet-health': {
-      ...sessionGet('Admin', 'Cabinet health / capacity diagnostics'),
+      ...sessionGetSchema(
+        'Admin',
+        'Cabinet health / capacity diagnostics',
+        { $ref: '#/components/schemas/ScanCapped' },
+      ),
     },
     '/api/admin/unassigned-students': {
-      ...sessionGet(
+      ...sessionGetSchema(
         'Admin',
         'Unassigned student queue',
-        'Admin or Data Lead. Optional `summaryOnly=1`.',
+        { $ref: '#/components/schemas/ScanCapped' },
+        'Admin or Data Lead. Optional `summaryOnly=1`. Includes scan cap metadata.',
       ),
     },
     '/api/admin/assign-next-slot': {
@@ -939,10 +1173,15 @@ export const openApiSpec = {
     '/api/print/avery5163-docx': {
       post: {
         tags: ['Print'],
-        summary: 'Generate Avery 5163 Word labels',
+        summary: 'Generate Avery 5163 Word labels from Mongo student ids',
         security: sessionSecurity,
         requestBody: {
-          content: { 'application/json': { schema: jsonObject } },
+          required: true,
+          content: {
+            'application/json': {
+              schema: { $ref: '#/components/schemas/PrintFromIdsBody' },
+            },
+          },
         },
         responses: {
           '200': {
@@ -954,16 +1193,23 @@ export const openApiSpec = {
             },
           },
           '401': err,
+          '403': err,
+          '404': err,
         },
       },
     },
     '/api/print/avery94205-docx': {
       post: {
         tags: ['Print'],
-        summary: 'Generate Avery 94205 Word labels',
+        summary: 'Generate Avery 94205 Word labels from Mongo student ids',
         security: sessionSecurity,
         requestBody: {
-          content: { 'application/json': { schema: jsonObject } },
+          required: true,
+          content: {
+            'application/json': {
+              schema: { $ref: '#/components/schemas/PrintFromIdsBody' },
+            },
+          },
         },
         responses: {
           '200': {
@@ -975,6 +1221,8 @@ export const openApiSpec = {
             },
           },
           '401': err,
+          '403': err,
+          '404': err,
         },
       },
     },
@@ -1215,15 +1463,12 @@ export const openApiSpec = {
         security: sessionSecurity,
         responses: {
           '200': {
-            description: 'Duplicate groups',
-            content: { 'application/json': { schema: jsonObject } },
+            description: 'Duplicate groups (capped scan)',
+            content: { 'application/json': { schema: { $ref: '#/components/schemas/ScanCapped' } } },
           },
         },
       },
       ...sessionMutations('Admin', { post: 'Merge or dismiss duplicates' }),
-    },
-    '/api/admin/duplicate-students': {
-      ...sessionGet('Admin', 'Duplicate student scan report'),
     },
     '/api/admin/data-cleanup': {
       get: {
@@ -1232,8 +1477,8 @@ export const openApiSpec = {
         security: sessionSecurity,
         responses: {
           '200': {
-            description: 'Issues',
-            content: { 'application/json': { schema: jsonObject } },
+            description: 'Issues (capped scan)',
+            content: { 'application/json': { schema: { $ref: '#/components/schemas/ScanCapped' } } },
           },
         },
       },
@@ -1264,7 +1509,7 @@ export const openApiSpec = {
         responses: {
           '200': {
             description: 'Settings',
-            content: { 'application/json': { schema: jsonObject } },
+            content: { 'application/json': { schema: { $ref: '#/components/schemas/AppSettings' } } },
           },
         },
       },
@@ -1274,12 +1519,12 @@ export const openApiSpec = {
         description: 'Admin-only.',
         security: sessionSecurity,
         requestBody: {
-          content: { 'application/json': { schema: jsonObject } },
+          content: { 'application/json': { schema: { $ref: '#/components/schemas/AppSettings' } } },
         },
         responses: {
           '200': {
             description: 'Updated',
-            content: { 'application/json': { schema: jsonObject } },
+            content: { 'application/json': { schema: { $ref: '#/components/schemas/AppSettings' } } },
           },
           '403': err,
         },
@@ -1486,13 +1731,15 @@ export const openApiSpec = {
         summary: 'Change own password',
         security: sessionSecurity,
         requestBody: {
-          content: { 'application/json': { schema: jsonObject } },
+          required: true,
+          content: { 'application/json': { schema: { $ref: '#/components/schemas/PasswordChangeBody' } } },
         },
         responses: {
           '200': {
             description: 'Updated',
-            content: { 'application/json': { schema: jsonObject } },
+            content: { 'application/json': { schema: { $ref: '#/components/schemas/OkSuccess' } } },
           },
+          '400': err,
           '401': err,
         },
       },

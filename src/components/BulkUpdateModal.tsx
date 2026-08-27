@@ -21,12 +21,10 @@ import {
 } from '@/components/ui/select';
 import { Card, CardContent } from '@/components/ui/card';
 import { Users } from 'lucide-react';
+import { fiscalYearOptions, STUDENT_STATUS_OPTIONS } from '@/lib/studentOptions';
 
-const FISCAL_YEAR_OPTIONS = [
-  '2024-2025', '2025-2026', '2026-2027', '2027-2028'
-];
-
-const STATUS_OPTIONS = ['Active', 'Inactive', 'Graduated', 'Transferred'];
+const FISCAL_YEAR_OPTIONS = fiscalYearOptions();
+const STATUS_OPTIONS = STUDENT_STATUS_OPTIONS;
 
 interface BulkUpdateModalProps {
   open: boolean;

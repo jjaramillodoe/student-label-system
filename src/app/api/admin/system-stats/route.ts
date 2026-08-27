@@ -1,18 +1,13 @@
 import { NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth';
-import { authOptions } from '@/lib/authOptions';
+import { requireAdmin } from '@/lib/requireSession';
 import { getSystemStats } from '@/lib/systemStats';
 
 export const dynamic = 'force-dynamic';
 
 /** Admin-only read-only system and database statistics */
 export async function GET() {
-  const session = await getServerSession(authOptions);
-  const role = (session?.user as { role?: string })?.role;
-
-  if (!session || role !== 'Admin') {
-    return NextResponse.json({ error: 'Forbidden — Admin only' }, { status: 403 });
-  }
+  const auth = await requireAdmin('Forbidden — Admin only');
+  if (!auth.ok) return auth.response;
 
   try {
     const stats = await getSystemStats();

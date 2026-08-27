@@ -1,6 +1,5 @@
 import { NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth';
-import { authOptions } from '@/lib/authOptions';
+import { requireAdminOrDataLead } from '@/lib/requireSession';
 import clientPromise from '@/lib/mongodb';
 import { ObjectId } from 'mongodb';
 
@@ -13,10 +12,8 @@ export async function PATCH(
   { params }: { params: Promise<{ id: string }> },
 ) {
   try {
-    const session = await getServerSession(authOptions);
-    if (!session || !['Admin', 'Data Lead'].includes(session.user?.role || '')) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
+    const auth = await requireAdminOrDataLead();
+    if (!auth.ok) return auth.response;
 
     const { id } = await params;
     const body = await request.json();
@@ -35,9 +32,9 @@ export async function PATCH(
       return NextResponse.json({ error: 'Cabinet not found' }, { status: 404 });
     }
     if (
-      session.user.role !== 'Admin' &&
-      session.user.school &&
-      cabinet.school !== session.user.school
+      auth.user.role !== 'Admin' &&
+      auth.user.school &&
+      cabinet.school !== auth.user.school
     ) {
       return NextResponse.json({ error: 'Access denied' }, { status: 403 });
     }

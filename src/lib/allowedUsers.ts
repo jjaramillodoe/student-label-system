@@ -1,20 +1,31 @@
 /**
- * List of allowed users who can access admin seeding/clearing features
- * These users must also be Admins to access these features
+ * Allowlist for seed/wipe HTTP features. Server routes read DESTRUCTIVE_ADMIN_EMAILS.
+ * Client UI falls back to the default email when the env var is not public.
  */
-export const ALLOWED_ADMIN_USERS = [
-  'jjaramillo7@schools.nyc.gov',
-  // Add more allowed user emails here as needed
-];
+const FALLBACK_DESTRUCTIVE_ADMIN_EMAILS = ['jjaramillo7@schools.nyc.gov'];
+
+export function parseDestructiveAdminEmails(raw?: string | null): string[] {
+  return (raw || '')
+    .split(',')
+    .map((email) => email.trim().toLowerCase())
+    .filter(Boolean);
+}
+
+export function allowedAdminEmails(raw = process.env.DESTRUCTIVE_ADMIN_EMAILS): string[] {
+  const fromEnv = parseDestructiveAdminEmails(raw);
+  return fromEnv.length > 0 ? fromEnv : FALLBACK_DESTRUCTIVE_ADMIN_EMAILS;
+}
+
+/** @deprecated Use allowedAdminEmails() — kept for existing imports. */
+export const ALLOWED_ADMIN_USERS = allowedAdminEmails();
 
 /**
- * Check if a user is allowed to access admin seeding/clearing features
- * User must be an Admin AND in the allowed users list
+ * Check if a user is allowed to access admin seeding/clearing features.
+ * User must be an Admin AND in the allowed users list.
  */
 export function isAllowedAdminUser(email?: string | null, role?: string | null): boolean {
   if (!email || role !== 'Admin') {
     return false;
   }
-  return ALLOWED_ADMIN_USERS.includes(email.toLowerCase());
+  return allowedAdminEmails().includes(email.toLowerCase());
 }
-

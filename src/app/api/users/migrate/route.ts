@@ -1,13 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server';
 import clientPromise from '@/lib/mongodb';
-import { getServerSession } from 'next-auth';
-import { authOptions } from '@/lib/authOptions';
+import { destructiveHttpGuard } from '@/lib/destructiveHttp';
+import { requireAdmin } from '@/lib/requireSession';
 
 export async function POST(req: NextRequest) {
-  const session = await getServerSession(authOptions);
-  if (!session || (session.user as any).role !== 'Admin') {
-    return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
-  }
+  const blocked = destructiveHttpGuard();
+  if (blocked) return blocked;
+
+  const auth = await requireAdmin();
+  if (!auth.ok) return auth.response;
 
   try {
     const client = await clientPromise;

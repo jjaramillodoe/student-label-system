@@ -1,12 +1,12 @@
 import { NextResponse }    from 'next/server';
-import { getServerSession } from 'next-auth';
-import { authOptions }      from '@/lib/authOptions';
+import { requireSession } from '@/lib/requireSession';
 import clientPromise        from '@/lib/mongodb';
 import {
   DEFAULT_INTAKE_ACTIVITIES,
   DEFAULT_INTAKE_SESSION_CONFIGS,
 } from '@/lib/intakeDefaults';
 import { getCurrentFiscalYear, normalizeFiscalYear } from '@/lib/fiscalYear';
+import { escapeRegex } from '@/lib/studentSearch';
 import {
   intakeSessionNames,
   normalizeIntakeSessions,
@@ -14,12 +14,12 @@ import {
 } from '@/lib/intakeSession';
 
 export async function GET() {
-  const session = await getServerSession(authOptions);
-  if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  const auth = await requireSession();
+  if (!auth.ok) return auth.response;
 
-  const userEmail = session.user?.email;
-  const userRole = (session.user as { role?: string })?.role;
-  const userSchool = (session.user as { school?: string })?.school;
+  const userEmail = auth.user?.email;
+  const userRole = auth.user?.role;
+  const userSchool = auth.user?.school;
 
   try {
     const client = await clientPromise;
@@ -33,7 +33,7 @@ export async function GET() {
     if (userSchool) {
       schoolDoc = await db
         .collection('school_config')
-        .findOne({ name: { $regex: `^${userSchool.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, $options: 'i' } }) as {
+        .findOne({ name: { $regex: `^${escapeRegex(userSchool)}$`, $options: 'i' } }) as {
           intakeSessions?: unknown;
           intakeActivities?: string[];
           currentFiscalYear?: string;

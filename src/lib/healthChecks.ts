@@ -34,7 +34,7 @@ export const MONITORED_ENDPOINTS: EndpointInfo[] = [
     method: 'GET',
     path: '/api/health/deep',
     purpose: 'Readiness + dependency checks',
-    auth: 'none',
+    auth: 'admin',
     status: 'ready',
   },
   {
@@ -190,6 +190,17 @@ export function resolveEndpointStatuses(
         ...endpoint,
         status: md?.ok ? 'ready' : 'misconfigured',
         statusNote: md?.ok ? 'Admin session required' : md?.message,
+      };
+    }
+
+    if (endpoint.id === 'health-deep') {
+      const coreOk = checks.coreEnv?.ok && checks.mongodb?.ok;
+      return {
+        ...endpoint,
+        status: coreOk ? 'ready' : 'misconfigured',
+        statusNote: coreOk
+          ? 'Admin session or Bearer HEALTH_PROBE_SECRET / CRON_SECRET'
+          : 'Core dependencies unhealthy',
       };
     }
 

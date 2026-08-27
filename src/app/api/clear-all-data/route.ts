@@ -1,18 +1,19 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth';
-import { authOptions } from '@/lib/authOptions';
 import clientPromise from '@/lib/mongodb';
 import { isAllowedAdminUser } from '@/lib/allowedUsers';
+import { destructiveHttpGuard } from '@/lib/destructiveHttp';
+import { requireSession } from '@/lib/requireSession';
 
 export async function POST(req: NextRequest) {
   try {
-    const session = await getServerSession(authOptions);
-    if (!session) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
+    const blocked = destructiveHttpGuard();
+    if (blocked) return blocked;
 
-    const userRole = (session.user as any)?.role;
-    const userEmail = session.user?.email;
+    const auth = await requireSession();
+    if (!auth.ok) return auth.response;
+
+    const userRole = auth.user.role;
+    const userEmail = auth.user.email;
 
     // Only allow specific admin users to clear all data
     if (!isAllowedAdminUser(userEmail, userRole)) {

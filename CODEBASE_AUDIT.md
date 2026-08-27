@@ -506,48 +506,48 @@ Check items as they are completed. Paths are relative to `student-label-system/`
 
 ### High
 
-- [ ] **Whitelist public student JSON.** In `src/app/api/students/lookup/route.ts`, stop spreading `...student`. Return only fields the public page renders (name, labelId, cabinet/drawer names, archive box label). Add a unit test that fails if extra keys appear.
-- [ ] **Lock Intake Member APIs in middleware.** In `src/middleware.ts`, when `token.role === 'Intake Member'` and `path.startsWith('/api')`, allow only `/api/auth`, `/api/intake`, `/api/profile`, `/api/tenant` (and any genuinely required self-service user route). Return 403 otherwise.
-- [ ] **School- and role-scope student-by-id.** In `src/app/api/students/[id]/route.ts`: require session on GET; Admin sees all; others must match `student.school`; PUT limited to Data Lead/Admin/Data Member as product requires; DELETE already role-gated — add school match for non-Admin.
-- [ ] **Do not trust print payloads.** In `src/app/api/print/avery5163-docx/route.ts` and `avery94205-docx/route.ts`, accept IDs (not full PII), load students from Mongo, and enforce school/role. Reject Intake Member.
-- [ ] **Paginate `GET /api/students`.** Mirror `src/app/api/admin/students/all/route.ts` (`page`, `limit`, max cap). Update `src/app/page.tsx` and `src/components/CommandPalette.tsx` to search via `?search=` (already limited to 20) instead of downloading the roster.
-- [ ] **Patch dependencies.** Upgrade `next` off 16.2.6 to the audit-fixed release; set `eslint-config-next` to match; upgrade `next-auth` / `nodemailer` / `swagger-ui-react` per `npm audit`; bump `overrides.postcss` to ≥ 8.5.26; remove unused `html2canvas`. Re-run `npm audit` and auth smoke tests.
-- [ ] **Add CI.** Create `.github/workflows/ci.yml`: `npm ci`, `npm run lint`, `npm test` (once added), `npm run build`. Block merge on failure.
-- [ ] **Seed a test runner.** Add Vitest (or Jest) and `package.json` `"test"`. First specs: lookup field whitelist, `escapeRegex`, `studentId` generation, Intake Member middleware allowlist (extract helpers to `src/lib` so they are testable without Next runtime if needed).
+- [x] **Whitelist public student JSON.** In `src/app/api/students/lookup/route.ts`, stop spreading `...student`. Return only fields the public page renders (name, labelId, cabinet/drawer names, archive box label). Add a unit test that fails if extra keys appear.
+- [x] **Lock Intake Member APIs in middleware.** In `src/middleware.ts`, when `token.role === 'Intake Member'` and `path.startsWith('/api')`, allow only `/api/auth`, `/api/intake`, `/api/profile`, `/api/tenant` (and any genuinely required self-service user route). Return 403 otherwise.
+- [x] **School- and role-scope student-by-id.** In `src/app/api/students/[id]/route.ts`: require session on GET; Admin sees all; others must match `student.school`; PUT limited to Data Lead/Admin/Data Member as product requires; DELETE already role-gated — add school match for non-Admin.
+- [x] **Do not trust print payloads.** In `src/app/api/print/avery5163-docx/route.ts` and `avery94205-docx/route.ts`, accept IDs (not full PII), load students from Mongo, and enforce school/role. Reject Intake Member.
+- [x] **Paginate `GET /api/students`.** Mirror `src/app/api/admin/students/all/route.ts` (`page`, `limit`, max cap). Update `src/app/page.tsx` and `src/components/CommandPalette.tsx` to search via `?search=` (already limited to 20) instead of downloading the roster.
+- [x] **Patch dependencies.** Upgrade `next` off 16.2.6 to the audit-fixed release; set `eslint-config-next` to match; upgrade `next-auth` / `nodemailer` / `swagger-ui-react` per `npm audit`; bump `overrides.postcss` to ≥ 8.5.26; remove unused `html2canvas`. Re-run `npm audit` and auth smoke tests.
+- [x] **Add CI.** Create `.github/workflows/ci.yml`: `npm ci`, `npm run lint`, `npm test` (once added), `npm run build`. Block merge on failure.
+- [x] **Seed a test runner.** Add Vitest (or Jest) and `package.json` `"test"`. First specs: lookup field whitelist, `escapeRegex`, `studentId` generation, Intake Member middleware allowlist (extract helpers to `src/lib` so they are testable without Next runtime if needed).
 
 ### Medium
 
-- [ ] **Export and reuse `escapeRegex`.** Move it out of `src/lib/studentSearch.ts` (currently file-private) and use it in `src/app/api/admin/students/all/route.ts` and `src/app/api/students/email-list/route.ts`. Grep for `$regex:` to catch stragglers.
-- [ ] **Cron: Bearer only.** Delete `?secret=` handling in `src/app/api/cron/intake-digest/route.ts`. Confirm `vercel.json` cron sends `Authorization`.
-- [ ] **Protect `/api/health/deep`.** Require Admin session or a dedicated probe secret. Keep `src/app/api/health/route.ts` public. Strip `hints.syncTest` Bearer documentation from unauthenticated responses.
-- [ ] **Security headers.** In `next.config.ts`, set `headers()` for CSP (start report-only), `X-Content-Type-Options: nosniff`, `Referrer-Policy: strict-origin-when-cross-origin`, `frame-ancestors 'none'` (or allow only if you embed).
-- [ ] **Shared auth helper.** Add `src/lib/requireSession.ts` (`requireSession`, `requireRole`, `assertSchoolAccess`) and migrate the 77 handlers that call `getServerSession`. Kill `(session?.user as any)`.
-- [ ] **Archive box public JSON.** Review `src/app/api/archive/box/route.ts` — consider dropping DOB from the unauthenticated payload; require a signed box token if boxes are widely QR-posted.
-- [ ] **Rate limit** `/api/auth/*`, `/api/students/lookup`, `/api/sync/v1/students` (Vercel Firewall + optional in-app token bucket for lookup).
-- [ ] **Indexes at boot or migrate script in deploy.** Compound `{ school: 1, archived: 1 }`, `{ labelId: 1 }` sparse unique, `{ studentId: 1 }` sparse unique. Document in `scripts/setup-students-sync.ts` and run from CI/deploy.
-- [ ] **Paginate or stream admin scans.** `src/app/api/admin/duplicates/route.ts`, `cabinet-health`, `unassigned-students`, `data-cleanup` — do not `find().toArray()` the whole school.
-- [ ] **`error.tsx` / `loading.tsx`.** Add `src/app/error.tsx` and `src/app/loading.tsx`; nest under `src/app/admin/` if admin errors should differ.
-- [ ] **Centralize student option constants.** One `src/lib/studentOptions.ts` for fiscal years, statuses, Avery templates. Fix `EditStudentModal` missing statuses.
-- [ ] **Derive Command Palette from `navConfig.ts`.** Remove the second nav map in `src/components/CommandPalette.tsx`.
-- [ ] **Dynamic import** `recharts`, `@zxing/library`, `mdb-reader` on the pages that need them.
-- [ ] **Delete or feature-flag** `src/app/api/admin/duplicate-students/route.ts`; remove from `src/lib/openapi/spec.ts` if deleted.
-- [ ] **Guard destructive HTTP routes** in production (`clear-all-data`, `seed-*`, migrate). Prefer CLI scripts already in `scripts/`.
-- [ ] **Structured logging** (request id + route + user school/role; never log full student docs or passwords). Log the empty `catch` in `search-events`.
-- [ ] **Transactions** for student create + cabinet `$inc`, duplicate merge, and `PUT` drawer moves (pattern already in `src/lib/cabinetMoves.ts`).
+- [x] **Export and reuse `escapeRegex`.** Move it out of `src/lib/studentSearch.ts` (currently file-private) and use it in `src/app/api/admin/students/all/route.ts` and `src/app/api/students/email-list/route.ts`. Grep for `$regex:` to catch stragglers.
+- [x] **Cron: Bearer only.** Delete `?secret=` handling in `src/app/api/cron/intake-digest/route.ts`. Confirm `vercel.json` cron sends `Authorization`.
+- [x] **Protect `/api/health/deep`.** Require Admin session or a dedicated probe secret. Keep `src/app/api/health/route.ts` public. Strip `hints.syncTest` Bearer documentation from unauthenticated responses.
+- [x] **Security headers.** In `next.config.ts`, set `headers()` for CSP (start report-only), `X-Content-Type-Options: nosniff`, `Referrer-Policy: strict-origin-when-cross-origin`, `frame-ancestors 'none'` (or allow only if you embed).
+- [x] **Shared auth helper.** Add `src/lib/requireSession.ts` (`requireSession`, `requireRole`, `assertSchoolAccess`) and migrate the 77 handlers that call `getServerSession`. Kill `(session?.user as any)`.
+- [x] **Archive box public JSON.** Review `src/app/api/archive/box/route.ts` — consider dropping DOB from the unauthenticated payload; require a signed box token if boxes are widely QR-posted.
+- [x] **Rate limit** `/api/auth/*`, `/api/students/lookup`, `/api/sync/v1/students` (Vercel Firewall + optional in-app token bucket for lookup).
+- [x] **Indexes at boot or migrate script in deploy.** Compound `{ school: 1, archived: 1 }`, `{ labelId: 1 }` sparse unique, `{ studentId: 1 }` sparse unique. Document in `scripts/setup-students-sync.ts` and run from CI/deploy.
+- [x] **Paginate or stream admin scans.** `src/app/api/admin/duplicates/route.ts`, `cabinet-health`, `unassigned-students`, `data-cleanup` — do not `find().toArray()` the whole school.
+- [x] **`error.tsx` / `loading.tsx`.** Add `src/app/error.tsx` and `src/app/loading.tsx`; nest under `src/app/admin/` if admin errors should differ.
+- [x] **Centralize student option constants.** One `src/lib/studentOptions.ts` for fiscal years, statuses, Avery templates. Fix `EditStudentModal` missing statuses.
+- [x] **Derive Command Palette from `navConfig.ts`.** Remove the second nav map in `src/components/CommandPalette.tsx`.
+- [x] **Dynamic import** `recharts`, `@zxing/library`, `mdb-reader` on the pages that need them.
+- [x] **Delete or feature-flag** `src/app/api/admin/duplicate-students/route.ts`; remove from `src/lib/openapi/spec.ts` if deleted.
+- [x] **Guard destructive HTTP routes** in production (`clear-all-data`, `seed-*`, migrate). Prefer CLI scripts already in `scripts/`.
+- [x] **Structured logging** (request id + route + user school/role; never log full student docs or passwords). Log the empty `catch` in `search-events`.
+- [x] **Transactions** for student create + cabinet `$inc`, duplicate merge, and `PUT` drawer moves (pattern already in `src/lib/cabinetMoves.ts`).
 
 ### Low
 
-- [ ] **Timing-safe compare** for `SYNC_API_KEY` in `src/lib/syncAuth.ts` and cron Bearer token.
-- [ ] **Move `ALLOWED_ADMIN_USERS` to env** (`src/lib/allowedUsers.ts`).
-- [ ] **Password policy** beyond length 8 (`src/app/api/profile/password/route.ts`).
-- [ ] **Remove dead UI:** `src/components/Header.tsx`, `Navigation.tsx`, `AdminHeader.tsx`, `ContentWrapper.tsx`, `AppHeaderWrapper.tsx`. Remove `scripts/add-user.js` if `add-user.ts` is canonical.
-- [ ] **Convert `src/app/about/page.tsx` and `src/components/PageIntro.tsx` to server components.**
-- [ ] **Server-fetch** `src/app/student/[studentId]/page.tsx` and `src/app/archive/box/[boxId]/page.tsx`.
-- [ ] **A11y pass:** `aria-label` on icon buttons (cabinets, label-stock, public back, scanner, saved searches); make `StudentTable` sort headers `<button>` with `aria-sort`; skip link targeting `<main id="main-content">`; replace emoji-only empty states.
-- [ ] **Enable `@typescript-eslint/no-explicit-any` as warn**, then error, after `StudentDoc` types exist.
-- [ ] **Align OpenAPI** (`additionalProperties: true` everywhere) with real response shapes once DTOs exist.
-- [ ] **Idle timeout vs JWT maxAge** — document in `docs/admin/security.mdx` so operators know 12h hard cap vs client idle guard.
-- [ ] **Split god-pages** starting with `src/app/admin/cabinets/page.tsx` (extract map, archive modal, label print). Not a security fix; it is how A1–A5 keep coming back.
+- [x] **Timing-safe compare** for `SYNC_API_KEY` in `src/lib/syncAuth.ts` (cron Bearer already uses `src/lib/secretCompare.ts`).
+- [x] **Move `ALLOWED_ADMIN_USERS` to env** (`src/lib/allowedUsers.ts`).
+- [x] **Password policy** beyond length 8 (`src/app/api/profile/password/route.ts`).
+- [x] **Remove dead UI:** `src/components/Header.tsx`, `Navigation.tsx`, `AdminHeader.tsx`, `ContentWrapper.tsx`, `AppHeaderWrapper.tsx`. Remove `scripts/add-user.js` if `add-user.ts` is canonical.
+- [x] **Convert `src/app/about/page.tsx` and `src/components/PageIntro.tsx` to server components.**
+- [x] **Server-fetch** `src/app/student/[studentId]/page.tsx` and `src/app/archive/box/[boxId]/page.tsx`.
+- [x] **A11y pass:** `aria-label` on icon buttons (cabinets, label-stock, public back, scanner, saved searches); make `StudentTable` sort headers `<button>` with `aria-sort`; skip link targeting `<main id="main-content">`; replace emoji-only empty states.
+- [x] **Enable `@typescript-eslint/no-explicit-any` as warn**, then error, after `StudentDoc` types exist.
+- [x] **Align OpenAPI** with real response shapes where DTOs exist (`PublicStudentLookup`, `PublicArchiveBox`, `StudentsList`, `PrintFromIdsBody`, `ScanCapped`, `Tenant`, `AppSettings`, `PasswordChangeBody`). Spec version `1.2.0`. Leftover admin CRUD still uses `jsonObject` until more DTOs exist.
+- [x] **Idle timeout vs JWT maxAge** — document in `docs/admin/security.mdx` so operators know 12h hard cap vs client idle guard.
+- [x] **Split god-pages** starting with `src/app/admin/cabinets/page.tsx` (extract map, archive modal, label print). Not a security fix; it is how A1–A5 keep coming back. Archive *cabinet* wizard still lives on the page; box QR, storage labels, and floor map are extracted.
 
 ---
 

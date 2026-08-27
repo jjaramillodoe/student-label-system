@@ -25,6 +25,7 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { readApiJson } from '@/lib/apiClient';
+import ScanTruncatedAlert from '@/components/ScanTruncatedAlert';
 
 type QueueStudent = {
   _id: string;
@@ -44,6 +45,9 @@ type QueueStudent = {
 };
 
 type QueueResponse = {
+  truncated?: boolean;
+  scanned?: number;
+  cap?: number;
   summary: {
     total: number;
     errors: number;
@@ -141,6 +145,8 @@ export default function UnassignedStudentsPage() {
           <AlertDescription>{error}</AlertDescription>
         </Alert>
       )}
+
+      <ScanTruncatedAlert truncated={data?.truncated} scanned={data?.scanned} cap={data?.cap} />
 
       {loading && !data ? (
         <Card>

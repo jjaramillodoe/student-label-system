@@ -1,5 +1,8 @@
 /**
- * Step 1 + 2 setup: sync indexes and updatedAt backfill for student-label.students
+ * Student collection indexes and updatedAt backfill.
+ *
+ * Creates `{ school, archived }`, sync cursors, and unique sparse `studentId` /
+ * `labelId` indexes (duplicate unique keys are skipped and reported).
  *
  * Usage:
  *   npx tsx scripts/setup-students-sync.ts
@@ -9,6 +12,7 @@
 import { readFileSync, existsSync } from 'fs';
 import { resolve } from 'path';
 import { MongoClient } from 'mongodb';
+import { STUDENT_INDEX_SPECS, ensureStudentIndexes } from '../src/lib/studentIndexes';
 
 const DB_NAME = 'student-label';
 const COLLECTION = 'students';
@@ -42,28 +46,7 @@ function loadMongoUri(): string {
   throw new Error('MONGODB_URI not found');
 }
 
-const INDEX_SPECS = [
-  {
-    name: 'sync_updatedAt_id',
-    keys: { updatedAt: 1, _id: 1 },
-    options: { name: 'sync_updatedAt_id' },
-  },
-  {
-    name: 'sync_createdAt_id',
-    keys: { createdAt: 1, _id: 1 },
-    options: { name: 'sync_createdAt_id' },
-  },
-  {
-    name: 'sync_studentId',
-    keys: { studentId: 1 },
-    options: { name: 'sync_studentId', unique: true, sparse: true },
-  },
-  {
-    name: 'sync_labelId',
-    keys: { labelId: 1 },
-    options: { name: 'sync_labelId', sparse: true },
-  },
-] as const;
+const INDEX_SPECS = STUDENT_INDEX_SPECS;
 
 async function main() {
   const client = new MongoClient(loadMongoUri());
@@ -85,10 +68,8 @@ async function main() {
       return;
     }
 
-    for (const spec of INDEX_SPECS) {
-      const result = await col.createIndex(spec.keys, spec.options);
-      console.log(`Created index: ${result}`);
-    }
+    const indexResult = await ensureStudentIndexes(client.db(DB_NAME));
+    console.log('Indexes:', indexResult);
 
     const backfillResult = await col.updateMany(
       {
@@ -106,7 +87,7 @@ async function main() {
       JSON.stringify(
         {
           phase: 'after',
-          indexesCreated: INDEX_SPECS.map((spec) => spec.name),
+          indexes: indexResult,
           backfill: {
             matched: backfillResult.matchedCount,
             modified: backfillResult.modifiedCount,

@@ -13,7 +13,7 @@ Quick way to verify [nycadultedlabels.nyc](https://nycadultedlabels.nyc) is up a
 | [`/docs/api`](/docs/api) | None | **Interactive Swagger UI** (OpenAPI 3.0) |
 | [`/api/openapi.json`](/api/openapi.json) | None | Raw OpenAPI spec (import to Postman) |
 | [`/api/health`](https://nycadultedlabels.nyc/api/health) | None | Liveness — open in a browser |
-| [`/api/health/deep`](https://nycadultedlabels.nyc/api/health/deep) | None | Readiness — MongoDB, env vars, endpoint status |
+| [`/api/health/deep`](https://nycadultedlabels.nyc/api/health/deep) | Admin session or Bearer `HEALTH_PROBE_SECRET` / `CRON_SECRET` | Readiness — MongoDB, env vars, endpoint status |
 
 ### Liveness (browser-friendly)
 
@@ -37,7 +37,8 @@ curl -s https://nycadultedlabels.nyc/api/health | jq
 ### Deep readiness
 
 ```bash
-curl -s https://nycadultedlabels.nyc/api/health/deep | jq
+curl -s -H "Authorization: Bearer $HEALTH_PROBE_SECRET" \
+  https://nycadultedlabels.nyc/api/health/deep | jq
 ```
 
 Returns:
@@ -71,7 +72,7 @@ curl -s -H "Authorization: Bearer $(cat .sync-api-key.local)" \
 
 For Power Automate you can add a **daily health step** before sync:
 
-1. HTTP GET `https://nycadultedlabels.nyc/api/health/deep`
+1. HTTP GET `https://nycadultedlabels.nyc/api/health/deep` with `Authorization: Bearer <HEALTH_PROBE_SECRET>` (or `CRON_SECRET`)
 2. Condition: `status` equals `healthy` or `degraded`
 3. Only then call `/api/sync/v1/students`
 

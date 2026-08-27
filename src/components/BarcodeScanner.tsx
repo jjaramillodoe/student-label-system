@@ -1,7 +1,6 @@
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
-import { BrowserMultiFormatReader } from '@zxing/library';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -20,7 +19,7 @@ export default function BarcodeScanner({ onScan, onManualEntry }: BarcodeScanner
   const [error, setError] = useState('');
   const [manualId, setManualId] = useState('');
   const videoRef = useRef<HTMLVideoElement>(null);
-  const codeReaderRef = useRef<BrowserMultiFormatReader | null>(null);
+  const codeReaderRef = useRef<{ reset: () => void } | null>(null);
 
   useEffect(() => {
     if (open && scanning) {
@@ -34,10 +33,11 @@ export default function BarcodeScanner({ onScan, onManualEntry }: BarcodeScanner
     };
   }, [open, scanning]);
 
-  function startScanning() {
+  async function startScanning() {
     if (!videoRef.current) return;
 
     try {
+      const { BrowserMultiFormatReader } = await import('@zxing/library');
       const codeReader = new BrowserMultiFormatReader();
       codeReaderRef.current = codeReader;
 
@@ -129,6 +129,7 @@ export default function BarcodeScanner({ onScan, onManualEntry }: BarcodeScanner
                   variant="destructive"
                   size="icon"
                   className="absolute top-2 right-2"
+                  aria-label="Stop camera"
                   onClick={() => {
                     setScanning(false);
                     stopScanning();

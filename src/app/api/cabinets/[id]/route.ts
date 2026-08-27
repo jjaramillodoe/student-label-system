@@ -1,6 +1,5 @@
 import { NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth';
-import { authOptions } from '@/lib/authOptions';
+import { requireSession, requireAdminOrDataLead } from '@/lib/requireSession';
 import clientPromise from '@/lib/mongodb';
 import { ObjectId } from 'mongodb';
 import { clampDrawerCapacity, DRAWER_CAPACITY_MAX, DRAWER_CAPACITY_MIN } from '@/lib/drawerSections';
@@ -10,10 +9,8 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const session = await getServerSession(authOptions);
-    if (!session) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
+    const auth = await requireSession();
+    if (!auth.ok) return auth.response;
 
     const { id } = await params;
     const client = await clientPromise;
@@ -24,8 +21,8 @@ export async function GET(
       return NextResponse.json({ error: 'Cabinet not found' }, { status: 404 });
     }
 
-    const userRole = session.user.role;
-    const userSchool = session.user.school;
+    const userRole = auth.user.role;
+    const userSchool = auth.user.school;
 
     if (userRole !== 'Admin' && userSchool && cabinet.school !== userSchool) {
       return NextResponse.json({ error: 'Access denied - Cabinet not in your school' }, { status: 403 });
@@ -100,10 +97,8 @@ export async function PUT(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const session = await getServerSession(authOptions);
-    if (!session || (session.user.role !== 'Admin' && session.user.role !== 'Data Lead')) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
+    const auth = await requireAdminOrDataLead();
+    if (!auth.ok) return auth.response;
 
     const { id } = await params;
     const body = await request.json();
@@ -130,8 +125,8 @@ export async function PUT(
       return NextResponse.json({ error: 'Cabinet not found' }, { status: 404 });
     }
 
-    const userRole = session.user.role;
-    const userSchool = session.user.school;
+    const userRole = auth.user.role;
+    const userSchool = auth.user.school;
 
     if (userRole !== 'Admin' && userSchool && existingCabinet.school !== userSchool) {
       return NextResponse.json({ error: 'Access denied - Cabinet not in your school' }, { status: 403 });
@@ -186,10 +181,8 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const session = await getServerSession(authOptions);
-    if (!session || (session.user.role !== 'Admin' && session.user.role !== 'Data Lead')) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
+    const auth = await requireAdminOrDataLead();
+    if (!auth.ok) return auth.response;
 
     const { id } = await params;
     const client = await clientPromise;
@@ -200,8 +193,8 @@ export async function DELETE(
       return NextResponse.json({ error: 'Cabinet not found' }, { status: 404 });
     }
 
-    const userRole = session.user.role;
-    const userSchool = session.user.school;
+    const userRole = auth.user.role;
+    const userSchool = auth.user.school;
 
     if (userRole !== 'Admin' && userSchool && cabinet.school !== userSchool) {
       return NextResponse.json({ error: 'Access denied - Cabinet not in your school' }, { status: 403 });

@@ -179,8 +179,8 @@ const StudentTable: React.FC<StudentTableProps> = ({
     if (!sortColumn || !sortDirection) return students;
 
     return [...students].sort((a, b) => {
-      let aValue: any;
-      let bValue: any;
+      let aValue: string | number = '';
+      let bValue: string | number = '';
 
       switch (sortColumn) {
         case 'studentId':
@@ -236,17 +236,49 @@ const StudentTable: React.FC<StudentTableProps> = ({
     });
   }, [students, sortColumn, sortDirection, cabinetMap, drawerMap]);
 
-  const SortIcon = ({ column }: { column: SortColumn }) => {
+  const SortIcon = ({ column }: { column: Exclude<SortColumn, null> }) => {
     if (sortColumn !== column) {
-      return <ArrowUpDown className="h-3 w-3 ml-1 text-muted-foreground opacity-50" />;
+      return <ArrowUpDown className="h-3 w-3 ml-1 text-muted-foreground opacity-50" aria-hidden />;
     }
     if (sortDirection === 'asc') {
-      return <ArrowUp className="h-3 w-3 ml-1 text-primary" />;
+      return <ArrowUp className="h-3 w-3 ml-1 text-primary" aria-hidden />;
     }
     if (sortDirection === 'desc') {
-      return <ArrowDown className="h-3 w-3 ml-1 text-primary" />;
+      return <ArrowDown className="h-3 w-3 ml-1 text-primary" aria-hidden />;
     }
-    return <ArrowUpDown className="h-3 w-3 ml-1 text-muted-foreground opacity-50" />;
+    return <ArrowUpDown className="h-3 w-3 ml-1 text-muted-foreground opacity-50" aria-hidden />;
+  };
+
+  const SortableHead = ({
+    column,
+    label,
+    children,
+    className,
+  }: {
+    column: Exclude<SortColumn, null>;
+    label: string;
+    children: React.ReactNode;
+    className?: string;
+  }) => {
+    const ariaSort =
+      sortColumn !== column || !sortDirection
+        ? 'none'
+        : sortDirection === 'asc'
+          ? 'ascending'
+          : 'descending';
+    return (
+      <TableHead aria-sort={ariaSort} className={cn('font-semibold px-2', className)}>
+        <button
+          type="button"
+          className="flex w-full items-center gap-1.5 hover:bg-muted/70 transition-colors select-none rounded-sm -mx-1 px-1 py-0.5 text-left"
+          onClick={() => handleSort(column)}
+          aria-label={`Sort by ${label}`}
+        >
+          {children}
+          <SortIcon column={column} />
+        </button>
+      </TableHead>
+    );
   };
 
   return (
@@ -275,84 +307,36 @@ const StudentTable: React.FC<StudentTableProps> = ({
                   title="Select / deselect this page"
                 />
               </TableHead>
-              <TableHead 
-                className="font-semibold cursor-pointer hover:bg-muted/70 transition-colors select-none px-2"
-                onClick={() => handleSort('studentId')}
-              >
-                <div className="flex items-center gap-1.5">
-                  <Hash className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-                  <div className="flex flex-col leading-tight">
-                    <span>Label ID</span>
-                    <span className="text-[10px] font-normal text-muted-foreground">Student ID</span>
-                  </div>
-                  <SortIcon column="studentId" />
+              <SortableHead column="studentId" label="Label ID">
+                <Hash className="h-3.5 w-3.5 text-muted-foreground shrink-0" aria-hidden />
+                <div className="flex flex-col leading-tight">
+                  <span>Label ID</span>
+                  <span className="text-[10px] font-normal text-muted-foreground">Student ID</span>
                 </div>
-              </TableHead>
-              <TableHead 
-                className="font-semibold cursor-pointer hover:bg-muted/70 transition-colors select-none px-2"
-                onClick={() => handleSort('name')}
-              >
-                <div className="flex items-center gap-1.5">
-                  Name
-                  <SortIcon column="name" />
-                </div>
-              </TableHead>
-              <TableHead
-                className="font-semibold cursor-pointer hover:bg-muted/70 transition-colors select-none px-2"
-                onClick={() => handleSort('address')}
-              >
-                <div className="flex items-center gap-1.5">
-                  Address
-                  <SortIcon column="address" />
-                </div>
-              </TableHead>
-              <TableHead 
-                className="font-semibold cursor-pointer hover:bg-muted/70 transition-colors select-none px-2"
-                onClick={() => handleSort('dob')}
-              >
-                <div className="flex items-center gap-1.5">
-                  <Calendar className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-                  DOB
-                  <SortIcon column="dob" />
-                </div>
-              </TableHead>
-              <TableHead 
-                className="font-semibold cursor-pointer hover:bg-muted/70 transition-colors select-none px-2"
-                onClick={() => handleSort('fiscalYear')}
-              >
-                <div className="flex items-center gap-1.5">
-                  FY
-                  <SortIcon column="fiscalYear" />
-                </div>
-              </TableHead>
-              <TableHead 
-                className="font-semibold cursor-pointer hover:bg-muted/70 transition-colors select-none px-2"
-                onClick={() => handleSort('status')}
-              >
-                <div className="flex items-center gap-1.5">
-                  Status
-                  <SortIcon column="status" />
-                </div>
-              </TableHead>
-              <TableHead 
-                className="font-semibold cursor-pointer hover:bg-muted/70 transition-colors select-none px-2"
-                onClick={() => handleSort('location')}
-              >
-                <div className="flex items-center gap-1.5">
-                  <MapPin className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-                  Location
-                  <SortIcon column="location" />
-                </div>
-              </TableHead>
-              <TableHead 
-                className="font-semibold cursor-pointer hover:bg-muted/70 transition-colors select-none px-2"
-                onClick={() => handleSort('startDate')}
-              >
-                <div className="flex items-center gap-1.5">
-                  Start
-                  <SortIcon column="startDate" />
-                </div>
-              </TableHead>
+              </SortableHead>
+              <SortableHead column="name" label="Name">
+                Name
+              </SortableHead>
+              <SortableHead column="address" label="Address">
+                Address
+              </SortableHead>
+              <SortableHead column="dob" label="Date of birth">
+                <Calendar className="h-3.5 w-3.5 text-muted-foreground shrink-0" aria-hidden />
+                DOB
+              </SortableHead>
+              <SortableHead column="fiscalYear" label="Fiscal year">
+                FY
+              </SortableHead>
+              <SortableHead column="status" label="Status">
+                Status
+              </SortableHead>
+              <SortableHead column="location" label="Location">
+                <MapPin className="h-3.5 w-3.5 text-muted-foreground shrink-0" aria-hidden />
+                Location
+              </SortableHead>
+              <SortableHead column="startDate" label="Start date">
+                Start
+              </SortableHead>
               <TableHead className="font-semibold text-center px-1"> </TableHead>
             </TableRow>
           </TableHeader>
@@ -543,6 +527,7 @@ const StudentTable: React.FC<StudentTableProps> = ({
                               variant="ghost"
                               size="sm"
                               className="h-8 w-8 p-0"
+                              aria-label={`Actions for ${formatFullName(student)}`}
                             >
                               <MoreVertical className="h-4 w-4" />
                               <span className="sr-only">Open menu</span>

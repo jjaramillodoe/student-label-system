@@ -1,4 +1,4 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import {
   aggregateStatus,
   checkCoreEnv,
@@ -9,11 +9,26 @@ import {
   resolveEndpointStatuses,
   statusToHttpCode,
 } from '@/lib/healthChecks';
+import { isAuthorizedBySharedSecret } from '@/lib/secretCompare';
+import { requireSession } from '@/lib/requireSession';
 
 export const dynamic = 'force-dynamic';
 
-/** Readiness probe — MongoDB, env vars, and endpoint readiness (no secrets returned) */
-export async function GET() {
+async function isDeepHealthAuthorized(req: NextRequest): Promise<boolean> {
+  const probeSecret = process.env.HEALTH_PROBE_SECRET || process.env.CRON_SECRET;
+  if (isAuthorizedBySharedSecret(req.headers.get('authorization'), probeSecret)) {
+    return true;
+  }
+  const auth = await requireSession();
+  return auth.ok && auth.user.role === 'Admin';
+}
+
+/** Readiness probe — Admin session or Bearer HEALTH_PROBE_SECRET / CRON_SECRET */
+export async function GET(req: NextRequest) {
+  if (!(await isDeepHealthAuthorized(req))) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
   const [mongodb, syncData] = await Promise.all([checkMongoDb(), checkSyncStudentsSample()]);
   const coreEnv = checkCoreEnv();
   const syncApiEnv = checkSyncApiEnv();
@@ -51,8 +66,6 @@ export async function GET() {
       endpoints,
       hints: {
         liveness: 'GET /api/health',
-        syncTest:
-          'GET /api/sync/v1/students?limit=1 with header Authorization: Bearer <SYNC_API_KEY>',
         powerAutomate: '/docs/power-automate-first-manual-test.md',
         motherduck: 'Admin → MotherDuck · set MOTHERDUCK_TOKEN then Sync from MongoDB',
       },

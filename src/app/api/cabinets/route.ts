@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth';
-import { authOptions } from '@/lib/authOptions';
+import { requireSession, requireAdminOrDataLead } from '@/lib/requireSession';
 import clientPromise from '@/lib/mongodb';
 import { ObjectId } from 'mongodb';
 import { computeCabinetFillForecast } from '@/lib/cabinetCapacity';
@@ -8,18 +7,16 @@ import { clampDrawerCapacity, DRAWER_CAPACITY_MAX, DRAWER_CAPACITY_MIN } from '@
 
 export async function GET(req: NextRequest) {
   try {
-    const session = await getServerSession(authOptions);
-    if (!session) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
+    const auth = await requireSession();
+    if (!auth.ok) return auth.response;
 
     const client = await clientPromise;
     const db = client.db('student-label');
     const withForecast = req.nextUrl.searchParams.get('forecast') !== '0';
 
     let query = {};
-    const userRole = session.user.role;
-    const userSchool = session.user.school;
+    const userRole = auth.user.role;
+    const userSchool = auth.user.school;
 
     if (userRole !== 'Admin' && userSchool) {
       query = { school: userSchool };
@@ -64,10 +61,8 @@ export async function GET(req: NextRequest) {
 
 export async function POST(request: Request) {
   try {
-    const session = await getServerSession(authOptions);
-    if (!session || (session.user.role !== 'Admin' && session.user.role !== 'Data Lead')) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
+    const auth = await requireAdminOrDataLead();
+    if (!auth.ok) return auth.response;
 
     const body = await request.json();
     const { name, identifier, drawers, totalCapacity, school, mapRow, mapCol } = body;

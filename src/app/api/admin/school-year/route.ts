@@ -1,14 +1,10 @@
 import { NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth';
-import { authOptions } from '@/lib/authOptions';
+import { requireAdminOrDataLead } from '@/lib/requireSession';
 import clientPromise from '@/lib/mongodb';
 import { getCurrentFiscalYear } from '@/lib/fiscalYear';
 import { countPendingArchiveAssignments } from '@/lib/archiveBoxes';
 import { ObjectId } from 'mongodb';
-
-function escapeRegex(value: string) {
-  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-}
+import { escapeRegex } from '@/lib/studentSearch';
 
 type ChecklistItem = {
   id: string;
@@ -21,13 +17,10 @@ type ChecklistItem = {
 
 export async function GET() {
   try {
-    const session = await getServerSession(authOptions);
-    const userRole = (session?.user as { role?: string })?.role;
-    const userSchool = (session?.user as { school?: string })?.school?.trim();
-
-    if (!session || (userRole !== 'Admin' && userRole !== 'Data Lead')) {
-      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
-    }
+    const auth = await requireAdminOrDataLead();
+    if (!auth.ok) return auth.response;
+    const userRole = auth.user.role;
+    const userSchool = auth.user.school?.trim();
 
     const client = await clientPromise;
     const db = client.db('student-label');

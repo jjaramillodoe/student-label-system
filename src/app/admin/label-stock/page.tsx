@@ -658,6 +658,7 @@ export default function LabelStockPage() {
                               size="icon"
                               onClick={() => setHistoryStockId(item._id)}
                               title="Filter history"
+                              aria-label="Filter history"
                             >
                               <History className="h-4 w-4" />
                             </Button>
@@ -665,6 +666,7 @@ export default function LabelStockPage() {
                               variant="ghost"
                               size="icon"
                               onClick={() => openEditDialog(item)}
+                              aria-label="Edit stock item"
                             >
                               <Edit2 className="h-4 w-4" />
                             </Button>
@@ -672,6 +674,7 @@ export default function LabelStockPage() {
                               variant="ghost"
                               size="icon"
                               onClick={() => handleDelete(item._id)}
+                              aria-label="Delete stock item"
                             >
                               <Trash2 className="h-4 w-4 text-destructive" />
                             </Button>

@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { requireRole } from '@/lib/requireSession';
 import clientPromise from '@/lib/mongodb';
-import { getServerSession } from 'next-auth';
-import { authOptions } from '@/lib/authOptions';
 import { epeStudentTotalMinutes } from '@/lib/epeClock';
 import {
   DEFAULT_INTAKE_SESSION_CONFIGS,
@@ -61,12 +60,10 @@ function startOf(unit: 'today' | 'week' | 'month' | 'year'): Date {
 }
 
 export async function GET(req: NextRequest) {
-  const session = await getServerSession(authOptions);
-  const role = (session?.user as any)?.role;
-  const school = (session?.user as any)?.school;
-  if (!session || !['Admin', 'Data Lead', 'Data Member'].includes(role)) {
-    return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
-  }
+  const auth = await requireRole(['Admin', 'Data Lead', 'Data Member']);
+  if (!auth.ok) return auth.response;
+  const role = auth.user.role;
+  const school = auth.user.school;
 
   const client = await clientPromise;
   const db = client.db('student-label');

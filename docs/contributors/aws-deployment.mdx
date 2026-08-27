@@ -97,7 +97,7 @@ Files in the repo: `Dockerfile`, `.dockerignore`, `docker-compose.yml`, `docker-
 | Success codes | `200` |
 | Interval | 30s |
 
-Use `/api/health/deep` for monitoring and paging — it returns **503** when MongoDB or core env is unhealthy (avoid using it as the ALB check if optional integrations cause flapping).
+Use `/api/health/deep` for monitoring and paging (Admin session or Bearer `HEALTH_PROBE_SECRET` / `CRON_SECRET`) — it returns **503** when MongoDB or core env is unhealthy (avoid using it as the ALB check if optional integrations cause flapping). Keep `/api/health` as the unauthenticated ALB target.
 
 ## EC2 sizing (starting point)
 

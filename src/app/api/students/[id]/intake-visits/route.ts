@@ -1,11 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { requireRole } from '@/lib/requireSession';
 import { ObjectId } from 'mongodb';
 import clientPromise from '@/lib/mongodb';
-import { getServerSession } from 'next-auth';
-import { authOptions } from '@/lib/authOptions';
 import {
   buildIntakeFixPreview,
-  canFixIntakeHandoff,
+  INTAKE_FIX_ROLES,
   syncTopLevelIntakeFields,
   type FinalClockOutInput,
   type ClosingVisitInput,
@@ -26,14 +25,11 @@ export async function PATCH(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> },
 ) {
-  const session = await getServerSession(authOptions);
-  const role = (session?.user as { role?: string })?.role;
-  const school = (session?.user as { school?: string })?.school;
-  const userEmail = (session?.user as { email?: string })?.email;
-
-  if (!session || !canFixIntakeHandoff(role)) {
-    return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
-  }
+  const auth = await requireRole(INTAKE_FIX_ROLES);
+  if (!auth.ok) return auth.response;
+  const role = auth.user.role;
+  const school = auth.user.school;
+  const userEmail = auth.user.email;
 
   const { id } = await params;
   if (!isValidObjectId(id)) {
@@ -64,7 +60,7 @@ export async function PATCH(
 
   const recordedBy = {
     email: userEmail || 'unknown',
-    name: (session.user as { name?: string })?.name || userEmail || 'unknown',
+    name: auth.user?.name || userEmail || 'unknown',
   };
   const sessionConfigs = await getSchoolIntakeSessions(db, student.school);
   const preview = buildIntakeFixPreview(
@@ -122,7 +118,7 @@ export async function PATCH(
         intakeHandoffFixedAt: now,
         intakeHandoffFixedBy: {
           email: userEmail || 'unknown',
-          name: (session.user as { name?: string })?.name || userEmail || 'unknown',
+          name: auth.user?.name || userEmail || 'unknown',
         },
       },
     },

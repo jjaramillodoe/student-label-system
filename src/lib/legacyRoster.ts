@@ -1,6 +1,5 @@
 import { Buffer } from 'buffer';
-import MDBReader from 'mdb-reader';
-import { normalizeDobToIso } from '@/lib/studentSearch';
+import { escapeRegex, normalizeDobToIso } from '@/lib/studentSearch';
 import { parseCsv } from '@/lib/csv';
 import { isPossibleDuplicate, matchPercent } from '@/lib/fuzzyName';
 
@@ -13,12 +12,12 @@ export const LEGACY_ROSTER_COLLECTION = 'school_legacy_roster';
 
 /** Case-insensitive exact school name match for Mongo queries. */
 export function schoolNameFilter(name: string) {
-  const escaped = name.trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const escaped = escapeRegex(name.trim());
   return { school: { $regex: `^${escaped}$`, $options: 'i' } };
 }
 
 export function schoolConfigNameFilter(name: string) {
-  const escaped = name.trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const escaped = escapeRegex(name.trim());
   return { name: { $regex: `^${escaped}$`, $options: 'i' } };
 }
 
@@ -167,12 +166,13 @@ export type ParseLegacyResult = {
 };
 
 /** Pick best Access table that maps to student name + DOB columns. */
-export function parseMdbBuffer(
+export async function parseMdbBuffer(
   buffer: Buffer | ArrayBuffer | Uint8Array,
   school: string,
   filename: string,
   preferredTable?: string,
-): ParseLegacyResult {
+): Promise<ParseLegacyResult> {
+  const { default: MDBReader } = await import('mdb-reader');
   const nodeBuffer = Buffer.isBuffer(buffer)
     ? buffer
     : Buffer.from(buffer instanceof ArrayBuffer ? new Uint8Array(buffer) : buffer);

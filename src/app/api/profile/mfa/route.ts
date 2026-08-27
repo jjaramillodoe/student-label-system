@@ -1,13 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth';
+import { requireSession } from '@/lib/requireSession';
 import * as bcrypt from 'bcrypt';
 import clientPromise from '@/lib/mongodb';
-import { authOptions } from '@/lib/authOptions';
 import { generateMfaSecret, getMfaKeyUri, verifyMfaToken } from '@/lib/mfa';
 
 export async function POST(req: NextRequest) {
-  const session = await getServerSession(authOptions);
-  const email = session?.user?.email?.toLowerCase();
+  const auth = await requireSession();
+  if (!auth.ok) return auth.response;
+  const email = auth.user.email?.toLowerCase();
 
   if (!email) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
@@ -55,8 +55,9 @@ export async function POST(req: NextRequest) {
 }
 
 export async function PUT(req: NextRequest) {
-  const session = await getServerSession(authOptions);
-  const email = session?.user?.email?.toLowerCase();
+  const auth = await requireSession();
+  if (!auth.ok) return auth.response;
+  const email = auth.user.email?.toLowerCase();
 
   if (!email) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
@@ -103,8 +104,9 @@ export async function PUT(req: NextRequest) {
 }
 
 export async function DELETE(req: NextRequest) {
-  const session = await getServerSession(authOptions);
-  const email = session?.user?.email?.toLowerCase();
+  const auth = await requireSession();
+  if (!auth.ok) return auth.response;
+  const email = auth.user.email?.toLowerCase();
 
   if (!email) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });

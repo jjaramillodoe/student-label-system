@@ -16,11 +16,11 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
+import { requireRole } from '@/lib/requireSession';
 import clientPromise from '@/lib/mongodb';
-import { getServerSession } from 'next-auth';
-import { authOptions } from '@/lib/authOptions';
 import { ObjectId } from 'mongodb';
 import { logSearchEvent } from '@/lib/searchAnalytics';
+import { escapeRegex } from '@/lib/studentSearch';
 
 // ─── Cabinet / Drawer resolution ─────────────────────────────────────────────
 
@@ -132,12 +132,10 @@ function enrichWithNames(
 }
 
 export async function GET(req: NextRequest) {
-  const session = await getServerSession(authOptions);
-  const role = (session?.user as any)?.role;
-  const userSchool = (session?.user as any)?.school;
-  if (!session || !['Admin', 'Data Lead', 'Data Member'].includes(role)) {
-    return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
-  }
+  const auth = await requireRole(['Admin', 'Data Lead', 'Data Member']);
+  if (!auth.ok) return auth.response;
+  const role = auth.user.role;
+  const userSchool = auth.user.school;
 
   const { searchParams } = req.nextUrl;
   const page        = Math.max(1, parseInt(searchParams.get('page')  ?? '1'));
@@ -198,7 +196,7 @@ export async function GET(req: NextRequest) {
   }
 
   if (search) {
-    const re = { $regex: search, $options: 'i' };
+    const re = { $regex: escapeRegex(search), $options: 'i' };
     filter.$or = [
       { firstName: re }, { lastName: re },
       { email: re },

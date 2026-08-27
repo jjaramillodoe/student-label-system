@@ -1,20 +1,17 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { requireSession } from '@/lib/requireSession';
 import clientPromise from '@/lib/mongodb';
-import { getServerSession } from 'next-auth';
-import { authOptions } from '@/lib/authOptions';
 import { ObjectId } from 'mongodb';
 
 export async function GET() {
   try {
-    const session = await getServerSession(authOptions);
-    if (!session) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
+    const auth = await requireSession();
+    if (!auth.ok) return auth.response;
 
     const client = await clientPromise;
     const db = client.db("student-label");
     
-    const userEmail = session.user?.email;
+    const userEmail = auth.user?.email;
     const searches = await db.collection('saved_searches')
       .find({ userEmail })
       .sort({ createdAt: -1 })
@@ -29,10 +26,8 @@ export async function GET() {
 
 export async function POST(req: NextRequest) {
   try {
-    const session = await getServerSession(authOptions);
-    if (!session) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
+    const auth = await requireSession();
+    if (!auth.ok) return auth.response;
 
     const body = await req.json();
     const client = await clientPromise;
@@ -40,7 +35,7 @@ export async function POST(req: NextRequest) {
     
     const searchData = {
       ...body,
-      userEmail: session.user?.email,
+      userEmail: auth.user?.email,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString()
     };
@@ -57,10 +52,8 @@ export async function POST(req: NextRequest) {
 
 export async function DELETE(req: NextRequest) {
   try {
-    const session = await getServerSession(authOptions);
-    if (!session) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
+    const auth = await requireSession();
+    if (!auth.ok) return auth.response;
 
     const { searchParams } = new URL(req.url);
     const id = searchParams.get('id');
@@ -72,7 +65,7 @@ export async function DELETE(req: NextRequest) {
     const client = await clientPromise;
     const db = client.db("student-label");
     
-    let query: any = { userEmail: session.user?.email };
+    let query: any = { userEmail: auth.user?.email };
     try {
       query._id = new ObjectId(id);
     } catch {

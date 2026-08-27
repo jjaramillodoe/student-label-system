@@ -1,6 +1,5 @@
 import { NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth';
-import { authOptions } from '@/lib/authOptions';
+import { requireAdminOrDataLead } from '@/lib/requireSession';
 import clientPromise from '@/lib/mongodb';
 import { reassignStudentsToSection } from '@/lib/cabinetMoves';
 
@@ -13,10 +12,8 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> },
 ) {
   try {
-    const session = await getServerSession(authOptions);
-    if (!session || !['Admin', 'Data Lead'].includes(session.user?.role || '')) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
+    const auth = await requireAdminOrDataLead();
+    if (!auth.ok) return auth.response;
 
     const { id: cabinetId } = await params;
     const body = await request.json();
@@ -25,7 +22,7 @@ export async function POST(
     const client = await clientPromise;
     const db = client.db('student-label');
     const schoolScope =
-      session.user.role === 'Admin' ? null : session.user.school || null;
+      auth.user.role === 'Admin' ? null : auth.user.school || null;
 
     const result = await reassignStudentsToSection(db, {
       studentIds: Array.isArray(studentIds) ? studentIds : [],
@@ -35,10 +32,10 @@ export async function POST(
       note,
       source: 'cabinets-section-drag',
       user: {
-        name: session.user.name,
-        email: session.user.email,
-        role: session.user.role,
-        school: session.user.school,
+        name: auth.user.name,
+        email: auth.user.email,
+        role: auth.user.role,
+        school: auth.user.school,
       },
       schoolScope,
     });

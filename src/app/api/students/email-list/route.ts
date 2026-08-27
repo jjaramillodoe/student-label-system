@@ -9,17 +9,15 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
+import { requireAdminOrDataLead } from '@/lib/requireSession';
 import clientPromise from '@/lib/mongodb';
-import { getServerSession } from 'next-auth';
-import { authOptions } from '@/lib/authOptions';
+import { escapeRegex } from '@/lib/studentSearch';
 
 export async function GET(req: NextRequest) {
-  const session = await getServerSession(authOptions);
-  const role   = (session?.user as any)?.role;
-  const school = (session?.user as any)?.school;
-  if (!session || !['Admin', 'Data Lead'].includes(role)) {
-    return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
-  }
+  const auth = await requireAdminOrDataLead();
+  if (!auth.ok) return auth.response;
+  const role   = auth.user.role;
+  const school = auth.user.school;
 
   const client = await clientPromise;
   const db = client.db('student-label');
@@ -44,7 +42,7 @@ export async function GET(req: NextRequest) {
 
   // Text search
   if (q) {
-    const re = { $regex: q, $options: 'i' };
+    const re = { $regex: escapeRegex(q), $options: 'i' };
     query.$or = [{ firstName: re }, { lastName: re }, { email: re }];
   }
 

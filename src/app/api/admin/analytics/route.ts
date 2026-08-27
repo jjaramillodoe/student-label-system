@@ -1,10 +1,10 @@
 import { NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth';
-import { authOptions } from '@/lib/authOptions';
+import { requireAdminOrDataLead } from '@/lib/requireSession';
 import clientPromise from '@/lib/mongodb';
 import { getSystemStats } from '@/lib/systemStats';
 import { isMotherDuckConfigured } from '@/lib/motherduck';
 import { SEARCH_EVENTS_COLLECTION } from '@/lib/searchAnalytics';
+import { escapeRegex } from '@/lib/studentSearch';
 
 export const dynamic = 'force-dynamic';
 
@@ -58,13 +58,10 @@ function mergeTrend(
 
 /** Analytics snapshot for Admin (district) and Data Lead (assigned school). */
 export async function GET() {
-  const session = await getServerSession(authOptions);
-  const role = (session?.user as { role?: string })?.role;
-  const userSchool = (session?.user as { school?: string })?.school?.trim();
-
-  if (!session || !['Admin', 'Data Lead'].includes(role || '')) {
-    return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
-  }
+  const auth = await requireAdminOrDataLead();
+  if (!auth.ok) return auth.response;
+  const role = auth.user.role;
+  const userSchool = auth.user.school?.trim();
 
   try {
     const client = await clientPromise;
@@ -72,7 +69,7 @@ export async function GET() {
     const isAdmin = role === 'Admin';
     const schoolFilter =
       !isAdmin && userSchool
-        ? { school: { $regex: `^${userSchool.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, $options: 'i' } }
+        ? { school: { $regex: `^${escapeRegex(userSchool)}$`, $options: 'i' } }
         : {};
 
     const trendDays = 14;
@@ -83,10 +80,9 @@ export async function GET() {
 
     const printSchoolFilter =
       isAdmin ? {} : userSchool ? { 'user.school': userSchool } : {};
-    const escapeSchool = (value: string) => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
     const eventSchoolFilter =
       !isAdmin && userSchool
-        ? { school: { $regex: `^${escapeSchool(userSchool)}$`, $options: 'i' } }
+        ? { school: { $regex: `^${escapeRegex(userSchool)}$`, $options: 'i' } }
         : {};
     const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
     const nowIso = new Date().toISOString();
@@ -142,7 +138,7 @@ export async function GET() {
         ? db.collection('cabinets').find({}).toArray()
         : userSchool
           ? db.collection('cabinets').find({
-              school: { $regex: `^${userSchool.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, $options: 'i' },
+              school: { $regex: `^${escapeRegex(userSchool)}$`, $options: 'i' },
             }).toArray()
           : [],
       db.collection('students').countDocuments({

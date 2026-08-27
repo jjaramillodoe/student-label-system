@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { requireAdminOrDataLead } from '@/lib/requireSession';
 import clientPromise from '@/lib/mongodb';
-import { getServerSession } from 'next-auth';
-import { authOptions } from '@/lib/authOptions';
 import { ObjectId } from 'mongodb';
 import { isPossibleDuplicate } from '@/lib/fuzzyName';
 import {
@@ -19,6 +18,8 @@ import {
   LOCATION_TRANSFER_FIELDS,
   type AppliedFieldChange,
 } from '@/lib/mergeFields';
+import { findCapped, scanMeta } from '@/lib/adminScan';
+import { withMongoTransaction } from '@/lib/mongoTransaction';
 
 export const MERGE_HISTORY_COLLECTION = 'merge_history';
 /** How long Undo remains available from history (ms). */
@@ -34,20 +35,20 @@ export const MERGE_HISTORY_UNDO_MS = 15 * 60 * 1000;
  *   recentMerges — durable merge history (undoable within MERGE_HISTORY_UNDO_MS)
  */
 export async function GET() {
-  const session = await getServerSession(authOptions);
-  const role = (session?.user as any)?.role;
-  const school = (session?.user as any)?.school;
-  if (!session || !['Admin', 'Data Lead'].includes(role)) {
-    return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
-  }
+  const auth = await requireAdminOrDataLead();
+  if (!auth.ok) return auth.response;
+  const role = auth.user.role;
+  const school = auth.user.school;
 
   const client = await clientPromise;
   const db = client.db('student-label');
 
   const schoolFilter: Record<string, any> = role !== 'Admin' ? { school } : {};
-  const allStudents: any[] = await db.collection('students')
-    .find({ ...schoolFilter, archived: { $ne: true } })
-    .toArray();
+  const scanned = await findCapped(db.collection('students'), {
+    ...schoolFilter,
+    archived: { $ne: true },
+  });
+  const allStudents: any[] = scanned.docs;
 
   // Index by DOB for O(k) candidate lookup
   const byDob = new Map<string, any[]>();
@@ -168,6 +169,7 @@ export async function GET() {
   });
 
   return NextResponse.json({
+    ...scanMeta(scanned),
     flagged: flaggedPairs,
     autoDetected: autoPairs,
     recentMerges,
@@ -185,12 +187,10 @@ export async function GET() {
  * }
  */
 export async function POST(req: NextRequest) {
-  const session = await getServerSession(authOptions);
-  const role = (session?.user as any)?.role;
-  const school = (session?.user as any)?.school;
-  if (!session || !['Admin', 'Data Lead'].includes(role)) {
-    return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
-  }
+  const auth = await requireAdminOrDataLead();
+  if (!auth.ok) return auth.response;
+  const role = auth.user.role;
+  const school = auth.user.school;
 
   const body = await req.json();
   const {
@@ -387,7 +387,7 @@ export async function POST(req: NextRequest) {
         {
           $set: {
             undoneAt: new Date().toISOString(),
-            undoneByEmail: session.user?.email || '',
+            undoneByEmail: auth.user?.email || '',
           },
         },
       );
@@ -402,7 +402,7 @@ export async function POST(req: NextRequest) {
         {
           $set: {
             undoneAt: new Date().toISOString(),
-            undoneByEmail: session.user?.email || '',
+            undoneByEmail: auth.user?.email || '',
           },
         },
       );
@@ -519,21 +519,6 @@ export async function POST(req: NextRequest) {
 
     const updateDoc: Record<string, unknown> = { $set: setFields };
     if (Object.keys(unsetFields).length) updateDoc.$unset = unsetFields;
-    await db.collection('students').updateOne({ _id: primaryOid }, updateDoc);
-
-    // If location was transferred, keep the drawer count (primary now occupies the slot).
-    // Otherwise free the secondary's drawer when deleting it.
-    if (!shouldTransferDrawer && secondaryDoc.cabinet && secondaryDoc.drawer) {
-      try {
-        const cabinetOid = new ObjectId(secondaryDoc.cabinet);
-        await db.collection('cabinets').updateOne(
-          { _id: cabinetOid, 'drawers._id': secondaryDoc.drawer },
-          { $inc: { currentCount: -1, 'drawers.$.currentCount': -1 } }
-        );
-      } catch { /* cabinet may not exist — continue */ }
-    }
-
-    await db.collection('students').deleteOne({ _id: secondaryOid });
 
     const secondarySnapshot = { ...secondaryDoc, _id: secondaryId };
     const allChanges = [...applied.changes, ...locationChanges];
@@ -541,18 +526,37 @@ export async function POST(req: NextRequest) {
     const primaryName = `${primary.firstName || ''} ${primary.lastName || ''}`.trim();
     const secondaryName = `${secondaryDoc.firstName || ''} ${secondaryDoc.lastName || ''}`.trim();
 
-    const historyInsert = await db.collection(MERGE_HISTORY_COLLECTION).insertOne({
-      at: new Date().toISOString(),
-      byEmail: session.user?.email || '',
-      byName: session.user?.name || '',
-      school: primary.school || '',
-      primaryId,
-      primaryName,
-      secondaryId,
-      secondaryName,
-      secondary: secondarySnapshot,
-      changes: allChanges,
-      drawerTransferred: shouldTransferDrawer,
+    const historyInsert = await withMongoTransaction(async (session) => {
+      await db.collection('students').updateOne({ _id: primaryOid }, updateDoc, { session });
+
+      // If location was transferred, keep the drawer count (primary now occupies the slot).
+      // Otherwise free the secondary's drawer when deleting it.
+      if (!shouldTransferDrawer && secondaryDoc.cabinet && secondaryDoc.drawer) {
+        try {
+          const cabinetOid = new ObjectId(secondaryDoc.cabinet);
+          await db.collection('cabinets').updateOne(
+            { _id: cabinetOid, 'drawers._id': secondaryDoc.drawer },
+            { $inc: { currentCount: -1, 'drawers.$.currentCount': -1 } },
+            { session },
+          );
+        } catch { /* cabinet may not exist — continue */ }
+      }
+
+      await db.collection('students').deleteOne({ _id: secondaryOid }, { session });
+
+      return db.collection(MERGE_HISTORY_COLLECTION).insertOne({
+        at: new Date().toISOString(),
+        byEmail: auth.user?.email || '',
+        byName: auth.user?.name || '',
+        school: primary.school || '',
+        primaryId,
+        primaryName,
+        secondaryId,
+        secondaryName,
+        secondary: secondarySnapshot,
+        changes: allChanges,
+        drawerTransferred: shouldTransferDrawer,
+      }, { session });
     });
 
     return NextResponse.json({

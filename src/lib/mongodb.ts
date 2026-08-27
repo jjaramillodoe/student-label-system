@@ -30,7 +30,19 @@ declare global {
 function getClientPromise(): Promise<MongoClient> {
   if (!global._mongoClientPromise) {
     const client = new MongoClient(requireMongoUri(), options);
-    global._mongoClientPromise = client.connect().catch((err) => {
+    global._mongoClientPromise = client.connect().then((connected) => {
+      void import('@/lib/studentIndexes')
+        .then(({ ensureStudentIndexes }) => ensureStudentIndexes(connected.db('student-label')))
+        .then((result) => {
+          if (result.skipped.length) {
+            console.warn('[mongo] student index skipped', result.skipped);
+          }
+        })
+        .catch((err) => {
+          console.warn('[mongo] student index ensure failed', err);
+        });
+      return connected;
+    }).catch((err) => {
       global._mongoClientPromise = undefined;
       throw err;
     });

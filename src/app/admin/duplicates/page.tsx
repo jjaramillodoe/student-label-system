@@ -29,6 +29,7 @@ import UndoSnackbar from '@/components/UndoSnackbar';
 import MergeFieldReview from '@/components/MergeFieldReview';
 import LegacyRosterReviewPanel from '@/components/LegacyRosterReviewPanel';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import ScanTruncatedAlert from '@/components/ScanTruncatedAlert';
 import {
   buildDefaultFieldChoices,
   buildMergeFieldDiff,
@@ -458,6 +459,7 @@ function DuplicatesPageInner() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
+  const [scanTruncated, setScanTruncated] = useState<{ truncated?: boolean; scanned?: number; cap?: number }>({});
 
   // Merge dialog state
   const [mergeDialog, setMergeDialog] = useState<{
@@ -512,6 +514,7 @@ function DuplicatesPageInner() {
       setFlaggedPairs(data.flagged || []);
       setAutoPairs(data.autoDetected || []);
       setRecentMerges(data.recentMerges || []);
+      setScanTruncated({ truncated: data.truncated, scanned: data.scanned, cap: data.cap });
     } catch {
       setError('Failed to load duplicate pairs.');
     } finally {
@@ -672,6 +675,8 @@ function DuplicatesPageInner() {
             </Button>
           }
         />
+
+        <ScanTruncatedAlert {...scanTruncated} />
 
         <Tabs
           value={tab}

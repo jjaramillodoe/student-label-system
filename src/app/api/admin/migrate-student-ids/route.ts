@@ -1,8 +1,8 @@
 import { NextResponse } from 'next/server';
 import clientPromise from '@/lib/mongodb';
-import { getServerSession } from 'next-auth';
-import { authOptions } from '@/lib/authOptions';
 import { generateStudentId, resolveAgencyId } from '@/lib/studentId';
+import { destructiveHttpGuard } from '@/lib/destructiveHttp';
+import { requireAdmin } from '@/lib/requireSession';
 
 /**
  * POST /api/admin/migrate-student-ids
@@ -20,10 +20,11 @@ import { generateStudentId, resolveAgencyId } from '@/lib/studentId';
  */
 export async function POST() {
   try {
-    const session = await getServerSession(authOptions);
-    if ((session?.user as any)?.role !== 'Admin') {
-      return NextResponse.json({ error: 'Admin access required' }, { status: 403 });
-    }
+    const blocked = destructiveHttpGuard();
+    if (blocked) return blocked;
+
+    const auth = await requireAdmin('Admin access required');
+    if (!auth.ok) return auth.response;
 
     const client = await clientPromise;
     const db = client.db('student-label');

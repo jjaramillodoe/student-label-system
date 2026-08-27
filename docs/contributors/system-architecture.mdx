@@ -127,7 +127,7 @@ See `docs/power-automate-nightly-sync.md` in the GitHub repository for the full 
 | URL | Use |
 | --- | --- |
 | `GET /api/health` | **Liveness** — use for load balancer health checks |
-| `GET /api/health/deep` | **Readiness** — MongoDB, env vars, integration config |
+| `GET /api/health/deep` | **Readiness** — MongoDB, env vars, integration config (Admin session or Bearer `HEALTH_PROBE_SECRET` / `CRON_SECRET`) |
 | `GET /docs/api` | Interactive Swagger UI (in-app) |
 
 <CardGroup cols={2}>

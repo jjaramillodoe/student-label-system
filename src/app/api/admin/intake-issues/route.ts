@@ -1,19 +1,15 @@
 import { NextResponse } from 'next/server';
+import { requireRole } from '@/lib/requireSession';
 import clientPromise from '@/lib/mongodb';
-import { getServerSession } from 'next-auth';
-import { authOptions } from '@/lib/authOptions';
-import { canFixIntakeHandoff } from '@/lib/intakeVisitFix';
+import { INTAKE_FIX_ROLES } from '@/lib/intakeVisitFix';
 import { detectIntakeIssuesFromStudent } from '@/lib/intakeIssues';
 import { normalizeIntakeSessions, type IntakeSession } from '@/lib/intakeSession';
 
 export async function GET() {
-  const session = await getServerSession(authOptions);
-  const role = (session?.user as { role?: string })?.role;
-  const school = (session?.user as { school?: string })?.school;
-
-  if (!session || !canFixIntakeHandoff(role)) {
-    return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
-  }
+  const auth = await requireRole(INTAKE_FIX_ROLES);
+  if (!auth.ok) return auth.response;
+  const role = auth.user.role;
+  const school = auth.user.school;
 
   const client = await clientPromise;
   const db = client.db('student-label');

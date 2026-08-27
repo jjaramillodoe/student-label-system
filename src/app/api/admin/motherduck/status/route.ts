@@ -1,6 +1,5 @@
 import { NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth';
-import { authOptions } from '@/lib/authOptions';
+import { requireAdmin } from '@/lib/requireSession';
 import {
   getMotherDuckDatabase,
   getMotherDuckHost,
@@ -12,11 +11,8 @@ import { motherduckQuery } from '@/lib/motherduck';
 export const dynamic = 'force-dynamic';
 
 export async function GET() {
-  const session = await getServerSession(authOptions);
-  const role = (session?.user as { role?: string })?.role;
-  if (!session || role !== 'Admin') {
-    return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
-  }
+  const auth = await requireAdmin();
+  if (!auth.ok) return auth.response;
 
   const configured = isMotherDuckConfigured();
   if (!configured) {

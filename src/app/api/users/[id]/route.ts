@@ -1,17 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { requireAdmin } from '@/lib/requireSession';
 import clientPromise from '@/lib/mongodb';
 import * as bcrypt from 'bcrypt';
 import { ObjectId } from 'mongodb';
-import { getServerSession } from 'next-auth';
-import { authOptions } from '@/lib/authOptions';
 import { applyMfaBypass } from '@/lib/authSecurity';
 
 export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const session = await getServerSession(authOptions);
-  if (!session || (session.user as any).role !== 'Admin') {
-    return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
-  }
+  const auth = await requireAdmin();
+  if (!auth.ok) return auth.response;
   try {
     const client = await clientPromise;
     const db = client.db("student-label");
@@ -28,10 +25,8 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
 
 export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const session = await getServerSession(authOptions);
-  if (!session || (session.user as any).role !== 'Admin') {
-    return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
-  }
+  const auth = await requireAdmin();
+  if (!auth.ok) return auth.response;
   try {
     const { name, email, role, school, password, allowedIntakeSessions, mfaBypass } = await req.json();
     const normalizedEmail = typeof email === 'string' ? email.toLowerCase().trim() : '';
@@ -78,8 +73,8 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
 
     if (typeof mfaBypass === 'boolean') {
       await applyMfaBypass(existingUser._id, normalizedEmail, mfaBypass, {
-        byEmail: session.user?.email || '',
-        byName: session.user?.name || '',
+        byEmail: auth.user?.email || '',
+        byName: auth.user?.name || '',
       });
       result.mfaBypass = mfaBypass;
     }
@@ -93,10 +88,8 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
 
 export async function DELETE(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const session = await getServerSession(authOptions);
-  if (!session || (session.user as any).role !== 'Admin') {
-    return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
-  }
+  const auth = await requireAdmin();
+  if (!auth.ok) return auth.response;
   try {
     const client = await clientPromise;
     const db = client.db("student-label");

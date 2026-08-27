@@ -1,6 +1,5 @@
 import { NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth';
-import { authOptions } from '@/lib/authOptions';
+import { requireSession, requireAdminOrDataLead } from '@/lib/requireSession';
 import clientPromise from '@/lib/mongodb';
 import { ObjectId } from 'mongodb';
 import {
@@ -20,8 +19,8 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const session = await getServerSession(authOptions);
-    if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    const auth = await requireSession();
+    if (!auth.ok) return auth.response;
 
     const { id } = await params;
     const client = await clientPromise;
@@ -61,10 +60,8 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const session = await getServerSession(authOptions);
-    if (!session || (session.user.role !== 'Admin' && session.user.role !== 'Data Lead')) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
+    const auth = await requireAdminOrDataLead();
+    if (!auth.ok) return auth.response;
 
     const { id } = await params;
     const client = await clientPromise;
@@ -79,7 +76,7 @@ export async function POST(
       return NextResponse.json({ error: 'Cabinet must be archived first' }, { status: 400 });
     }
 
-    if (session.user.role !== 'Admin' && session.user.school && cabinet.school !== session.user.school) {
+    if (auth.user.role !== 'Admin' && auth.user.school && cabinet.school !== auth.user.school) {
       return NextResponse.json({ error: 'Access denied' }, { status: 403 });
     }
 

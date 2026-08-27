@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth';
-import { authOptions } from '@/lib/authOptions';
+import { requireSession } from '@/lib/requireSession';
 import clientPromise from '@/lib/mongodb';
 import {
   LEGACY_ROSTER_COLLECTION,
@@ -54,11 +53,11 @@ function slimRow(row: Partial<LegacyRosterRow>, school: string, importedAt: stri
 /** GET ?school=Name — roster status for a school */
 export async function GET(req: NextRequest) {
   try {
-    const session = await getServerSession(authOptions);
-    if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    const auth = await requireSession();
+    if (!auth.ok) return auth.response;
 
-    const role = session.user?.role;
-    const userSchool = session.user?.school;
+    const role = auth.user?.role;
+    const userSchool = auth.user?.school;
     const school = req.nextUrl.searchParams.get('school')?.trim()
       || (role !== 'Admin' ? userSchool : '')
       || '';
@@ -103,11 +102,11 @@ export async function GET(req: NextRequest) {
  */
 export async function POST(req: NextRequest) {
   try {
-    const session = await getServerSession(authOptions);
-    if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    const auth = await requireSession();
+    if (!auth.ok) return auth.response;
 
-    const role = session.user?.role;
-    const userSchool = session.user?.school;
+    const role = auth.user?.role;
+    const userSchool = auth.user?.school;
     const contentType = req.headers.get('content-type') || '';
 
     // ── JSON path (preferred — avoids Vercel "Request Entity Too Large" on big MDBs) ──
@@ -174,8 +173,8 @@ export async function POST(req: NextRequest) {
           tableName,
           sourceType,
           uploadedBy: {
-            name: session.user?.name || undefined,
-            email: session.user?.email || undefined,
+            name: auth.user?.name || undefined,
+            email: auth.user?.email || undefined,
           },
         };
         await db.collection('school_config').updateOne(
@@ -254,7 +253,7 @@ export async function POST(req: NextRequest) {
 
     let parsed;
     if (lower.endsWith('.mdb') || lower.endsWith('.accdb')) {
-      parsed = parseMdbBuffer(buffer, school, filename, preferredTable);
+      parsed = await parseMdbBuffer(buffer, school, filename, preferredTable);
     } else if (lower.endsWith('.csv') || lower.endsWith('.txt')) {
       parsed = parseLegacyCsv(buffer.toString('utf8'), school, filename);
     } else {
@@ -278,8 +277,8 @@ export async function POST(req: NextRequest) {
       tableName: parsed.tableName,
       sourceType: lower.endsWith('.csv') || lower.endsWith('.txt') ? 'csv' : 'mdb',
       uploadedBy: {
-        name: session.user?.name || undefined,
-        email: session.user?.email || undefined,
+        name: auth.user?.name || undefined,
+        email: auth.user?.email || undefined,
       },
     };
 
@@ -320,11 +319,11 @@ export async function POST(req: NextRequest) {
 /** DELETE ?school=Name — clear roster */
 export async function DELETE(req: NextRequest) {
   try {
-    const session = await getServerSession(authOptions);
-    if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    const auth = await requireSession();
+    if (!auth.ok) return auth.response;
 
-    const role = session.user?.role;
-    const userSchool = session.user?.school;
+    const role = auth.user?.role;
+    const userSchool = auth.user?.school;
     const schoolParam = req.nextUrl.searchParams.get('school')?.trim() || '';
     const requestedSchool =
       role === 'Data Lead'

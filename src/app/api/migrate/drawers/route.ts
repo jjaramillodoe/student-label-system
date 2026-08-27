@@ -1,16 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server';
 import clientPromise from '@/lib/mongodb';
 import { ObjectId } from 'mongodb';
-import { getServerSession } from 'next-auth';
-import { authOptions } from '@/lib/authOptions';
+import { destructiveHttpGuard } from '@/lib/destructiveHttp';
+import { requireAdminOrDataLead } from '@/lib/requireSession';
 
 export async function POST(req: NextRequest) {
-  // Check if user is authorized (Admin or Data Lead)
-  const session = await getServerSession(authOptions);
-  const role = (session?.user as any)?.role;
-  if (role !== 'Admin' && role !== 'Data Lead') {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
-  }
+  const blocked = destructiveHttpGuard();
+  if (blocked) return blocked;
+
+  const auth = await requireAdminOrDataLead('Unauthorized');
+  if (!auth.ok) return auth.response;
 
   try {
     const client = await clientPromise;
@@ -18,8 +17,8 @@ export async function POST(req: NextRequest) {
 
     // Filter cabinets based on user role and school
     let cabinetQuery = {};
-    const userRole = session?.user?.role;
-    const userSchool = session?.user?.school;
+    const userRole = auth.user.role;
+    const userSchool = auth.user.school;
     
     // Admins can migrate all cabinets, others are restricted to their school
     if (userRole !== 'Admin' && userSchool) {

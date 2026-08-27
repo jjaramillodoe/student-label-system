@@ -3,6 +3,7 @@
 export type AveryDocxLayout = 'avery5163' | 'avery94205';
 
 export type AveryDocxStudent = {
+  _id?: string;
   firstName?: string;
   lastName?: string;
   dob?: string;
@@ -30,22 +31,39 @@ export type DownloadAveryDocxOptions = {
   skipStock?: boolean;
 };
 
+function studentMongoId(student: AveryDocxStudent): string | null {
+  const id = typeof student._id === 'string' ? student._id.trim() : '';
+  return /^[a-f\d]{24}$/i.test(id) ? id : null;
+}
+
 export async function downloadAveryDocx(
   layout: AveryDocxLayout,
   students: AveryDocxStudent[],
   options: DownloadAveryDocxOptions = {},
 ): Promise<void> {
+  const ids = students.map(studentMongoId);
+  if (ids.some((id) => !id)) {
+    throw new Error('Each student needs a database id to print');
+  }
+
   const route = DOCX_ROUTES[layout];
   const res = await fetch(route, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
-      students,
+      ids,
       skipStock: options.skipStock === true,
     }),
   });
   if (!res.ok) {
-    throw new Error('Failed to generate Word document');
+    let message = 'Failed to generate Word document';
+    try {
+      const data = await res.json();
+      if (data && typeof data.error === 'string') message = data.error;
+    } catch {
+      // keep default
+    }
+    throw new Error(message);
   }
   const blob = await res.blob();
   const url = URL.createObjectURL(blob);

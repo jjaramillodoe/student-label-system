@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { requireSession } from '@/lib/requireSession';
 import clientPromise from '@/lib/mongodb';
-import { getServerSession } from 'next-auth';
-import { authOptions } from '@/lib/authOptions';
 import { buildStudentSearchOrConditions, escapeRegex } from '@/lib/studentSearch';
 import { logSearchEvent } from '@/lib/searchAnalytics';
 import {
@@ -24,6 +23,7 @@ import { getSchoolIntakeSessions, validateIntakeSessionTimes } from '@/lib/intak
 import { assignDrawerSection } from '@/lib/drawerSections';
 import { usaNameError } from '@/lib/usaName';
 import { enrichStudentsWithCabinetNames, loadCabinetDrawerLookup } from '@/lib/cabinetNames';
+import { withMongoTransaction } from '@/lib/mongoTransaction';
 
 // Helper function to validate ObjectId
 function isValidObjectId(id: string): boolean {
@@ -37,12 +37,10 @@ function isValidObjectId(id: string): boolean {
 
 export async function GET(req: NextRequest) {
   try {
-    const session = await getServerSession(authOptions);
-    if (!session?.user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-    const userRole = session.user.role;
-    const userSchool = session.user.school;
+    const auth = await requireSession();
+    if (!auth.ok) return auth.response;
+    const userRole = auth.user.role;
+    const userSchool = auth.user.school;
 
     const searchParams = req.nextUrl.searchParams;
     const search = searchParams.get('search')?.trim() || '';
@@ -74,8 +72,8 @@ export async function GET(req: NextRequest) {
     if (since) {
       query.createdAt = { $gte: since };
     }
-    if (createdByMe === 'true' && session.user.email) {
-      query['createdBy.email'] = session.user.email;
+    if (createdByMe === 'true' && auth.user.email) {
+      query['createdBy.email'] = auth.user.email;
     }
     if (search) {
       const orConditions = buildStudentSearchOrConditions(search);
@@ -173,7 +171,7 @@ export async function GET(req: NextRequest) {
       .limit(limit)
       .toArray();
 
-    if (search && page === 1 && session) {
+    if (search && page === 1) {
       void logSearchEvent({
         query: search,
         resultCount: total,
@@ -197,9 +195,10 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   try {
-    const session = await getServerSession(authOptions);
-    const userRole = session?.user?.role;
-    const userSchool = session?.user?.school;
+    const auth = await requireSession();
+    if (!auth.ok) return auth.response;
+    const userRole = auth.user.role;
+    const userSchool = auth.user.school;
     
     // Only allow Data Members and Data Leads to add students to their school
     if (userRole !== 'Admin' && !userSchool) {
@@ -286,7 +285,7 @@ export async function POST(req: NextRequest) {
     let agencyId = body.agencyId || '';
     if (!agencyId && schoolName) {
       const schoolDoc = await db.collection('school_config').findOne({
-        name: { $regex: `^${schoolName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, $options: 'i' },
+        name: { $regex: `^${escapeRegex(schoolName)}$`, $options: 'i' },
       });
       agencyId = resolveAgencyId(schoolName, schoolDoc?.agencyId);
     }
@@ -297,7 +296,7 @@ export async function POST(req: NextRequest) {
     if (!labelId && firstName && lastName && dob) {
       const initials = `${firstName[0] || ''}${lastName[0] || ''}`.toUpperCase();
       const birthYear = String(dob).split('-')[0] || String(new Date().getFullYear());
-      const pattern = new RegExp(`^${birthYear}-${initials}-\\d{7}$`);
+      const pattern = new RegExp(`^${escapeRegex(birthYear)}-${escapeRegex(initials)}-\\d{7}$`);
       const existing = await db
         .collection('students')
         .find({ $or: [{ labelId: { $regex: pattern } }, { studentId: { $regex: pattern } }] })
@@ -361,20 +360,7 @@ export async function POST(req: NextRequest) {
       }
 
       drawerSection = assignDrawerSection(currentCount, drawerCapacity);
-
-      // Update the drawer's current count
-      await db.collection('cabinets').updateOne(
-        { 
-          _id: new ObjectId(cabinet),
-          'drawers._id': drawer
-        },
-        { 
-          $inc: { 
-            'drawers.$.currentCount': 1,
-            'currentCount': 1
-          }
-        }
-      );
+      // Cabinet $inc happens in the same transaction as insertOne below.
     }
     
     const studentData: Record<string, any> = {
@@ -397,8 +383,8 @@ export async function POST(req: NextRequest) {
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
       createdBy: {
-        name: session?.user?.name || session?.user?.email || 'Unknown',
-        email: session?.user?.email || '',
+        name: auth.user?.name || auth.user?.email || 'Unknown',
+        email: auth.user?.email || '',
       },
     };
 
@@ -466,8 +452,8 @@ export async function POST(req: NextRequest) {
         placementClass: placementClass || null,
         notes: notes || null,
         recordedBy: {
-          name: session?.user?.name || session?.user?.email || 'Unknown',
-          email: session?.user?.email || '',
+          name: auth.user?.name || auth.user?.email || 'Unknown',
+          email: auth.user?.email || '',
         },
       }];
     }
@@ -482,7 +468,41 @@ export async function POST(req: NextRequest) {
       studentData.newAddressReviewNote = body.newAddressReviewNote;
     }
     
-    const result = await db.collection('students').insertOne(studentData);
+    const result = await withMongoTransaction(async (session) => {
+      if (cabinet && drawer) {
+        const cabinetDoc = await db.collection('cabinets').findOne(
+          { _id: new ObjectId(cabinet) },
+          { session },
+        );
+        if (!cabinetDoc) {
+          throw new Error('Cabinet not found');
+        }
+        const drawerIndex = cabinetDoc.drawers.findIndex((d: any) => String(d._id) === String(drawer));
+        if (drawerIndex === -1) {
+          throw new Error('Drawer not found in cabinet');
+        }
+        const drawerCapacity = cabinetDoc.drawers[drawerIndex].capacity;
+        const currentCount = cabinetDoc.drawers[drawerIndex].currentCount || 0;
+        if (currentCount >= drawerCapacity) {
+          throw new Error('Drawer is at full capacity');
+        }
+        studentData.drawerSection = assignDrawerSection(currentCount, drawerCapacity);
+        await db.collection('cabinets').updateOne(
+          {
+            _id: new ObjectId(cabinet),
+            'drawers._id': drawer,
+          },
+          {
+            $inc: {
+              'drawers.$.currentCount': 1,
+              currentCount: 1,
+            },
+          },
+          { session },
+        );
+      }
+      return db.collection('students').insertOne(studentData, { session });
+    });
     const insertedStudent = {
       _id: result.insertedId,
       ...studentData
@@ -490,10 +510,14 @@ export async function POST(req: NextRequest) {
     
     return NextResponse.json(insertedStudent, { status: 201 });
   } catch (error) {
+    const message = error instanceof Error ? error.message : 'Unknown error';
+    if (message.includes('full capacity') || message.includes('not found')) {
+      return NextResponse.json({ error: message }, { status: 400 });
+    }
     console.error('Error adding student:', error);
     return NextResponse.json({ 
       error: 'Failed to add student',
-      details: error instanceof Error ? error.message : 'Unknown error'
+      details: message,
     }, { status: 500 });
   }
 } 

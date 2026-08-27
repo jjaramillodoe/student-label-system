@@ -4,9 +4,8 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
+import { requireSession, requireAdmin } from '@/lib/requireSession';
 import clientPromise from '@/lib/mongodb';
-import { getServerSession } from 'next-auth';
-import { authOptions } from '@/lib/authOptions';
 import { DEFAULT_NOTIFICATION_SETTINGS } from '@/lib/notifications';
 
 export const DEFAULT_SETTINGS = {
@@ -37,8 +36,8 @@ function clampInt(value: unknown, min: number, max: number, fallback: number): n
 }
 
 export async function GET() {
-  const session = await getServerSession(authOptions);
-  if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  const auth = await requireSession();
+  if (!auth.ok) return auth.response;
 
   const client = await clientPromise;
   const db = client.db('student-label');
@@ -48,11 +47,8 @@ export async function GET() {
 }
 
 export async function PATCH(req: NextRequest) {
-  const session = await getServerSession(authOptions);
-  const role = (session?.user as { role?: string } | undefined)?.role;
-  if (!session || role !== 'Admin') {
-    return NextResponse.json({ error: 'Forbidden — Admin only' }, { status: 403 });
-  }
+  const auth = await requireAdmin('Forbidden — Admin only');
+  if (!auth.ok) return auth.response;
 
   const body = await req.json();
   const patch: Record<string, boolean | string | number> = {};

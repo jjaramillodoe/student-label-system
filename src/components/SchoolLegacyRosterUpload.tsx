@@ -168,7 +168,7 @@ export default function SchoolLegacyRosterUpload({ schoolName }: { schoolName: s
       if (lower.endsWith('.mdb') || lower.endsWith('.accdb')) {
         setProgress('Parsing Access database in your browser…');
         const buffer = await file.arrayBuffer();
-        parsed = parseMdbBuffer(buffer, schoolName, filename);
+        parsed = await parseMdbBuffer(buffer, schoolName, filename);
       } else if (lower.endsWith('.csv') || lower.endsWith('.txt')) {
         setProgress('Parsing CSV…');
         const text = await file.text();

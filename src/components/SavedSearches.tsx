@@ -130,6 +130,7 @@ export default function SavedSearches({ currentFilters, onLoadSearch }: SavedSea
                   variant="ghost"
                   size="icon"
                   className="h-6 w-6"
+                  aria-label={`Delete saved search ${search.name}`}
                   onClick={(e) => {
                     e.stopPropagation();
                     deleteSearch(search._id);

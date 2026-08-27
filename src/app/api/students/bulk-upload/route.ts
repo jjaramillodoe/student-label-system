@@ -1,10 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth';
+import { requireRole } from '@/lib/requireSession';
 import { ObjectId } from 'mongodb';
-import { authOptions } from '@/lib/authOptions';
 import clientPromise from '@/lib/mongodb';
 import { generateLabelId, resolveAgencyId, resolveStudentId } from '@/lib/studentId';
 import { assignDrawerSection } from '@/lib/drawerSections';
+import { escapeRegex } from '@/lib/studentSearch';
 
 type DrawerDoc = {
   _id: string;
@@ -238,15 +238,9 @@ function bulkUploadErrorMessage(error: unknown): string {
 
 export async function POST(req: NextRequest) {
   try {
-    const session = await getServerSession(authOptions);
-    if (!session) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-
-    const role = session.user.role;
-    if (!['Admin', 'Data Lead', 'Data Member'].includes(role || '')) {
-      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
-    }
+    const auth = await requireRole(['Admin', 'Data Lead', 'Data Member']);
+    if (!auth.ok) return auth.response;
+    const role = auth.user.role;
 
     const {
       students,
@@ -279,7 +273,7 @@ export async function POST(req: NextRequest) {
     if (!targetCabinet) {
       return NextResponse.json({ error: 'Target cabinet not found' }, { status: 404 });
     }
-    if (role !== 'Admin' && targetCabinet.school !== session.user.school) {
+    if (role !== 'Admin' && targetCabinet.school !== auth.user.school) {
       return NextResponse.json({ error: 'Forbidden for this school' }, { status: 403 });
     }
     if (!targetCabinet.drawers.some(drawer => drawerIdsEqual(drawer._id, drawerId))) {
@@ -365,7 +359,7 @@ export async function POST(req: NextRequest) {
 
     // ── Resolve agency ID for this school ────────────────────────────────────
     const schoolDoc = await db.collection('school_config').findOne({
-      name: { $regex: `^${school.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, $options: 'i' },
+      name: { $regex: `^${escapeRegex(school)}$`, $options: 'i' },
     });
     const agencyId = resolveAgencyId(school, schoolDoc?.agencyId);
 
@@ -383,7 +377,7 @@ export async function POST(req: NextRequest) {
 
     await Promise.all(
       Array.from(prefixGroups.entries()).map(async ([prefix, group]) => {
-        const pattern = new RegExp(`^${prefix}-\\d{7}$`);
+        const pattern = new RegExp(`^${escapeRegex(prefix)}-\\d{7}$`);
         const existing = await studentsCollection
           .find({ $or: [{ labelId: { $regex: pattern } }, { studentId: { $regex: pattern } }] })
           .project({ labelId: 1, studentId: 1 })
@@ -458,8 +452,8 @@ export async function POST(req: NextRequest) {
         school,
         now,
         createdBy: {
-          name: session.user.name || session.user.email || 'Unknown',
-          email: session.user.email || '',
+          name: auth.user.name || auth.user.email || 'Unknown',
+          email: auth.user.email || '',
         },
       });
     });

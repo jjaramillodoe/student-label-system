@@ -11,18 +11,15 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
+import { requireAdmin } from '@/lib/requireSession';
 import clientPromise from '@/lib/mongodb';
-import { getServerSession } from 'next-auth';
-import { authOptions } from '@/lib/authOptions';
 import { ObjectId } from 'mongodb';
 
 export async function POST(req: NextRequest) {
-  const session = await getServerSession(authOptions);
-  const role    = (session?.user as any)?.role;
-  const school  = (session?.user as any)?.school;
-  if (!session || role !== 'Admin') {
-    return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
-  }
+  const auth = await requireAdmin();
+  if (!auth.ok) return auth.response;
+  const role    = auth.user.role;
+  const school  = auth.user.school;
 
   const body = await req.json().catch(() => ({}));
   const jobIds: string[] | undefined = body.jobIds;

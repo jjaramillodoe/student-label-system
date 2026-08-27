@@ -1,8 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { requireRole } from '@/lib/requireSession';
 import { ObjectId } from 'mongodb';
 import clientPromise from '@/lib/mongodb';
-import { getServerSession } from 'next-auth';
-import { authOptions } from '@/lib/authOptions';
 import {
   normalizeStudentAddress,
   validateStudentAddress,
@@ -24,13 +23,10 @@ export async function PATCH(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> },
 ) {
-  const session = await getServerSession(authOptions);
-  const role = (session?.user as { role?: string })?.role;
-  const userSchool = (session?.user as { school?: string })?.school;
-
-  if (!session || !ADDRESS_ROLES.includes(role || '')) {
-    return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
-  }
+  const auth = await requireRole(ADDRESS_ROLES);
+  if (!auth.ok) return auth.response;
+  const role = auth.user.role;
+  const userSchool = auth.user.school;
 
   const { id } = await params;
   if (!isValidObjectId(id)) {

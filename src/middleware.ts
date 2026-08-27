@@ -12,6 +12,14 @@ import {
   TENANT_ROOT_HEADER,
   TENANT_SLUG_HEADER,
 } from '@/lib/tenantHost';
+import {
+  AUTH_POST_RATE,
+  LOOKUP_RATE,
+  SYNC_RATE,
+  clientIp,
+  consumeRateLimit,
+  rateLimitResponse,
+} from '@/lib/rateLimit';
 
 function isPublicPath(pathname: string): boolean {
   return (
@@ -23,7 +31,10 @@ function isPublicPath(pathname: string): boolean {
     pathname.startsWith('/api/auth') ||
     pathname.startsWith('/api/students/lookup') ||
     pathname.startsWith('/api/archive') ||
-    pathname.startsWith('/api/health') ||
+    // Liveness is unauthenticated; deep still skips JWT here so Bearer probes work,
+    // then the route requires Admin session or HEALTH_PROBE_SECRET / CRON_SECRET.
+    pathname === '/api/health' ||
+    pathname === '/api/health/deep' ||
     pathname.startsWith('/api/sync') ||
     pathname.startsWith('/api/cron/') ||
     pathname.startsWith('/api/tenant') ||
@@ -37,6 +48,8 @@ export async function middleware(req: NextRequest) {
   const tenantSlug = extractTenantSlugFromHost(req.headers.get('host'), rootDomain);
 
   const requestHeaders = new Headers(req.headers);
+  const requestId = req.headers.get('x-request-id')?.trim() || crypto.randomUUID();
+  requestHeaders.set('x-request-id', requestId);
   if (tenantSlug) {
     requestHeaders.set(TENANT_SLUG_HEADER, tenantSlug);
   }
@@ -47,6 +60,7 @@ export async function middleware(req: NextRequest) {
   const withTenantHeaders = (res: NextResponse) => {
     if (tenantSlug) res.headers.set(TENANT_SLUG_HEADER, tenantSlug);
     if (rootDomain) res.headers.set(TENANT_ROOT_HEADER, rootDomain);
+    res.headers.set('x-request-id', requestId);
     return res;
   };
 
@@ -60,6 +74,20 @@ export async function middleware(req: NextRequest) {
     }
     const blocked = new URL('/geo-blocked', req.url);
     return withTenantHeaders(NextResponse.rewrite(blocked));
+  }
+
+  const ip = clientIp(req);
+  if (path === '/api/students/lookup' || path.startsWith('/api/archive/box')) {
+    const limited = consumeRateLimit({ key: `mw-lookup:${ip}`, ...LOOKUP_RATE });
+    if (!limited.ok) return withTenantHeaders(rateLimitResponse(limited.retryAfterSec));
+  }
+  if (path.startsWith('/api/sync')) {
+    const limited = consumeRateLimit({ key: `mw-sync:${ip}`, ...SYNC_RATE });
+    if (!limited.ok) return withTenantHeaders(rateLimitResponse(limited.retryAfterSec));
+  }
+  if (req.method === 'POST' && path.startsWith('/api/auth')) {
+    const limited = consumeRateLimit({ key: `mw-auth:${ip}`, ...AUTH_POST_RATE });
+    if (!limited.ok) return withTenantHeaders(rateLimitResponse(limited.retryAfterSec));
   }
 
   if (isPublicPath(path)) {

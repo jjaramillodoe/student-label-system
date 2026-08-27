@@ -24,7 +24,7 @@ Microsoft SSO (when enabled) does not force app TOTP; DOE Conditional Access cov
 | JWT session length | **12 hours** | Sign in again after the session expires |
 | Idle prompt | 15 min + grace (configurable) | **Admin → System Settings** — client-side “Still using the app?” on shared desks |
 
-Idle sign-out does not replace the 12-hour session limit.
+Idle sign-out does not replace the 12-hour JWT. The idle prompt is a **client-side** check (default 15 minutes of inactivity). A session can last up to **12 hours** if the user stays active; after that the JWT expires regardless of idle settings.
 
 ## Admin → Security
 

@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth';
+import { requireAdmin } from '@/lib/requireSession';
 import clientPromise from '@/lib/mongodb';
-import { authOptions } from '@/lib/authOptions';
 import { resolveAgencyId } from '@/lib/studentId';
 import { normalizeIntakeStringList } from '@/lib/intakeDefaults';
 import { normalizeIntakeSessions } from '@/lib/intakeSession';
@@ -13,20 +12,15 @@ import {
 } from '@/lib/schoolLeadership';
 import { schoolNameToSlug, validateSchoolSlug } from '@/lib/schoolSlug';
 import { parsePrincipalsCsv, type PrincipalsCsvSchoolRow } from '@/lib/principalsCsv';
-
-function escapeRegex(value: string) {
-  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-}
+import { escapeRegex } from '@/lib/studentSearch';
 
 function schoolNameFilter(name: string) {
   return { name: { $regex: `^${escapeRegex(name.trim())}$`, $options: 'i' } };
 }
 
 export async function POST(req: NextRequest) {
-  const session = await getServerSession(authOptions);
-  if (!session || (session.user as { role?: string })?.role !== 'Admin') {
-    return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
-  }
+  const auth = await requireAdmin();
+  if (!auth.ok) return auth.response;
 
   try {
     const body = await req.json();

@@ -410,7 +410,7 @@ Current data footprint is **~2–3 MB** MongoDB storage — compute, not storage
 4. Run `docker compose up -d --build`.
 5. Verify:
    - `curl http://localhost:3000/api/health`
-   - `curl http://localhost:3000/api/health/deep`
+   - `curl -H "Authorization: Bearer $CRON_SECRET" http://localhost:3000/api/health/deep`
 
 ### Phase 3 — TLS & DNS
 
@@ -438,7 +438,7 @@ Current data footprint is **~2–3 MB** MongoDB storage — compute, not storage
 | Endpoint | Auth | Use |
 |----------|------|-----|
 | `GET /api/health` | None | **ALB target group health check** — expect HTTP 200 |
-| `GET /api/health/deep` | None | Readiness — MongoDB ping, env vars, integration config |
+| `GET /api/health/deep` | Admin session or Bearer `HEALTH_PROBE_SECRET` / `CRON_SECRET` | Readiness — MongoDB ping, env vars, integration config |
 | `GET /api/openapi.json` | None | OpenAPI spec |
 | `GET /docs/api` | None | Swagger UI |
 

@@ -15,7 +15,6 @@ export type BoxLabelStudent = {
   lastName?: string;
   labelId?: string;
   studentId?: string;
-  dob?: string;
 };
 
 export type BoxLabelArchive = {

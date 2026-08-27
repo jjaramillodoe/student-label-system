@@ -1,6 +1,5 @@
 import { NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth';
-import { authOptions } from '@/lib/authOptions';
+import { requireSession } from '@/lib/requireSession';
 import clientPromise from '@/lib/mongodb';
 import { nameSim, matchPercent, isPossibleDuplicate } from '@/lib/fuzzyName';
 import {
@@ -13,6 +12,7 @@ import {
 import { LEGACY_ROSTER_COLLECTION, matchLegacyRoster, schoolNameFilter } from '@/lib/legacyRoster';
 import { enrichStudentsWithCabinetNames, loadCabinetDrawerLookup } from '@/lib/cabinetNames';
 import { logSearchEvent } from '@/lib/searchAnalytics';
+import { escapeRegex } from '@/lib/studentSearch';
 
 const STUDENT_PROJECTION = {
   firstName: 1,
@@ -71,8 +71,8 @@ function isSameAddressMatch(match: string): boolean {
 
 export async function POST(request: Request) {
   try {
-    const session = await getServerSession(authOptions);
-    if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    const auth = await requireSession();
+    if (!auth.ok) return auth.response;
 
     const body = await request.json();
     const { firstName, lastName, dob } = body;
@@ -94,8 +94,8 @@ export async function POST(request: Request) {
     const db = client.db('student-label');
 
     const scopeQuery: Record<string, unknown> =
-      session.user.role !== 'Admin' && session.user.school
-        ? { school: session.user.school }
+      auth.user.role !== 'Admin' && auth.user.school
+        ? { school: auth.user.school }
         : {};
 
     const incoming = { firstName, lastName, dob };
@@ -149,8 +149,8 @@ export async function POST(request: Request) {
       .collection('students')
       .find({
         ...scopeQuery,
-        firstName: { $regex: new RegExp(`^${firstName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i') },
-        lastName: { $regex: new RegExp(`^${lastName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i') },
+        firstName: { $regex: new RegExp(`^${escapeRegex(firstName)}$`, 'i') },
+        lastName: { $regex: new RegExp(`^${escapeRegex(lastName)}$`, 'i') },
         dob: { $ne: dob },
       })
       .project(STUDENT_PROJECTION)
@@ -174,9 +174,9 @@ export async function POST(request: Request) {
     let legacyExact: Record<string, unknown>[] = [];
     let legacyFuzzy: Record<string, unknown>[] = [];
     const schoolName =
-      session.user.role === 'Admin' && body.school
+      auth.user.role === 'Admin' && body.school
         ? String(body.school)
-        : session.user.school || '';
+        : auth.user.school || '';
     if (schoolName) {
       const legacyRows = await db
         .collection(LEGACY_ROSTER_COLLECTION)
@@ -185,8 +185,8 @@ export async function POST(request: Request) {
           $or: [
             { dob },
             {
-              firstName: { $regex: new RegExp(`^${firstName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i') },
-              lastName: { $regex: new RegExp(`^${lastName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i') },
+              firstName: { $regex: new RegExp(`^${escapeRegex(firstName)}$`, 'i') },
+              lastName: { $regex: new RegExp(`^${escapeRegex(lastName)}$`, 'i') },
             },
           ],
         })
@@ -202,8 +202,8 @@ export async function POST(request: Request) {
       query: `${firstName} ${lastName} ${dob}`.trim(),
       resultCount: exact.length + fuzzy.length + legacyExact.length + legacyFuzzy.length,
       source: 'intake-check',
-      school: session.user?.school || null,
-      role: session.user?.role || null,
+      school: auth.user?.school || null,
+      role: auth.user?.role || null,
     });
     return NextResponse.json({
       exact: enrichStudentsWithCabinetNames(exact, byCabinetId),

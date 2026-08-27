@@ -1,14 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { requireSession } from '@/lib/requireSession';
 import clientPromise from '@/lib/mongodb';
-import { getServerSession } from 'next-auth';
-import { authOptions } from '@/lib/authOptions';
 
 export async function GET(req: NextRequest) {
   try {
-    const session = await getServerSession(authOptions);
-    if (!session) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
+    const auth = await requireSession();
+    if (!auth.ok) return auth.response;
 
     const { searchParams } = new URL(req.url);
     const startDate = searchParams.get('startDate') || new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
@@ -19,8 +16,8 @@ export async function GET(req: NextRequest) {
     const db = client.db("student-label");
 
     // Role-based filtering
-    const userRole = (session.user as any)?.role;
-    const userSchool = (session.user as any)?.school;
+    const userRole = auth.user?.role;
+    const userSchool = auth.user?.school;
     let matchQuery: any = {
       time: {
         $gte: new Date(startDate),

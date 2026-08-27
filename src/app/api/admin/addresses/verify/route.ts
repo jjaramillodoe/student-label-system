@@ -1,8 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { requireRole } from '@/lib/requireSession';
 import { ObjectId } from 'mongodb';
 import clientPromise from '@/lib/mongodb';
-import { getServerSession } from 'next-auth';
-import { authOptions } from '@/lib/authOptions';
 import {
   verifyAddressWithGeoclient,
   verifyAddressesBatch,
@@ -31,11 +30,8 @@ type PreviewRow = {
 };
 
 export async function GET() {
-  const session = await getServerSession(authOptions);
-  const role = (session?.user as { role?: string })?.role;
-  if (!session || !VERIFY_ROLES.includes(role || '')) {
-    return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
-  }
+  const auth = await requireRole(VERIFY_ROLES);
+  if (!auth.ok) return auth.response;
 
   return NextResponse.json({
     configured: isGeoclientConfigured(),
@@ -44,13 +40,10 @@ export async function GET() {
 }
 
 export async function POST(req: NextRequest) {
-  const session = await getServerSession(authOptions);
-  const role = (session?.user as { role?: string })?.role;
-  const school = (session?.user as { school?: string })?.school;
-
-  if (!session || !VERIFY_ROLES.includes(role || '')) {
-    return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
-  }
+  const auth = await requireRole(VERIFY_ROLES);
+  if (!auth.ok) return auth.response;
+  const role = auth.user.role;
+  const school = auth.user.school;
 
   if (!isGeoclientConfigured()) {
     return NextResponse.json({

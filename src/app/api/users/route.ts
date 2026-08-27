@@ -1,15 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { requireSession, requireAdmin } from '@/lib/requireSession';
 import clientPromise from '@/lib/mongodb';
 import * as bcrypt from 'bcrypt';
-import { getServerSession } from 'next-auth';
-import { authOptions } from '@/lib/authOptions';
 import { logAuthEvent } from '@/lib/authSecurity';
 
 export async function GET(req: NextRequest) {
-  const session = await getServerSession(authOptions);
-  if (!session) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  }
+  const auth = await requireSession();
+  if (!auth.ok) return auth.response;
 
   try {
     const client = await clientPromise;
@@ -21,7 +18,7 @@ export async function GET(req: NextRequest) {
     
     if (email) {
       // Allow users to fetch their own profile by email
-      if (session.user?.email === email || (session.user as any).role === 'Admin') {
+      if (auth.user?.email === email || auth.user.role === 'Admin') {
         const user = await db.collection('users').findOne(
           { email },
           { projection: { password: 0, mfaSecret: 0, mfaPendingSecret: 0 } }
@@ -36,7 +33,7 @@ export async function GET(req: NextRequest) {
     }
     
     // Admin-only: fetch all users
-    if ((session.user as any).role !== 'Admin') {
+    if (auth.user.role !== 'Admin') {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
     
@@ -48,10 +45,8 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
-  const session = await getServerSession(authOptions);
-  if (!session || (session.user as any).role !== 'Admin') {
-    return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
-  }
+  const auth = await requireAdmin();
+  if (!auth.ok) return auth.response;
   try {
     const { name, email, role, school, password, allowedIntakeSessions, mfaBypass } = await req.json();
     const normalizedEmail = typeof email === 'string' ? email.toLowerCase().trim() : '';
@@ -95,8 +90,8 @@ export async function POST(req: NextRequest) {
       meta: {
         role,
         school,
-        byEmail: session.user?.email || '',
-        byName: session.user?.name || '',
+        byEmail: auth.user?.email || '',
+        byName: auth.user?.name || '',
         userId: String(result.insertedId),
         mfaBypass: mfaBypass === true,
       },
@@ -107,8 +102,8 @@ export async function POST(req: NextRequest) {
         email: normalizedEmail,
         reason: 'Admin created user with MFA disabled (login bypass for testing/QA)',
         meta: {
-          byEmail: session.user?.email || '',
-          byName: session.user?.name || '',
+          byEmail: auth.user?.email || '',
+          byName: auth.user?.name || '',
           userId: String(result.insertedId),
           bypass: true,
         },

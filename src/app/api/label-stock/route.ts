@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { requireAdminOrDataLead } from '@/lib/requireSession';
 import clientPromise from '@/lib/mongodb';
-import { getServerSession } from 'next-auth';
-import { authOptions } from '@/lib/authOptions';
 import { ObjectId } from 'mongodb';
 import {
   computeBurnForecast,
@@ -13,31 +12,21 @@ import {
 } from '@/lib/labelStock';
 import { maybeNotifyLowStock } from '@/lib/notifications';
 
-type SessionUser = {
-  role?: string;
-  school?: string;
-  name?: string | null;
-  email?: string | null;
-};
-
-function requireStockAdmin(session: { user?: SessionUser } | null) {
-  const role = session?.user?.role;
-  if (!session || !['Admin', 'Data Lead'].includes(role || '')) {
-    return { error: NextResponse.json({ error: 'Forbidden' }, { status: 403 }) };
-  }
-  const school = normalizeSchoolKey(session.user?.school);
-  if (role === 'Data Lead' && !school) {
+async function requireStockAdmin() {
+  const auth = await requireAdminOrDataLead();
+  if (!auth.ok) return { error: auth.response };
+  const school = normalizeSchoolKey(auth.user.school);
+  if (auth.user.role === 'Data Lead' && !school) {
     return {
       error: NextResponse.json({ error: 'No school assigned' }, { status: 403 }),
     };
   }
-  return { role: role as string, school, user: session.user as SessionUser };
+  return { role: auth.user.role, school, user: auth.user };
 }
 
 export async function GET(req: NextRequest) {
   try {
-    const session = await getServerSession(authOptions);
-    const auth = requireStockAdmin(session);
+    const auth = await requireStockAdmin();
     if ('error' in auth && auth.error) return auth.error;
 
     const { searchParams } = new URL(req.url);
@@ -84,8 +73,7 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   try {
-    const session = await getServerSession(authOptions);
-    const auth = requireStockAdmin(session);
+    const auth = await requireStockAdmin();
     if ('error' in auth && auth.error) return auth.error;
 
     const body = await req.json();
@@ -180,8 +168,7 @@ export async function POST(req: NextRequest) {
 
 export async function PUT(req: NextRequest) {
   try {
-    const session = await getServerSession(authOptions);
-    const auth = requireStockAdmin(session);
+    const auth = await requireStockAdmin();
     if ('error' in auth && auth.error) return auth.error;
 
     const body = await req.json();
@@ -301,8 +288,7 @@ export async function PUT(req: NextRequest) {
 
 export async function DELETE(req: NextRequest) {
   try {
-    const session = await getServerSession(authOptions);
-    const auth = requireStockAdmin(session);
+    const auth = await requireStockAdmin();
     if ('error' in auth && auth.error) return auth.error;
 
     const { searchParams } = new URL(req.url);

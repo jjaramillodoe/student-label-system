@@ -33,10 +33,10 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { getServerSession }           from 'next-auth';
-import { authOptions }                from '@/lib/authOptions';
+import { requireSession } from '@/lib/requireSession';
 import clientPromise                  from '@/lib/mongodb';
 import { recordPrintHistoryAndConsume } from '@/lib/labelStock';
+import { loadAuthorizedPrintStudents, parsePrintStudentIds } from '@/lib/printStudents';
 import {
   Document, Packer,
   Table, TableRow, TableCell,
@@ -336,37 +336,44 @@ async function buildDocument(students: StudentData[]): Promise<Buffer> {
 
 // ── Route handler ─────────────────────────────────────────────────────────────
 export async function POST(req: NextRequest) {
-  const session = await getServerSession(authOptions);
-  if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  const auth = await requireSession();
+  if (!auth.ok) return auth.response;
 
-  let students: StudentData[] = [];
-  let skipStock = false;
+  let body: unknown;
   try {
-    const body = await req.json();
-    students = body.students ?? [];
-    skipStock = body.skipStock === true;
+    body = await req.json();
   } catch {
     return NextResponse.json({ error: 'Invalid body' }, { status: 400 });
   }
 
-  if (!students.length) {
-    return NextResponse.json({ error: 'No students provided' }, { status: 400 });
+  const parsed = parsePrintStudentIds(body);
+  if (!parsed.ok) {
+    return NextResponse.json({ error: parsed.error }, { status: parsed.status });
   }
+
+  const client = await clientPromise;
+  const db = client.db('student-label');
+  const loaded = await loadAuthorizedPrintStudents(db, parsed.ids, {
+    role: auth.user?.role,
+    school: auth.user?.school,
+  });
+  if (!loaded.ok) {
+    return NextResponse.json({ error: loaded.error }, { status: loaded.status });
+  }
+  const students = loaded.students;
 
   try {
     const buf  = await buildDocument(students);
     const date = new Date().toISOString().slice(0, 10);
 
-    if (!skipStock) {
+    if (!parsed.skipStock) {
       try {
-        const client = await clientPromise;
-        const db = client.db('student-label');
         await recordPrintHistoryAndConsume(db, {
           user: {
-            name: session.user?.name,
-            email: session.user?.email,
-            role: (session.user as { role?: string })?.role,
-            school: (session.user as { school?: string })?.school,
+            name: auth.user?.name,
+            email: auth.user?.email,
+            role: auth.user?.role,
+            school: auth.user?.school,
           },
           students,
           labelCount: students.length,

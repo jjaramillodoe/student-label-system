@@ -1,8 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { requireAdmin } from '@/lib/requireSession';
 import { randomBytes } from 'crypto';
 import * as bcrypt from 'bcrypt';
-import { getServerSession } from 'next-auth';
-import { authOptions } from '@/lib/authOptions';
 import clientPromise from '@/lib/mongodb';
 import { DEFAULT_INTAKE_SESSIONS } from '@/lib/intakeDefaults';
 import { intakeSessionNames, normalizeIntakeSessions } from '@/lib/intakeSession';
@@ -51,10 +50,8 @@ function generateTempPassword(): string {
 }
 
 export async function POST(req: NextRequest) {
-  const session = await getServerSession(authOptions);
-  if (!session || (session.user as { role?: string }).role !== 'Admin') {
-    return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
-  }
+  const auth = await requireAdmin();
+  if (!auth.ok) return auth.response;
 
   let rows: BulkUserRow[] = [];
   try {
@@ -195,8 +192,8 @@ export async function POST(req: NextRequest) {
         meta: {
           role,
           school,
-          byEmail: session.user?.email || '',
-          byName: session.user?.name || '',
+          byEmail: auth.user?.email || '',
+          byName: auth.user?.name || '',
         },
         suppressAlert: true,
       });
@@ -215,12 +212,12 @@ export async function POST(req: NextRequest) {
     if (created.length > 0) {
       await logAuthEvent({
         type: 'user_created',
-        email: session.user?.email || 'bulk-upload',
+        email: auth.user?.email || 'bulk-upload',
         reason: `Bulk upload created ${created.length} user(s)`,
         meta: {
           bulkCount: created.length,
-          byEmail: session.user?.email || '',
-          byName: session.user?.name || '',
+          byEmail: auth.user?.email || '',
+          byName: auth.user?.name || '',
           emails: created.map((c) => c.email).slice(0, 40),
         },
       });

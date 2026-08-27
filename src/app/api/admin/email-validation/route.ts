@@ -10,9 +10,8 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
+import { requireAdmin } from '@/lib/requireSession';
 import clientPromise from '@/lib/mongodb';
-import { getServerSession } from 'next-auth';
-import { authOptions } from '@/lib/authOptions';
 import { ObjectId } from 'mongodb';
 
 const API_BASE = 'https://api.emailawesome.com/api/validations/email_validation';
@@ -29,12 +28,10 @@ function currentMonth(): string {
 
 // ── GET ───────────────────────────────────────────────────────────────────────
 export async function GET(req: NextRequest) {
-  const session = await getServerSession(authOptions);
-  const role  = (session?.user as any)?.role;
-  const school = (session?.user as any)?.school;
-  if (!session || role !== 'Admin') {
-    return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
-  }
+  const auth = await requireAdmin();
+  if (!auth.ok) return auth.response;
+  const role  = auth.user.role;
+  const school = auth.user.school;
 
   const client = await clientPromise;
   const db = client.db('student-label');
@@ -70,12 +67,10 @@ export async function GET(req: NextRequest) {
 
 // ── POST ──────────────────────────────────────────────────────────────────────
 export async function POST(req: NextRequest) {
-  const session = await getServerSession(authOptions);
-  const role   = (session?.user as any)?.role;
-  const school = (session?.user as any)?.school;
-  if (!session || role !== 'Admin') {
-    return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
-  }
+  const auth = await requireAdmin();
+  if (!auth.ok) return auth.response;
+  const role   = auth.user.role;
+  const school = auth.user.school;
 
   const { studentIds } = await req.json() as { studentIds: string[] };
   if (!Array.isArray(studentIds) || studentIds.length === 0) {
@@ -157,7 +152,7 @@ export async function POST(req: NextRequest) {
         emailStatus:   apiResult.email_address_status ?? 'UNKNOWN',
         submittedAt:   new Date().toISOString(),
         completedAt:   null,
-        submittedBy:   { name: session.user?.name, email: session.user?.email },
+        submittedBy:   { name: auth.user?.name, email: auth.user?.email },
       };
       await db.collection('email_validation_jobs').insertOne(job);
       submitted.push(job);

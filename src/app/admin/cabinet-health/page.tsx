@@ -6,6 +6,7 @@ import { AlertCircle, Archive, ArrowRightLeft, Building2, CheckCircle2, Loader2,
 import PageIntro from '@/components/PageIntro';
 import FixStudentAssignmentDialog from '@/components/FixStudentAssignmentDialog';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import ScanTruncatedAlert from '@/components/ScanTruncatedAlert';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -19,6 +20,9 @@ import {
 } from '@/components/ui/table';
 
 type CabinetHealth = {
+  truncated?: boolean;
+  scanned?: number;
+  cap?: number;
   summary: {
     cabinets: number;
     archivedCabinets?: number;
@@ -198,6 +202,8 @@ export default function CabinetHealthPage() {
           <AlertDescription>{error}</AlertDescription>
         </Alert>
       )}
+
+      <ScanTruncatedAlert truncated={health?.truncated} scanned={health?.scanned} cap={health?.cap} />
 
       {loading && !health ? (
         <Card>

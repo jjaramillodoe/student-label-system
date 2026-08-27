@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth';
-import { authOptions } from '@/lib/authOptions';
+import { requireAdminOrDataLead } from '@/lib/requireSession';
 import clientPromise from '@/lib/mongodb';
 import { formatFullName } from '@/lib/personName';
 
@@ -21,13 +20,10 @@ function csvEscape(value: unknown) {
 
 export async function GET(req: NextRequest) {
   try {
-    const session = await getServerSession(authOptions);
-    const role = session?.user?.role;
-    const userSchool = session?.user?.school;
-
-    if (!session || !['Admin', 'Data Lead'].includes(role || '')) {
-      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
-    }
+    const auth = await requireAdminOrDataLead();
+    if (!auth.ok) return auth.response;
+    const role = auth.user.role;
+    const userSchool = auth.user.school;
 
     const format = req.nextUrl.searchParams.get('format') || 'json';
     const limit = Math.min(

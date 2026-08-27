@@ -1,8 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import clientPromise from '@/lib/mongodb';
 import { ObjectId } from 'mongodb';
-import { getServerSession } from 'next-auth';
-import { authOptions } from '@/lib/authOptions';
 import {
   beEslAgeErrorMessage,
   evaluateIntakeDob,
@@ -15,6 +13,8 @@ import { authorizeStudentAccess, authorizeStudentSchoolChange } from '@/lib/stud
 import { normalizeMongoId, serializeMongoDocument } from '@/lib/utils';
 import { usaNameError } from '@/lib/usaName';
 import { assignDrawerSection } from '@/lib/drawerSections';
+import { requireSession } from '@/lib/requireSession';
+import { withMongoTransaction } from '@/lib/mongoTransaction';
 
 function isValidObjectId(id: string): boolean {
   try {
@@ -26,7 +26,8 @@ function isValidObjectId(id: string): boolean {
 }
 
 async function loadStudentForAccess(id: string, action: 'read' | 'update' | 'delete') {
-  const session = await getServerSession(authOptions);
+  const auth = await requireSession();
+  if (!auth.ok) return { error: auth.response };
   if (!isValidObjectId(id)) {
     return { error: NextResponse.json({ error: 'Invalid student ID format' }, { status: 400 }) };
   }
@@ -35,8 +36,8 @@ async function loadStudentForAccess(id: string, action: 'read' | 'update' | 'del
   const db = client.db('student-label');
   const student = await db.collection('students').findOne({ _id: new ObjectId(id) });
   const access = authorizeStudentAccess({
-    role: session?.user?.role,
-    userSchool: session?.user?.school,
+    role: auth.user.role,
+    userSchool: auth.user.school,
     action,
     studentExists: Boolean(student),
     studentSchool: typeof student?.school === 'string' ? student.school : null,
@@ -44,11 +45,8 @@ async function loadStudentForAccess(id: string, action: 'read' | 'update' | 'del
   if (!access.ok) {
     return { error: NextResponse.json({ error: access.error }, { status: access.status }) };
   }
-  if (!session?.user) {
-    return { error: NextResponse.json({ error: 'Unauthorized' }, { status: 401 }) };
-  }
 
-  return { session, db, student: student! };
+  return { user: auth.user, db, student: student! };
 }
 
 export async function GET(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
@@ -75,9 +73,9 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
     const loaded = await loadStudentForAccess(id, 'update');
     if ('error' in loaded) return loaded.error;
 
-    const { session, db, student: oldStudent } = loaded;
-    const userSchool = session.user?.school;
-    const userRole = session.user?.role;
+    const { user, db, student: oldStudent } = loaded;
+    const userSchool = user.school;
+    const userRole = user.role;
 
     const body = await req.json();
 
@@ -115,30 +113,19 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
       }
     }
 
+    let decrementOld: { cabinetId: string; drawer: string } | null = null;
+    let incrementNew: { cabinetId: string; drawer: string } | null = null;
+
     if (oldStudent && (normalizeMongoId(oldStudent.cabinet) !== normalizeMongoId(body.cabinet)
       || String(oldStudent.drawer ?? '') !== String(body.drawer ?? ''))) {
-      // Decrease count in old cabinet if it exists
       if (oldStudent.cabinet && oldStudent.drawer) {
         const oldCabinetId = normalizeMongoId(oldStudent.cabinet);
         if (!oldCabinetId || !isValidObjectId(oldCabinetId)) {
           return NextResponse.json({ error: 'Invalid old cabinet ID format' }, { status: 400 });
         }
-
-        await db.collection('cabinets').updateOne(
-          { 
-            _id: new ObjectId(oldCabinetId),
-            'drawers._id': oldStudent.drawer
-          },
-          { 
-            $inc: { 
-              'drawers.$.currentCount': -1,
-              'currentCount': -1
-            }
-          }
-        );
+        decrementOld = { cabinetId: oldCabinetId, drawer: String(oldStudent.drawer) };
       }
 
-      // Increase count in new cabinet if provided
       if (body.cabinet && body.drawer) {
         const newCabinetId = normalizeMongoId(body.cabinet);
         if (!newCabinetId || !isValidObjectId(newCabinetId)) {
@@ -164,19 +151,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
         }
 
         body.drawerSection = assignDrawerSection(currentCount, drawerCapacity);
-
-        await db.collection('cabinets').updateOne(
-          { 
-            _id: new ObjectId(newCabinetId),
-            'drawers._id': body.drawer
-          },
-          { 
-            $inc: { 
-              'drawers.$.currentCount': 1,
-              'currentCount': 1
-            }
-          }
-        );
+        incrementNew = { cabinetId: newCabinetId, drawer: String(body.drawer) };
       } else {
         body.drawerSection = null;
       }
@@ -248,18 +223,69 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
       };
     }
 
-    const result = await db.collection('students').findOneAndUpdate(
-      { _id: new ObjectId(id) },
-      update,
-      { returnDocument: 'after' }
-    );
+    const result = await withMongoTransaction(async (session) => {
+      if (decrementOld) {
+        await db.collection('cabinets').updateOne(
+          {
+            _id: new ObjectId(decrementOld.cabinetId),
+            'drawers._id': decrementOld.drawer,
+          },
+          {
+            $inc: {
+              'drawers.$.currentCount': -1,
+              currentCount: -1,
+            },
+          },
+          { session },
+        );
+      }
+      if (incrementNew) {
+        const cabinetDoc = await db.collection('cabinets').findOne(
+          { _id: new ObjectId(incrementNew.cabinetId) },
+          { session },
+        );
+        const drawers = Array.isArray(cabinetDoc?.drawers) ? cabinetDoc.drawers : [];
+        const drawerIndex = drawers.findIndex((d: { _id?: string }) => String(d._id) === String(incrementNew.drawer));
+        if (drawerIndex === -1) {
+          throw new Error('New drawer not found in cabinet');
+        }
+        const drawerCapacity = drawers[drawerIndex].capacity;
+        const currentCount = drawers[drawerIndex].currentCount || 0;
+        if (currentCount >= drawerCapacity) {
+          throw new Error('New drawer is at full capacity');
+        }
+        update.$set.drawerSection = assignDrawerSection(currentCount, drawerCapacity);
+        await db.collection('cabinets').updateOne(
+          {
+            _id: new ObjectId(incrementNew.cabinetId),
+            'drawers._id': incrementNew.drawer,
+          },
+          {
+            $inc: {
+              'drawers.$.currentCount': 1,
+              currentCount: 1,
+            },
+          },
+          { session },
+        );
+      }
+      return db.collection('students').findOneAndUpdate(
+        { _id: new ObjectId(id) },
+        update,
+        { returnDocument: 'after', session },
+      );
+    });
     if (!result) return NextResponse.json({ error: 'Student not found' }, { status: 404 });
     return NextResponse.json(serializeMongoDocument(result as Record<string, unknown>));
   } catch (error) {
+    const message = error instanceof Error ? error.message : 'Unknown error';
+    if (message.includes('full capacity') || message.includes('not found')) {
+      return NextResponse.json({ error: message }, { status: 400 });
+    }
     console.error('Error updating student:', error);
     return NextResponse.json({ 
       error: 'Failed to update student',
-      details: error instanceof Error ? error.message : 'Unknown error'
+      details: message,
     }, { status: 500 });
   }
 }

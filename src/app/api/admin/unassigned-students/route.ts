@@ -1,8 +1,8 @@
 import { NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth';
-import { authOptions } from '@/lib/authOptions';
+import { requireAdminOrDataLead } from '@/lib/requireSession';
 import clientPromise from '@/lib/mongodb';
 import { formatFullName } from '@/lib/personName';
+import { findCapped, scanMeta } from '@/lib/adminScan';
 
 type CabinetDoc = {
   _id: any;
@@ -67,13 +67,10 @@ function summarizeStudent(student: StudentDoc, issue: string, severity: 'error' 
 
 export async function GET(req: Request) {
   try {
-    const session = await getServerSession(authOptions);
-    const userRole = session?.user?.role;
-    const userSchool = session?.user?.school;
-
-    if (!session || (userRole !== 'Admin' && userRole !== 'Data Lead')) {
-      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
-    }
+    const auth = await requireAdminOrDataLead();
+    if (!auth.ok) return auth.response;
+    const userRole = auth.user.role;
+    const userSchool = auth.user.school;
 
     const { searchParams } = new URL(req.url);
     const summaryOnly = searchParams.get('summaryOnly') === '1' || searchParams.get('summaryOnly') === 'true';
@@ -82,10 +79,11 @@ export async function GET(req: Request) {
     const db = client.db('student-label');
     const scopedQuery = userRole !== 'Admin' && userSchool ? { school: userSchool } : {};
 
-    const [students, cabinets] = await Promise.all([
-      db.collection('students').find(scopedQuery).toArray() as Promise<StudentDoc[]>,
+    const [scanned, cabinets] = await Promise.all([
+      findCapped<StudentDoc>(db.collection('students'), scopedQuery),
       db.collection('cabinets').find(scopedQuery).toArray() as Promise<CabinetDoc[]>,
     ]);
+    const students = scanned.docs;
 
     const cabinetMap = new Map<string, CabinetDoc>();
     const drawerMap = new Map<string, { cabinet: CabinetDoc; drawer: NonNullable<CabinetDoc['drawers']>[number] }>();
@@ -157,6 +155,7 @@ export async function GET(req: Request) {
     );
 
     return NextResponse.json({
+      ...scanMeta(scanned),
       summary,
       ...(summaryOnly
         ? {}

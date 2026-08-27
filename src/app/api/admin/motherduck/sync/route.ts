@@ -1,6 +1,5 @@
 import { NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth';
-import { authOptions } from '@/lib/authOptions';
+import { requireAdmin } from '@/lib/requireSession';
 import { isMotherDuckConfigured } from '@/lib/motherduck';
 import { syncStudentsToMotherDuck } from '@/lib/motherduckSync';
 
@@ -9,11 +8,8 @@ export const maxDuration = 300;
 
 /** Admin-only: full snapshot sync of MongoDB students → MotherDuck. */
 export async function POST() {
-  const session = await getServerSession(authOptions);
-  const role = (session?.user as { role?: string })?.role;
-  if (!session || role !== 'Admin') {
-    return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
-  }
+  const auth = await requireAdmin();
+  if (!auth.ok) return auth.response;
 
   if (!isMotherDuckConfigured()) {
     return NextResponse.json(

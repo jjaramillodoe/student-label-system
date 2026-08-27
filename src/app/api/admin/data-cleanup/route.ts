@@ -1,9 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth';
+import { requireAdminOrDataLead } from '@/lib/requireSession';
 import { ObjectId } from 'mongodb';
 import clientPromise from '@/lib/mongodb';
-import { authOptions } from '@/lib/authOptions';
 import { formatFullName } from '@/lib/personName';
+import { findCapped, scanMeta } from '@/lib/adminScan';
+import { INACTIVE_STUDENT_STATUSES } from '@/lib/studentOptions';
 
 type CleanupStudent = {
   _id: ObjectId;
@@ -22,7 +23,7 @@ type CleanupStudent = {
   school?: string;
 };
 
-const INACTIVE_STATUSES = new Set(['Inactive', 'Graduated', 'Withdrawn', 'Transferred']);
+const INACTIVE_STATUSES = new Set<string>(INACTIVE_STUDENT_STATUSES);
 
 function isValidDate(value?: string) {
   if (!value) return false;
@@ -74,19 +75,17 @@ async function decrementCabinetCounts(db: any, students: CleanupStudent[]) {
 }
 
 export async function GET() {
-  const session = await getServerSession(authOptions);
-
-  if (!session || !['Admin', 'Data Lead'].includes((session.user as any)?.role)) {
-    return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
-  }
+  const auth = await requireAdminOrDataLead();
+  if (!auth.ok) return auth.response;
 
   try {
     const client = await clientPromise;
     const db = client.db('student-label');
-    const userRole = (session.user as any)?.role;
-    const userSchool = (session.user as any)?.school;
+    const userRole = auth.user?.role;
+    const userSchool = auth.user?.school;
     const query = userRole === 'Admin' ? {} : { school: userSchool };
-    const students = await db.collection('students').find(query).toArray() as CleanupStudent[];
+    const scanned = await findCapped<CleanupStudent>(db.collection('students'), query);
+    const students = scanned.docs;
     const oldInactiveCutoff = new Date();
     oldInactiveCutoff.setFullYear(oldInactiveCutoff.getFullYear() - 1);
 
@@ -117,8 +116,11 @@ export async function GET() {
       .map(student => serializeStudent(student, 'Archived student still assigned to a cabinet/drawer'));
 
     return NextResponse.json({
+      ...scanMeta(scanned),
       summary: {
-        scanned: students.length,
+        scanned: scanned.scanned,
+        truncated: scanned.truncated,
+        cap: scanned.cap,
         invalidEmails: invalidEmails.length,
         missingDates: missingDates.length,
         oldInactive: oldInactive.length,
@@ -137,11 +139,8 @@ export async function GET() {
 }
 
 export async function POST(req: NextRequest) {
-  const session = await getServerSession(authOptions);
-
-  if (!session || !['Admin', 'Data Lead'].includes((session.user as any)?.role)) {
-    return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
-  }
+  const auth = await requireAdminOrDataLead();
+  if (!auth.ok) return auth.response;
 
   try {
     const { action, ids } = await req.json();
@@ -155,8 +154,8 @@ export async function POST(req: NextRequest) {
 
     const client = await clientPromise;
     const db = client.db('student-label');
-    const userRole = (session.user as any)?.role;
-    const userSchool = (session.user as any)?.school;
+    const userRole = auth.user?.role;
+    const userSchool = auth.user?.school;
     const scopeQuery = userRole === 'Admin' ? {} : { school: userSchool };
     const scopedIdsQuery = { ...scopeQuery, _id: { $in: objectIds } };
 

@@ -3,17 +3,16 @@
 import { useState, useEffect, useRef } from 'react';
 import { useSession } from 'next-auth/react';
 import { Cabinet, ArchiveBox, CabinetArchiveRecord, PhysicalArchiveBox } from '@/types/cabinet';
-import ArchiveBoxLabelSheet from '@/components/ArchiveBoxLabelSheet';
-import ArchiveBoxPdfButton from '@/components/ArchiveBoxPdfButton';
-import CabinetStorageLabelSheet from '@/components/CabinetStorageLabelSheet';
 import DrawerRosterDialog, { type RosterStudent } from '@/components/DrawerRosterDialog';
 import FixStudentAssignmentDialog from '@/components/FixStudentAssignmentDialog';
 import BarcodeScanner from '@/components/BarcodeScanner';
 import ArchivePackingPreview, {
   PARTIAL_ARCHIVE_STATUSES,
 } from '@/components/ArchivePackingPreview';
-import CabinetFloorMap from '@/components/CabinetFloorMap';
-import { getBoxPublicUrl, type BoxLabelStudent } from '@/lib/boxLabel';
+import CabinetBoxQrDialog from '@/components/CabinetBoxQrDialog';
+import CabinetStorageLabelsDialog from '@/components/CabinetStorageLabelsDialog';
+import CabinetFloorMapDialog from '@/components/CabinetFloorMapDialog';
+import { type BoxLabelStudent } from '@/lib/boxLabel';
 import { buildCabinetStorageLabels, type StorageLabelItem } from '@/lib/cabinetLabel';
 import { Checkbox } from '@/components/ui/checkbox';
 import {
@@ -47,7 +46,6 @@ import {
   Minus,
   Info,
   QrCode,
-  Printer,
   History,
   Tag,
   Users,
@@ -90,6 +88,7 @@ import { Separator } from '@/components/ui/separator';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Textarea } from '@/components/ui/textarea';
 import PageIntro from '@/components/PageIntro';
+import { fiscalYearOptions } from '@/lib/studentOptions';
 
 interface SchoolOption {
   name: string;
@@ -176,12 +175,7 @@ export default function CabinetsPage() {
   const [archiveModalOpen, setArchiveModalOpen] = useState(false);
   const [archivingCabinet, setArchivingCabinet] = useState<Cabinet | null>(null);
   const [archivingLoading, setArchivingLoading] = useState(false);
-  const currentYear = new Date().getFullYear();
-  const FISCAL_YEAR_OPTIONS = [
-    `${currentYear - 1}-${currentYear}`,
-    `${currentYear}-${currentYear + 1}`,
-    `${currentYear + 1}-${currentYear + 2}`,
-  ];
+  const FISCAL_YEAR_OPTIONS = fiscalYearOptions();
   const BOX_PRESETS = [50, 100, 200];
   const [archiveForm, setArchiveForm] = useState<{
     schoolYear: string;
@@ -246,11 +240,6 @@ export default function CabinetsPage() {
       setMoveHistoryLoading(false);
     }
   }
-
-  const visibleStorageLabels =
-    labelFilter === 'all'
-      ? storageLabels
-      : storageLabels.filter((l) => l.kind === labelFilter);
 
   function openArchiveModal(cabinet: Cabinet) {
     const studentCount = cabinet.currentCount || 0;
@@ -1380,6 +1369,7 @@ export default function CabinetsPage() {
                           variant="ghost"
                           size="icon"
                           title="Print cabinet / drawer / section labels"
+                          aria-label="Print cabinet storage labels"
                           onClick={() => openStorageLabels(cabinet)}
                         >
                           <Tag className="h-4 w-4" />
@@ -1388,6 +1378,7 @@ export default function CabinetsPage() {
                       <Button
                         variant="ghost"
                         size="icon"
+                        aria-label={`Edit ${cabinet.name}`}
                         onClick={() => {
                           setEditingCabinet(cabinet);
                           setForm({
@@ -1414,6 +1405,7 @@ export default function CabinetsPage() {
                       <Button
                         variant="ghost"
                         size="icon"
+                        aria-label={`Delete ${cabinet.name}`}
                         onClick={() => handleDelete(cabinet._id!)}
                       >
                         <Trash2 className="h-4 w-4 text-destructive" />
@@ -1601,6 +1593,7 @@ export default function CabinetsPage() {
                                       size="icon"
                                       className="h-8 w-8"
                                       title="Print box QR label"
+                                      aria-label="Print box QR label"
                                       onClick={() => openBoxQr(box, archiveRecords[cabinet._id!])}
                                     >
                                       <QrCode className="h-4 w-4" />
@@ -1968,6 +1961,7 @@ export default function CabinetsPage() {
                               type="button"
                               variant="ghost"
                               size="icon"
+                              aria-label={`Remove drawer ${drawer.name || index + 1}`}
                               onClick={() => removeDrawer(index)}
                               className="mt-7"
                             >
@@ -2124,86 +2118,15 @@ export default function CabinetsPage() {
           </DialogContent>
         </Dialog>
 
-        {/* Archive Box QR Dialog */}
-        <Dialog open={boxQrOpen} onOpenChange={setBoxQrOpen}>
-          <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-            <DialogHeader>
-              <DialogTitle className="flex items-center gap-2">
-                <QrCode className="h-5 w-5" /> Box Label — QR + Student List
-              </DialogTitle>
-              <DialogDescription>
-                Print and attach to the physical box. The QR opens a public page with this box location and file list — no login required.
-              </DialogDescription>
-            </DialogHeader>
-            {selectedBox && selectedBoxArchive && (
-              <div className="space-y-4">
-                {boxLabelLoading ? (
-                  <div className="flex items-center justify-center py-12 text-muted-foreground">
-                    <Loader2 className="h-5 w-5 animate-spin mr-2" />
-                    Loading student list…
-                  </div>
-                ) : (
-                  <ArchiveBoxLabelSheet
-                    box={selectedBox}
-                    archive={{
-                      cabinetName: selectedBoxArchive.cabinetName,
-                      cabinetIdentifier: selectedBoxArchive.cabinetIdentifier,
-                      school: selectedBoxArchive.school,
-                      schoolYear: selectedBoxArchive.schoolYear,
-                      location: selectedBoxArchive.location,
-                      archiveDate: selectedBoxArchive.archiveDate,
-                    }}
-                    students={boxLabelStudents}
-                    origin={boxLabelOrigin}
-                  />
-                )}
-                <div className="flex flex-col sm:flex-row gap-2">
-                  <Button
-                    variant="outline"
-                    className="flex-1 gap-2"
-                    disabled={boxLabelLoading}
-                    onClick={() => window.print()}
-                  >
-                    <Printer className="h-4 w-4" /> Print Label
-                  </Button>
-                  <ArchiveBoxPdfButton
-                    className="flex-1 gap-2"
-                    disabled={boxLabelLoading}
-                    box={selectedBox}
-                    archive={{
-                      cabinetName: selectedBoxArchive.cabinetName,
-                      cabinetIdentifier: selectedBoxArchive.cabinetIdentifier,
-                      school: selectedBoxArchive.school,
-                      schoolYear: selectedBoxArchive.schoolYear,
-                      location: selectedBoxArchive.location,
-                      archiveDate: selectedBoxArchive.archiveDate,
-                    }}
-                    students={boxLabelStudents}
-                    origin={boxLabelOrigin}
-                  />
-                  <Button variant="outline" className="flex-1 gap-2" asChild disabled={boxLabelLoading}>
-                    <a
-                      href={getBoxPublicUrl(selectedBox._id, boxLabelOrigin)}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                    >
-                      Open public page
-                    </a>
-                  </Button>
-                  <Button variant="outline" className="flex-1 gap-2" asChild disabled={boxLabelLoading}>
-                    <a
-                      href={`/archive/box/${selectedBox._id}/label`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                    >
-                      Full print view
-                    </a>
-                  </Button>
-                </div>
-              </div>
-            )}
-          </DialogContent>
-        </Dialog>
+        <CabinetBoxQrDialog
+          open={boxQrOpen}
+          onOpenChange={setBoxQrOpen}
+          box={selectedBox}
+          archive={selectedBoxArchive}
+          students={boxLabelStudents}
+          loading={boxLabelLoading}
+          origin={boxLabelOrigin}
+        />
 
         {/* Archive Cabinet Dialog */}
         <Dialog open={archiveModalOpen} onOpenChange={(open) => {
@@ -2452,6 +2375,7 @@ export default function CabinetsPage() {
                             <Label className="text-xs text-muted-foreground">Number of Boxes</Label>
                             <div className="flex items-center gap-1">
                               <Button type="button" variant="outline" size="icon" className="h-8 w-8"
+                                aria-label="Decrease box quantity"
                                 onClick={() => updateArchiveBox(i, 'quantity', Math.max(1, box.quantity - 1))}>
                                 <Minus className="h-3 w-3" />
                               </Button>
@@ -2463,6 +2387,7 @@ export default function CabinetsPage() {
                                 onChange={e => updateArchiveBox(i, 'quantity', parseInt(e.target.value) || 1)}
                               />
                               <Button type="button" variant="outline" size="icon" className="h-8 w-8"
+                                aria-label="Increase box quantity"
                                 onClick={() => updateArchiveBox(i, 'quantity', box.quantity + 1)}>
                                 <Plus className="h-3 w-3" />
                               </Button>
@@ -2473,6 +2398,7 @@ export default function CabinetsPage() {
                           </div>
                           {archiveForm.boxes.length > 1 && (
                             <Button type="button" variant="ghost" size="icon" className="h-8 w-8 text-destructive"
+                              aria-label="Remove box size"
                               onClick={() => removeArchiveBox(i)}>
                               <Trash2 className="h-4 w-4" />
                             </Button>
@@ -2583,7 +2509,7 @@ export default function CabinetsPage() {
                 <CheckCircle2 className="h-4 w-4 text-green-600 dark:text-green-400" />
                 <AlertTitle className="text-green-800 dark:text-green-200">All Clear!</AlertTitle>
                 <AlertDescription className="text-green-700 dark:text-green-300">
-                  No students with missing or invalid cabinet/drawer assignments! 🎉
+                  No students with missing or invalid cabinet or drawer assignments.
                 </AlertDescription>
               </Alert>
             ) : (
@@ -2641,44 +2567,14 @@ export default function CabinetsPage() {
           </DialogContent>
         </Dialog>
 
-        {/* Printable cabinet / drawer / section labels */}
-        <Dialog open={storageLabelsOpen} onOpenChange={setStorageLabelsOpen}>
-          <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
-            <DialogHeader>
-              <DialogTitle className="flex items-center gap-2">
-                <Tag className="h-5 w-5" /> Storage Labels — {storageLabelsTitle}
-              </DialogTitle>
-              <DialogDescription>
-                Print and attach to the physical cabinet, drawer fronts, and section dividers.
-              </DialogDescription>
-            </DialogHeader>
-            <div className="flex flex-wrap gap-2 mb-3">
-              {(['all', 'cabinet', 'drawer', 'section'] as const).map((f) => (
-                <Button
-                  key={f}
-                  size="sm"
-                  variant={labelFilter === f ? 'default' : 'outline'}
-                  onClick={() => setLabelFilter(f)}
-                >
-                  {f === 'all' ? `All (${storageLabels.length})` : f}
-                </Button>
-              ))}
-            </div>
-            <CabinetStorageLabelSheet labels={visibleStorageLabels} />
-            <DialogFooter className="gap-2 sm:gap-0">
-              <Button variant="outline" onClick={() => setStorageLabelsOpen(false)}>
-                Close
-              </Button>
-              <Button
-                className="gap-2"
-                onClick={() => window.print()}
-                disabled={visibleStorageLabels.length === 0}
-              >
-                <Printer className="h-4 w-4" /> Print Labels
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
+        <CabinetStorageLabelsDialog
+          open={storageLabelsOpen}
+          onOpenChange={setStorageLabelsOpen}
+          title={storageLabelsTitle}
+          labels={storageLabels}
+          filter={labelFilter}
+          onFilterChange={setLabelFilter}
+        />
 
         {rosterTarget && (
           <DrawerRosterDialog
@@ -2726,38 +2622,23 @@ export default function CabinetsPage() {
           />
         )}
 
-        <Dialog open={floorMapOpen} onOpenChange={setFloorMapOpen}>
-          <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
-            <DialogHeader>
-              <DialogTitle className="flex items-center gap-2">
-                <LayoutGrid className="h-5 w-5" /> Floor / room map
-              </DialogTitle>
-              <DialogDescription>
-                Drag cabinets onto the grid to match the room layout. Positions save immediately.
-              </DialogDescription>
-            </DialogHeader>
-            <CabinetFloorMap
-              cabinets={cabinets}
-              highlightCabinetId={locateHighlight?.cabinetId}
-              onUpdated={() => { void fetchCabinets(); }}
-              onSelectCabinet={(cab) => {
-                setFloorMapOpen(false);
-                document
-                  .getElementById(`cabinet-card-${cab._id}`)
-                  ?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                setLocateHighlight({
-                  cabinetId: cab._id!,
-                  studentName: cab.name,
-                });
-              }}
-            />
-            <DialogFooter>
-              <Button variant="outline" onClick={() => setFloorMapOpen(false)}>
-                Close
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
+        <CabinetFloorMapDialog
+          open={floorMapOpen}
+          onOpenChange={setFloorMapOpen}
+          cabinets={cabinets}
+          highlightCabinetId={locateHighlight?.cabinetId}
+          onUpdated={() => { void fetchCabinets(); }}
+          onSelectCabinet={(cab) => {
+            setFloorMapOpen(false);
+            document
+              .getElementById(`cabinet-card-${cab._id}`)
+              ?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            setLocateHighlight({
+              cabinetId: cab._id!,
+              studentName: cab.name,
+            });
+          }}
+        />
 
         <Dialog open={moveHistoryOpen} onOpenChange={setMoveHistoryOpen}>
           <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">

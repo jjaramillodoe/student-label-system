@@ -2,6 +2,8 @@
 export const STUDENT_READ_ROLES = ['Admin', 'Data Lead', 'Data Member', 'Intake Member'] as const;
 export const STUDENT_WRITE_ROLES = ['Admin', 'Data Lead', 'Data Member', 'Intake Member'] as const;
 export const STUDENT_DELETE_ROLES = ['Admin', 'Data Lead'] as const;
+/** Label generation is staff-only — Intake Member reprints go through Data Lead / Member. */
+export const STUDENT_PRINT_ROLES = ['Admin', 'Data Lead', 'Data Member'] as const;
 
 export type StudentAccessAction = 'read' | 'update' | 'delete';
 
@@ -74,4 +76,29 @@ export function authorizeStudentSchoolChange(opts: {
   if (role === 'Admin') return { ok: true };
   if (requestedSchool === currentSchool) return { ok: true };
   return { ok: false, status: 403, error: 'Forbidden — cannot move a student to another school' };
+}
+
+/**
+ * Avery / label print: Intake Member is always 403 even for same-school records.
+ */
+export function authorizeStudentPrintAccess(opts: {
+  role?: string | null;
+  userSchool?: string | null;
+  studentSchool?: string | null;
+  studentExists: boolean;
+}): StudentAccessResult {
+  const { role } = opts;
+  if (!role) {
+    return { ok: false, status: 401, error: 'Unauthorized' };
+  }
+  if (!(STUDENT_PRINT_ROLES as readonly string[]).includes(role)) {
+    return {
+      ok: false,
+      status: 403,
+      error: role === 'Intake Member'
+        ? 'Forbidden — Intake Member cannot print labels'
+        : 'Forbidden — Insufficient role',
+    };
+  }
+  return authorizeStudentAccess({ ...opts, action: 'read' });
 }

@@ -1,21 +1,18 @@
 import { NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth';
-import { authOptions } from '@/lib/authOptions';
+import { requireAdminOrDataLead } from '@/lib/requireSession';
 import clientPromise from '@/lib/mongodb';
 import { ObjectId } from 'mongodb';
 
 export async function POST() {
   try {
-    const session = await getServerSession(authOptions);
-    if (!session || !['Admin', 'Data Lead'].includes(session.user.role || '')) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
+    const auth = await requireAdminOrDataLead();
+    if (!auth.ok) return auth.response;
 
     const client = await clientPromise;
     const db = client.db('student-label');
 
     // Scope: Admins see all, Data Leads see their school only
-    const cabinetQuery = session.user.role === 'Admin' ? {} : { school: session.user.school };
+    const cabinetQuery = auth.user.role === 'Admin' ? {} : { school: auth.user.school };
     const cabinets = await db.collection('cabinets').find(cabinetQuery).toArray();
 
     let totalCabinets = 0;

@@ -13,6 +13,7 @@ import { Separator } from '@/components/ui/separator';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import PageIntro from '@/components/PageIntro';
+import { PASSWORD_POLICY_HINT } from '@/lib/passwordPolicy';
 import { roleBadgeClass } from '@/lib/roleBadge';
 import { QRCodeSVG } from 'qrcode.react';
 
@@ -500,6 +501,7 @@ function ProfilePageInner() {
                 </h3>
                 <p className="text-sm text-muted-foreground mt-1">
                   Use this if you do not want an admin to reset your password from the command line.
+                  {` ${PASSWORD_POLICY_HINT}`}
                 </p>
               </div>
               <div className="space-y-2">
@@ -521,7 +523,7 @@ function ProfilePageInner() {
                   value={passwordForm.newPassword}
                   onChange={(e) => setPasswordForm(prev => ({ ...prev, newPassword: e.target.value }))}
                   autoComplete="new-password"
-                  minLength={8}
+                  minLength={10}
                   required
                 />
               </div>
@@ -533,7 +535,7 @@ function ProfilePageInner() {
                   value={passwordForm.confirmPassword}
                   onChange={(e) => setPasswordForm(prev => ({ ...prev, confirmPassword: e.target.value }))}
                   autoComplete="new-password"
-                  minLength={8}
+                  minLength={10}
                   required
                 />
               </div>

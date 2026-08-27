@@ -1,4 +1,5 @@
 import { NextRequest } from 'next/server';
+import { isAuthorizedBySharedSecret } from '@/lib/secretCompare';
 
 type AuthResult =
   | { ok: true }
@@ -10,13 +11,7 @@ export function validateSyncAuth(req: NextRequest): AuthResult {
     return { ok: false, error: 'Sync API is not configured', status: 503 };
   }
 
-  const authHeader = req.headers.get('authorization');
-  if (!authHeader?.startsWith('Bearer ')) {
-    return { ok: false, error: 'Unauthorized', status: 401 };
-  }
-
-  const token = authHeader.slice('Bearer '.length).trim();
-  if (token !== apiKey) {
+  if (!isAuthorizedBySharedSecret(req.headers.get('authorization'), apiKey)) {
     return { ok: false, error: 'Unauthorized', status: 401 };
   }
 

@@ -1,8 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth';
+import { requireAdmin, requireAdminOrDataLead } from '@/lib/requireSession';
 import { ObjectId } from 'mongodb';
 import clientPromise from '@/lib/mongodb';
-import { authOptions } from '@/lib/authOptions';
 import { resolveAgencyId } from '@/lib/studentId';
 import { normalizeIntakeStringList } from '@/lib/intakeDefaults';
 import { normalizeIntakeSessions } from '@/lib/intakeSession';
@@ -13,10 +12,7 @@ import {
   normalizePrincipal,
 } from '@/lib/schoolLeadership';
 import { schoolNameToSlug, validateSchoolSlug } from '@/lib/schoolSlug';
-
-function escapeRegex(value: string) {
-  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-}
+import { escapeRegex } from '@/lib/studentSearch';
 
 function schoolNameFilter(name: string) {
   return { name: { $regex: `^${escapeRegex(name.trim())}$`, $options: 'i' } };
@@ -73,19 +69,16 @@ async function upsertDataLeadIntakeSettings(
 }
 
 export async function GET() {
-  const session = await getServerSession(authOptions);
-
-  if (!session || !['Admin', 'Data Lead'].includes((session.user as any)?.role)) {
-    return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
-  }
+  const auth = await requireAdminOrDataLead();
+  if (!auth.ok) return auth.response;
 
   try {
     const client = await clientPromise;
     const db = client.db('student-label');
     let schools = await getSchoolOptions(db);
 
-    const role = (session.user as { role?: string })?.role;
-    const userSchool = (session.user as { school?: string })?.school?.trim();
+    const role = auth.user?.role;
+    const userSchool = auth.user?.school?.trim();
     if (role === 'Data Lead' && userSchool) {
       schools = schools.filter(
         (school: { name?: string }) => school.name?.toLowerCase() === userSchool.toLowerCase(),
@@ -100,11 +93,8 @@ export async function GET() {
 }
 
 export async function POST(req: NextRequest) {
-  const session = await getServerSession(authOptions);
-
-  if (!session || (session.user as any)?.role !== 'Admin') {
-    return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
-  }
+  const auth = await requireAdmin();
+  if (!auth.ok) return auth.response;
 
   try {
     const {
@@ -127,9 +117,7 @@ export async function POST(req: NextRequest) {
 
     const client = await clientPromise;
     const db = client.db('student-label');
-    const existing = await db.collection('school_config').findOne({
-      name: { $regex: `^${trimmedName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, $options: 'i' },
-    });
+    const existing = await db.collection('school_config').findOne(schoolNameFilter(trimmedName));
 
     if (existing) {
       return NextResponse.json({ error: 'School/program already exists' }, { status: 409 });
@@ -179,12 +167,9 @@ export async function POST(req: NextRequest) {
 }
 
 export async function PUT(req: NextRequest) {
-  const session = await getServerSession(authOptions);
-  const role = (session?.user as { role?: string })?.role;
-
-  if (!session || !['Admin', 'Data Lead'].includes(role || '')) {
-    return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
-  }
+  const auth = await requireAdminOrDataLead();
+  if (!auth.ok) return auth.response;
+  const role = auth.user.role;
 
   try {
     const body = await req.json();
@@ -192,7 +177,7 @@ export async function PUT(req: NextRequest) {
     const db = client.db('student-label');
 
     if (role === 'Data Lead') {
-      const userSchool = (session.user as { school?: string })?.school?.trim();
+      const userSchool = auth.user?.school?.trim();
       if (!userSchool) {
         return NextResponse.json({ error: 'No school assigned to this account' }, { status: 403 });
       }
@@ -293,11 +278,8 @@ export async function PUT(req: NextRequest) {
 }
 
 export async function DELETE(req: NextRequest) {
-  const session = await getServerSession(authOptions);
-
-  if (!session || (session.user as any)?.role !== 'Admin') {
-    return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
-  }
+  const auth = await requireAdmin();
+  if (!auth.ok) return auth.response;
 
   try {
     const { searchParams } = new URL(req.url);

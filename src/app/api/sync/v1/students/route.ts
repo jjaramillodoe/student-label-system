@@ -10,6 +10,12 @@ import {
   toSyncStudentDto,
 } from '@/lib/syncStudent';
 import { logSyncExport } from '@/lib/syncExportLog';
+import {
+  SYNC_RATE,
+  clientIp,
+  consumeRateLimit,
+  rateLimitResponse,
+} from '@/lib/rateLimit';
 
 const DEFAULT_LIMIT = 500;
 const MAX_LIMIT = 1000;
@@ -34,6 +40,12 @@ function parseSince(raw: string | null): string | NextResponse {
 }
 
 export async function GET(req: NextRequest) {
+  const limited = consumeRateLimit({
+    key: `sync:${clientIp(req)}`,
+    ...SYNC_RATE,
+  });
+  if (!limited.ok) return rateLimitResponse(limited.retryAfterSec);
+
   const auth = validateSyncAuth(req);
   if (!auth.ok) {
     return NextResponse.json({ error: auth.error }, { status: auth.status });

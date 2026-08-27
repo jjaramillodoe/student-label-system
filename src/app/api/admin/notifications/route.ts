@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth';
-import { authOptions } from '@/lib/authOptions';
+import { requireAdminOrDataLead } from '@/lib/requireSession';
 import clientPromise from '@/lib/mongodb';
 import { isEmailConfigured } from '@/lib/email';
 import {
@@ -67,11 +66,8 @@ async function collectIntakeIssues() {
 
 /** POST { action: 'test' | 'intake-digest' | 'status' } — Admin/Data Lead only */
 export async function POST(req: NextRequest) {
-  const session = await getServerSession(authOptions);
-  const role = (session?.user as { role?: string } | undefined)?.role;
-  if (!session || (role !== 'Admin' && role !== 'Data Lead')) {
-    return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
-  }
+  const auth = await requireAdminOrDataLead();
+  if (!auth.ok) return auth.response;
 
   const body = await req.json().catch(() => ({}));
   const action = body.action as string;
@@ -92,7 +88,7 @@ export async function POST(req: NextRequest) {
   if (action === 'test') {
     const to =
       (typeof body.to === 'string' && body.to.trim()) ||
-      session.user?.email ||
+      auth.user?.email ||
       '';
     if (!to) {
       return NextResponse.json({ error: 'No recipient email' }, { status: 400 });

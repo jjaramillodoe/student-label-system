@@ -16,6 +16,7 @@ import {
 } from 'lucide-react';
 import PageIntro from '@/components/PageIntro';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import ScanTruncatedAlert from '@/components/ScanTruncatedAlert';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -46,8 +47,13 @@ type CleanupStudent = {
 };
 
 type CleanupData = {
+  truncated?: boolean;
+  scanned?: number;
+  cap?: number;
   summary: {
     scanned: number;
+    truncated?: boolean;
+    cap?: number;
     invalidEmails: number;
     missingDates: number;
     oldInactive: number;
@@ -265,6 +271,12 @@ export default function DataCleanupPage() {
             <AlertDescription>{error}</AlertDescription>
           </Alert>
         )}
+
+        <ScanTruncatedAlert
+          truncated={data.truncated ?? data.summary.truncated}
+          scanned={data.scanned ?? data.summary.scanned}
+          cap={data.cap ?? data.summary.cap}
+        />
 
         {success && (
           <Alert>

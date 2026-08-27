@@ -1,4 +1,5 @@
 import { parseMinutesOfDay } from '@/lib/epeClock';
+import { escapeRegex } from '@/lib/studentSearch';
 
 export type IntakeSession = {
   name: string;
@@ -172,7 +173,7 @@ export async function getSchoolIntakeSessions(
 
   const schoolDoc = await db.collection('school_config').findOne({
     name: {
-      $regex: `^${schoolName.trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`,
+      $regex: `^${escapeRegex(schoolName.trim())}$`,
       $options: 'i',
     },
   });

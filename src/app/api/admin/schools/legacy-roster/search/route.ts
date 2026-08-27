@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth';
-import { authOptions } from '@/lib/authOptions';
+import { requireRole } from '@/lib/requireSession';
 import clientPromise from '@/lib/mongodb';
 import { isStudentSearchQueryValid, buildStudentSearchOrConditions } from '@/lib/studentSearch';
 import { LEGACY_ROSTER_COLLECTION, schoolNameFilter } from '@/lib/legacyRoster';
@@ -8,19 +7,15 @@ import { LEGACY_ROSTER_COLLECTION, schoolNameFilter } from '@/lib/legacyRoster';
 /** GET ?q=&school= — search legacy/ASISTS roster for intake */
 export async function GET(req: NextRequest) {
   try {
-    const session = await getServerSession(authOptions);
-    if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-
-    const role = session.user?.role;
-    if (!['Admin', 'Data Lead', 'Data Member', 'Intake Member'].includes(role || '')) {
-      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
-    }
+    const auth = await requireRole(['Admin', 'Data Lead', 'Data Member', 'Intake Member']);
+    if (!auth.ok) return auth.response;
+    const role = auth.user.role;
 
     const q = req.nextUrl.searchParams.get('q')?.trim() || '';
     const schoolParam = req.nextUrl.searchParams.get('school')?.trim() || '';
     const school = role === 'Admin' && schoolParam
       ? schoolParam
-      : session.user?.school || schoolParam;
+      : auth.user?.school || schoolParam;
 
     if (!school) {
       return NextResponse.json({ results: [], school: null });

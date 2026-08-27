@@ -1,16 +1,12 @@
 import { NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth';
-import { authOptions } from '@/lib/authOptions';
+import { requireAdminOrDataLead } from '@/lib/requireSession';
 import { findSchoolBySlug } from '@/lib/schoolConfig';
 
 type RouteContext = { params: Promise<{ slug: string }> };
 
 export async function GET(_req: Request, context: RouteContext) {
-  const session = await getServerSession(authOptions);
-
-  if (!session || !['Admin', 'Data Lead'].includes((session.user as { role?: string })?.role || '')) {
-    return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
-  }
+  const auth = await requireAdminOrDataLead();
+  if (!auth.ok) return auth.response;
 
   try {
     const { slug } = await context.params;
@@ -20,8 +16,8 @@ export async function GET(_req: Request, context: RouteContext) {
       return NextResponse.json({ error: 'School/program not found' }, { status: 404 });
     }
 
-    const role = (session.user as { role?: string })?.role;
-    const userSchool = (session.user as { school?: string })?.school?.trim();
+    const role = auth.user?.role;
+    const userSchool = auth.user?.school?.trim();
 
     if (
       role === 'Data Lead' &&

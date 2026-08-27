@@ -4,18 +4,16 @@ import { sendIntakeIssuesDigest } from '@/lib/notifications';
 import { detectIntakeIssuesFromStudent } from '@/lib/intakeIssues';
 import { normalizeIntakeSessions, type IntakeSession } from '@/lib/intakeSession';
 import { formatFullName } from '@/lib/personName';
+import { isAuthorizedBySharedSecret } from '@/lib/secretCompare';
 
 /**
  * Vercel Cron / external scheduler entrypoint.
- * Auth: Authorization: Bearer <CRON_SECRET>  (or ?secret=)
+ * Auth: Authorization: Bearer <CRON_SECRET>
+ * Vercel Cron sends this header automatically when CRON_SECRET is set.
  */
 export async function GET(req: NextRequest) {
   const secret = process.env.CRON_SECRET || process.env.NOTIFICATION_CRON_SECRET;
-  const authHeader = req.headers.get('authorization') || '';
-  const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : '';
-  const querySecret = req.nextUrl.searchParams.get('secret');
-
-  if (!secret || (token !== secret && querySecret !== secret)) {
+  if (!isAuthorizedBySharedSecret(req.headers.get('authorization'), secret)) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 

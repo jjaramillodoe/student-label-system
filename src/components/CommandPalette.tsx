@@ -3,34 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
-import {
-  Archive,
-  BarChart3,
-  BookOpen,
-  Boxes,
-  CalendarRange,
-  CopyCheck,
-  ExternalLink,
-  FileText,
-  HeartPulse,
-  Inbox,
-  Info,
-  LayoutGrid,
-  LineChart,
-  List,
-  MoveRight,
-  Package,
-  Printer,
-  Search,
-  Settings,
-  ShieldCheck,
-  Sparkles,
-  TrendingUp,
-  Upload,
-  UserPlus,
-  Users,
-  type LucideIcon,
-} from 'lucide-react';
+import { Search, Users, type LucideIcon } from 'lucide-react';
 import {
   Dialog,
   DialogContent,
@@ -40,11 +13,13 @@ import {
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
-import { MINTLIFY_DOCS_URL } from '@/lib/docsUrl';
 import { extractStudentIdFromQrPayload } from '@/lib/qrPayload';
 import { useLogStudentSearch } from '@/lib/useLogStudentSearch';
 import { formatFullName } from '@/lib/personName';
 import { parseStudentsListResponse } from '@/lib/studentsList';
+import { getVisibleNavGroups } from '@/lib/navConfig';
+import { useAppSettings } from '@/lib/useAppSettings';
+import { MINTLIFY_DOCS_URL } from '@/lib/docsUrl';
 
 type ToolItem = {
   id: string;
@@ -68,14 +43,13 @@ type StudentHit = {
 export default function CommandPalette() {
   const { data: session, status } = useSession();
   const router = useRouter();
+  const { settings } = useAppSettings();
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState('');
   const [students, setStudents] = useState<StudentHit[]>([]);
   const [activeIndex, setActiveIndex] = useState(0);
 
   const userRole = session?.user?.role as string | undefined;
-  const isAdmin = userRole === 'Admin';
-  const isAdminOrDataLead = ['Admin', 'Data Lead'].includes(userRole || '');
   const canData = ['Admin', 'Data Lead', 'Data Member'].includes(userRole || '');
 
   useEffect(() => {
@@ -123,43 +97,28 @@ export default function CommandPalette() {
 
   const tools = useMemo<ToolItem[]>(() => {
     if (!canData) return [];
-    const items: Array<ToolItem & { show: boolean }> = [
-      { id: 'dash', label: 'Dashboard', group: 'Navigate', href: '/', icon: FileText, show: true, keywords: 'home students' },
-      { id: 'intake', label: 'Intake', group: 'Intake', href: '/intake', icon: UserPlus, show: canData, keywords: 'new student enroll' },
-      { id: 'students', label: 'All Students', group: 'Students', href: '/admin/students/all', icon: Users, show: true },
-      { id: 'enroll', label: 'Enrollment', group: 'Students', href: '/admin/enrollment', icon: UserPlus, show: true },
-      { id: 'upload', label: 'Bulk Upload', group: 'Students', href: '/admin/students/bulk-upload', icon: Upload, show: true },
-      { id: 'dupes', label: 'Duplicates', group: 'Students', href: '/admin/duplicates', icon: CopyCheck, show: isAdminOrDataLead },
-      { id: 'printq', label: 'Print Queue', group: 'Print', href: '/admin/print-queue', icon: Printer, show: isAdminOrDataLead },
-      { id: 'stock', label: 'Label Stock', group: 'Print', href: '/admin/label-stock', icon: Package, show: isAdminOrDataLead },
-      { id: 'reports', label: 'Print Reports', group: 'Print', href: '/reports', icon: TrendingUp, show: isAdminOrDataLead },
-      { id: 'cabinets', label: 'Cabinets', group: 'Storage', href: '/admin/cabinets', icon: LayoutGrid, show: isAdminOrDataLead },
-      { id: 'health', label: 'Cabinet Health', group: 'Storage', href: '/admin/cabinet-health', icon: HeartPulse, show: isAdminOrDataLead },
-      { id: 'unassigned', label: 'Unassigned', group: 'Storage', href: '/admin/unassigned', icon: Inbox, show: isAdminOrDataLead },
-      { id: 'bulkmove', label: 'Bulk Move', group: 'Storage', href: '/admin/bulk-move', icon: MoveRight, show: isAdminOrDataLead },
-      { id: 'users', label: 'User Management', group: 'Admin', href: '/admin/users', icon: Users, show: isAdmin },
-      { id: 'settings', label: 'App Settings', group: 'Admin', href: '/admin/settings', icon: Settings, show: isAdmin },
-      { id: 'schoolyear', label: 'School Year', group: 'Admin', href: '/admin/school-year', icon: CalendarRange, show: isAdminOrDataLead },
-      { id: 'cleanup', label: 'Data Cleanup', group: 'Admin', href: '/admin/data-cleanup', icon: Sparkles, show: isAdminOrDataLead },
-      { id: 'audit', label: 'Audit Log', group: 'Admin', href: '/audit', icon: List, show: isAdminOrDataLead },
-      { id: 'analytics', label: 'Analytics', group: 'Admin', href: '/admin/analytics', icon: BarChart3, show: isAdminOrDataLead, keywords: 'metrics dashboard enrollment' },
-      { id: 'motherduck', label: 'MotherDuck Analytics', group: 'Admin', href: '/admin/motherduck-analytics', icon: LineChart, show: isAdmin, keywords: 'warehouse duckdb analytics' },
-      { id: 'validation', label: 'Email Validation', group: 'Admin', href: '/admin/validation', icon: ShieldCheck, show: isAdmin },
-      { id: 'docs', label: 'In-app guide', group: 'Help', href: '/docs', icon: BookOpen, show: true },
-      { id: 'about', label: 'About', group: 'Help', href: '/about', icon: Info, show: true, keywords: 'credits javier jaramillo district 79' },
-      {
-        id: 'mintlify',
-        label: 'Full docs (Mintlify)',
-        group: 'Help',
-        href: MINTLIFY_DOCS_URL,
-        icon: ExternalLink,
-        show: true,
-        external: true,
-        keywords: 'documentation mintlify',
-      },
-    ];
-    return items.filter(i => i.show).map(({ show: _s, ...rest }) => rest);
-  }, [canData, isAdmin, isAdminOrDataLead]);
+    const extraKeywords: Record<string, string> = {
+      '/': 'home students dashboard',
+      '/intake': 'new student enroll register',
+      '/admin/analytics': 'metrics dashboard enrollment',
+      '/admin/motherduck-analytics': 'warehouse duckdb analytics',
+      '/about': 'credits javier jaramillo district 79',
+      '/docs': 'help guide documentation',
+      [MINTLIFY_DOCS_URL]: 'documentation mintlify',
+    };
+    return getVisibleNavGroups(userRole, { showMigrateDrawers: settings.showMigrateDrawers })
+      .flatMap((group) =>
+        group.items.map((item) => ({
+          id: item.href,
+          label: item.label,
+          group: group.label,
+          href: item.href,
+          icon: item.icon,
+          keywords: extraKeywords[item.href],
+          external: item.external,
+        })),
+      );
+  }, [canData, userRole, settings.showMigrateDrawers]);
 
   const normalized = extractStudentIdFromQrPayload(query).toLowerCase().trim();
 
@@ -306,7 +265,7 @@ export default function CommandPalette() {
                       onMouseEnter={() => setActiveIndex(rowIndex)}
                       onClick={() => runRow({ kind: 'student', item })}
                     >
-                      <Boxes className="h-4 w-4 text-muted-foreground" />
+                      <Users className="h-4 w-4 text-muted-foreground" />
                       <span className="flex-1">
                         {formatFullName(item)}
                       </span>

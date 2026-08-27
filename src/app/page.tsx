@@ -31,13 +31,10 @@ import { downloadCsvFile, objectsToCsv } from '@/lib/csv';
 import { fetchAllStudentPages, parseStudentsListResponse } from '@/lib/studentsList';
 import { getStoredPrintLayout, setStoredPrintLayout } from '@/lib/printLayoutStorage';
 import { formatFullName } from '@/lib/personName';
+import { fiscalYearOptions, STUDENT_STATUS_OPTIONS } from '@/lib/studentOptions';
 
-const FISCAL_YEAR_OPTIONS = [
-  '2024-2025', '2025-2026', '2026-2027', '2027-2028'
-];
-const STATUS_OPTIONS = [
-  'Active', 'Inactive', 'Graduated', 'Withdrawn', 'Pending', 'Transferred', 'Other'
-];
+const FISCAL_YEAR_OPTIONS = fiscalYearOptions();
+const STATUS_OPTIONS = [...STUDENT_STATUS_OPTIONS];
 
 const LABEL_TEMPLATES = [
   { key: 'avery5160', name: 'Avery 5160 (3x10 Sheet)', cols: 3, rows: 10, width: 2.625, height: 1 },

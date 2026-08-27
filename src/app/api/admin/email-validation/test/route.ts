@@ -5,18 +5,14 @@
  * so you can confirm the API key works and see the response shape.
  */
 import { NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth';
-import { authOptions } from '@/lib/authOptions';
+import { requireAdmin } from '@/lib/requireSession';
 
 const API_BASE = 'https://api.emailawesome.com/api/validations/email_validation';
 const API_KEY  = process.env.EMAIL_VALIDATION_API_KEY ?? '';
 
 export async function GET() {
-  const session = await getServerSession(authOptions);
-  const role = (session?.user as any)?.role;
-  if (!session || role !== 'Admin') {
-    return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
-  }
+  const auth = await requireAdmin();
+  if (!auth.ok) return auth.response;
 
   console.log('[email-validation/test] API_KEY:', API_KEY ? `${API_KEY.slice(0, 8)}… (length ${API_KEY.length})` : 'MISSING/EMPTY');
 

@@ -1,5 +1,3 @@
-'use client';
-
 import Link from 'next/link';
 import { Building2, Code2, ExternalLink, Heart, Mail, Sparkles } from 'lucide-react';
 import PageIntro from '@/components/PageIntro';

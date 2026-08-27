@@ -74,6 +74,7 @@ import {
   type BulkIssueCategory,
 } from '@/lib/bulkUploadValidation';
 import { formatHumanDate } from '@/lib/utils';
+import { fiscalYearOptions, isStudentStatus, STUDENT_STATUS_OPTIONS } from '@/lib/studentOptions';
 
 const SAMPLE_DATA = [
   { firstName: 'Amelia', lastName: 'Rivera', dob: '2006-01-12', fiscalYear: '2025-2026', status: 'Active', startDate: '2025-09-04', email: 'amelia.rivera.test@example.com', studentId: '2006-AR-9000001' },
@@ -88,12 +89,12 @@ const SAMPLE_DATA = [
   { firstName: 'Ethan', lastName: 'Davis', dob: '2006-04-17', fiscalYear: '2025-2026', status: 'Active', startDate: '2025-09-15', email: 'ethan.davis.test@example.com', studentId: '2006-ED-9000010' },
 ];
 
-const FISCAL_YEAR_OPTIONS = ['2024-2025', '2025-2026', '2026-2027', '2027-2028'];
-const STATUS_OPTIONS = ['Active', 'Inactive', 'Graduated', 'Withdrawn', 'Pending', 'Transferred', 'Other'];
+const FISCAL_YEAR_OPTIONS = fiscalYearOptions();
 /** Status values that appear in exports but cannot be used for bulk create */
 const STATUS_EXPORT_ONLY: Record<string, string> = {
   Archived: 'Status “Archived” cannot be used on bulk create — choose Active (or Pending) now; archive later from the app',
 };
+const STATUS_OPTIONS = STUDENT_STATUS_OPTIONS.filter((status) => !STATUS_EXPORT_ONLY[status]);
 const EDITABLE_COLUMNS = [
   'firstName', 'lastName', 'dob', 'fiscalYear', 'status', 'startDate', 'email', 'phone',
   'address', 'apt', 'city', 'state', 'zip',
@@ -495,7 +496,7 @@ export default function BulkUploadPage() {
 
       if (STATUS_EXPORT_ONLY[row.status]) {
         issues.push(STATUS_EXPORT_ONLY[row.status]);
-      } else if (!STATUS_OPTIONS.includes(row.status)) {
+      } else if (!isStudentStatus(row.status)) {
         issues.push(
           row.status
             ? `Unknown status “${row.status}” — use ${STATUS_OPTIONS.join(', ')}`

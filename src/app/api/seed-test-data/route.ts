@@ -1,9 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth';
-import { authOptions } from '@/lib/authOptions';
 import clientPromise from '@/lib/mongodb';
 import { ObjectId } from 'mongodb';
 import { isAllowedAdminUser } from '@/lib/allowedUsers';
+import { escapeRegex } from '@/lib/studentSearch';
+import { destructiveHttpGuard } from '@/lib/destructiveHttp';
+import { requireSession } from '@/lib/requireSession';
 
 // Sample first and last names for generating test data
 const FIRST_NAMES = [
@@ -45,14 +46,15 @@ function generateStudentId(birthYear: string, firstName: string, lastName: strin
 
 export async function POST(req: NextRequest) {
   try {
-    const session = await getServerSession(authOptions);
-    if (!session) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
+    const blocked = destructiveHttpGuard();
+    if (blocked) return blocked;
+
+    const auth = await requireSession();
+    if (!auth.ok) return auth.response;
 
     // Only allow specific admin users to seed test data
-    const userRole = (session.user as any)?.role;
-    const userEmail = session.user?.email;
+    const userRole = auth.user.role;
+    const userEmail = auth.user.email;
     if (!isAllowedAdminUser(userEmail, userRole)) {
       return NextResponse.json({ 
         error: 'Forbidden: Only authorized admin users can seed test data' 
@@ -61,7 +63,7 @@ export async function POST(req: NextRequest) {
 
     const body = await req.json();
     const count = body.count || 50; // Default to 50 students
-    const userSchool = (session.user as any)?.school;
+    const userSchool = auth.user.school;
 
     if (count > 500) {
       return NextResponse.json({ error: 'Maximum 500 students allowed' }, { status: 400 });
@@ -125,7 +127,7 @@ export async function POST(req: NextRequest) {
       if (!yearCounters[birthYear][initials]) {
         // Check existing students with same year and initials
         const existing = await db.collection('students').find({
-          studentId: { $regex: `^${birthYear}-${initials}-` }
+          studentId: { $regex: `^${escapeRegex(birthYear)}-${escapeRegex(initials)}-` }
         }).toArray();
         
         let maxNum = 0;

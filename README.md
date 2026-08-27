@@ -369,7 +369,6 @@ npm run add-district-admins
 
 ### Admin Tools
 - `GET /api/admin/cabinet-health` - Cabinet health summary and issue lists
-- `GET /api/admin/duplicate-students` - Duplicate student detection
 - `GET /api/admin/unassigned-students` - Students with assignment issues
 - `POST /api/admin/bulk-move` - Move selected students to another drawer
 - `GET /api/admin/data-cleanup` - Data cleanup scan

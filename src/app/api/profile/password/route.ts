@@ -1,12 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth';
+import { requireSession } from '@/lib/requireSession';
 import * as bcrypt from 'bcrypt';
 import clientPromise from '@/lib/mongodb';
-import { authOptions } from '@/lib/authOptions';
+import { passwordPolicyError } from '@/lib/passwordPolicy';
 
 export async function PUT(req: NextRequest) {
-  const session = await getServerSession(authOptions);
-  const email = session?.user?.email?.toLowerCase();
+  const auth = await requireSession();
+  if (!auth.ok) return auth.response;
+  const email = auth.user.email?.toLowerCase();
 
   if (!email) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
@@ -19,8 +20,9 @@ export async function PUT(req: NextRequest) {
       return NextResponse.json({ error: 'Current password and new password are required' }, { status: 400 });
     }
 
-    if (newPassword.length < 8) {
-      return NextResponse.json({ error: 'New password must be at least 8 characters' }, { status: 400 });
+    const policyError = passwordPolicyError(newPassword);
+    if (policyError) {
+      return NextResponse.json({ error: policyError }, { status: 400 });
     }
 
     const client = await clientPromise;

@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { requireAdminOrDataLead } from '@/lib/requireSession';
 import clientPromise from '@/lib/mongodb';
-import { getServerSession } from 'next-auth';
-import { authOptions } from '@/lib/authOptions';
 import { ObjectId } from 'mongodb';
 import {
   applyStockAdjustment,
@@ -12,22 +11,12 @@ import {
   type LabelStockDoc,
 } from '@/lib/labelStock';
 
-type SessionUser = {
-  role?: string;
-  school?: string;
-  name?: string | null;
-  email?: string | null;
-};
-
 export async function POST(req: NextRequest) {
   try {
-    const session = await getServerSession(authOptions);
-    const role = session?.user?.role;
-    if (!session || !['Admin', 'Data Lead'].includes(role || '')) {
-      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
-    }
-
-    const user = session.user as SessionUser;
+    const auth = await requireAdminOrDataLead();
+    if (!auth.ok) return auth.response;
+    const role = auth.user.role;
+    const user = auth.user;
     const userSchool = normalizeSchoolKey(user.school);
     if (role === 'Data Lead' && !userSchool) {
       return NextResponse.json({ error: 'No school assigned' }, { status: 403 });

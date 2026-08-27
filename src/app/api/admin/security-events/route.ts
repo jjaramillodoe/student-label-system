@@ -1,19 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth';
-import { authOptions } from '@/lib/authOptions';
+import { requireAdmin } from '@/lib/requireSession';
 import clientPromise from '@/lib/mongodb';
 import { AUTH_EVENTS_COLLECTION, listLockedAccounts } from '@/lib/authSecurity';
+import { escapeRegex } from '@/lib/studentSearch';
 
 /**
  * GET /api/admin/security-events
  * Admin-only auth event feed (failed logins, MFA failures, successes).
  */
 export async function GET(req: NextRequest) {
-  const session = await getServerSession(authOptions);
-  const role = (session?.user as { role?: string } | undefined)?.role;
-  if (!session || role !== 'Admin') {
-    return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
-  }
+  const auth = await requireAdmin();
+  if (!auth.ok) return auth.response;
 
   const { searchParams } = new URL(req.url);
   const limit = Math.min(Math.max(Number(searchParams.get('limit') || 100), 1), 500);
@@ -24,7 +21,7 @@ export async function GET(req: NextRequest) {
   const since = new Date(Date.now() - hours * 60 * 60 * 1000).toISOString();
   const filter: Record<string, unknown> = { at: { $gte: since } };
   if (type !== 'all') filter.type = type;
-  if (email) filter.email = { $regex: email.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), $options: 'i' };
+  if (email) filter.email = { $regex: escapeRegex(email), $options: 'i' };
 
   const client = await clientPromise;
   const db = client.db('student-label');

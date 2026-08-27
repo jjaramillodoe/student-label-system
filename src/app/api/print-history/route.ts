@@ -1,15 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { requireSession } from '@/lib/requireSession';
 import clientPromise from '@/lib/mongodb';
-import { getServerSession } from 'next-auth';
-import { authOptions } from '@/lib/authOptions';
 import { recordPrintHistoryAndConsume } from '@/lib/labelStock';
 
 export async function GET(req: NextRequest) {
   try {
-    const session = await getServerSession(authOptions);
-    if (!session) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
+    const auth = await requireSession();
+    if (!auth.ok) return auth.response;
 
     const { searchParams } = new URL(req.url);
     const startDate = searchParams.get('startDate');
@@ -38,8 +35,8 @@ export async function GET(req: NextRequest) {
       query['students.studentId'] = studentId;
     }
 
-    const userRole = (session.user as { role?: string })?.role;
-    const userSchool = (session.user as { school?: string })?.school;
+    const userRole = auth.user?.role;
+    const userSchool = auth.user?.school;
     if (userRole !== 'Admin' && userSchool) {
       query['user.school'] = userSchool;
     }
@@ -85,10 +82,8 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   try {
-    const session = await getServerSession(authOptions);
-    if (!session) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
+    const auth = await requireSession();
+    if (!auth.ok) return auth.response;
 
     const body = await req.json();
     const consumeStock = body.consumeStock === true;
@@ -99,12 +94,12 @@ export async function POST(req: NextRequest) {
     const client = await clientPromise;
     const db = client.db('student-label');
 
-    const user = session.user
+    const user = auth.user
       ? {
-          name: session.user.name,
-          email: session.user.email,
-          role: (session.user as { role?: string })?.role,
-          school: (session.user as { school?: string })?.school,
+          name: auth.user.name,
+          email: auth.user.email,
+          role: auth.user?.role,
+          school: auth.user?.school,
         }
       : null;
 

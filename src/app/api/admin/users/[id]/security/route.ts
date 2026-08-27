@@ -1,17 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth';
+import { requireAdmin } from '@/lib/requireSession';
 import { ObjectId } from 'mongodb';
 import * as bcrypt from 'bcrypt';
-import { authOptions } from '@/lib/authOptions';
 import clientPromise from '@/lib/mongodb';
 import { applyMfaBypass, isAccountLocked, logAuthEvent, unlockAccount } from '@/lib/authSecurity';
+import { passwordPolicyError } from '@/lib/passwordPolicy';
 
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  const session = await getServerSession(authOptions);
-
-  if (!session || (session.user as any).role !== 'Admin') {
-    return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
-  }
+  const auth = await requireAdmin();
+  if (!auth.ok) return auth.response;
 
   try {
     const { id } = await params;
@@ -31,8 +28,9 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     }
 
     if (action === 'reset-password') {
-      if (!password || password.length < 8) {
-        return NextResponse.json({ error: 'Password must be at least 8 characters' }, { status: 400 });
+      const policyError = passwordPolicyError(password);
+      if (policyError) {
+        return NextResponse.json({ error: policyError }, { status: 400 });
       }
 
       await users.updateOne(
@@ -70,8 +68,8 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     if (action === 'set-mfa-bypass') {
       const nextBypass = bypass === true;
       await applyMfaBypass(user._id, String(user.email || ''), nextBypass, {
-        byEmail: session.user?.email || '',
-        byName: session.user?.name || '',
+        byEmail: auth.user?.email || '',
+        byName: auth.user?.name || '',
       });
       return NextResponse.json({
         success: true,
@@ -102,8 +100,8 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
         email: String(user.email || ''),
         reason: 'Admin reset MFA enrollment',
         meta: {
-          byEmail: session.user?.email || '',
-          byName: session.user?.name || '',
+          byEmail: auth.user?.email || '',
+          byName: auth.user?.name || '',
           userId: id,
           reset: true,
         },
@@ -119,8 +117,8 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
         return NextResponse.json({ success: true, message: 'Account is not locked.' });
       }
       await unlockAccount(new ObjectId(id), String(user.email || ''), {
-        byEmail: session.user?.email || '',
-        byName: session.user?.name || '',
+        byEmail: auth.user?.email || '',
+        byName: auth.user?.name || '',
       });
       return NextResponse.json({
         success: true,

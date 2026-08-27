@@ -1,21 +1,18 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { requireSession } from '@/lib/requireSession';
 import clientPromise from '@/lib/mongodb';
-import { getServerSession } from 'next-auth';
-import { authOptions } from '@/lib/authOptions';
 
 export async function GET(req: NextRequest) {
   try {
-    const session = await getServerSession(authOptions);
-    if (!session) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
+    const auth = await requireSession();
+    if (!auth.ok) return auth.response;
 
     const client = await clientPromise;
     const db = client.db("student-label");
     
     // Role-based filtering
-    const userRole = (session.user as any)?.role;
-    const userSchool = (session.user as any)?.school;
+    const userRole = auth.user?.role;
+    const userSchool = auth.user?.school;
     
     let query: any = {};
     
@@ -34,19 +31,20 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   try {
-    const session = await getServerSession(authOptions);
+    const auth = await requireSession();
+    if (!auth.ok) return auth.response;
     const body = await req.json();
     
     // Add user information to the audit log
     const auditLogData = {
       ...body,
       time: new Date().toISOString(),
-      user: session?.user ? {
-        name: session.user.name,
-        email: session.user.email,
-        role: (session.user as any)?.role,
-        school: (session.user as any)?.school
-      } : null
+      user: {
+        name: auth.user.name,
+        email: auth.user.email,
+        role: auth.user.role,
+        school: auth.user.school
+      }
     };
     
     const client = await clientPromise;

@@ -9,9 +9,8 @@
  */
 
 import { NextResponse } from 'next/server';
+import { requireAdmin } from '@/lib/requireSession';
 import clientPromise from '@/lib/mongodb';
-import { getServerSession } from 'next-auth';
-import { authOptions } from '@/lib/authOptions';
 
 const API_BASE = 'https://api.emailawesome.com/api/validations/email_validation';
 const API_KEY  = process.env.EMAIL_VALIDATION_API_KEY ?? '';
@@ -39,12 +38,10 @@ async function fetchRemoteByStatus(status: string): Promise<any[]> {
 }
 
 export async function POST() {
-  const session = await getServerSession(authOptions);
-  const role    = (session?.user as any)?.role;
-  const school  = (session?.user as any)?.school;
-  if (!session || role !== 'Admin') {
-    return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
-  }
+  const auth = await requireAdmin();
+  if (!auth.ok) return auth.response;
+  const role    = auth.user.role;
+  const school  = auth.user.school;
 
   const client = await clientPromise;
   const db = client.db('student-label');
