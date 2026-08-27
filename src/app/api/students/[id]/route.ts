@@ -11,42 +11,60 @@ import {
 } from '@/lib/beEslEligibility';
 import { getSchoolIntakeSessions, validateIntakeSessionTimes } from '@/lib/intakeSession';
 import { syncTopLevelIntakeFields } from '@/lib/intakeVisitFix';
+import { authorizeStudentAccess } from '@/lib/studentAccess';
 import { normalizeMongoId, serializeMongoDocument } from '@/lib/utils';
 import { usaNameError } from '@/lib/usaName';
 import { assignDrawerSection } from '@/lib/drawerSections';
 
-// Helper function to validate ObjectId
 function isValidObjectId(id: string): boolean {
   try {
     new ObjectId(id);
     return true;
-  } catch (error) {
+  } catch {
     return false;
   }
 }
 
-export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+async function loadStudentForAccess(id: string, action: 'read' | 'update' | 'delete') {
+  const session = await getServerSession(authOptions);
+  if (!isValidObjectId(id)) {
+    return { error: NextResponse.json({ error: 'Invalid student ID format' }, { status: 400 }) };
+  }
+
+  const client = await clientPromise;
+  const db = client.db('student-label');
+  const student = await db.collection('students').findOne({ _id: new ObjectId(id) });
+  const access = authorizeStudentAccess({
+    role: session?.user?.role,
+    userSchool: session?.user?.school,
+    action,
+    studentExists: Boolean(student),
+    studentSchool: typeof student?.school === 'string' ? student.school : null,
+  });
+  if (!access.ok) {
+    return { error: NextResponse.json({ error: access.error }, { status: access.status }) };
+  }
+  if (!session?.user) {
+    return { error: NextResponse.json({ error: 'Unauthorized' }, { status: 401 }) };
+  }
+
+  return { session, db, student: student! };
+}
+
+export async function GET(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   try {
-    if (!isValidObjectId(id)) {
-      return NextResponse.json({ error: 'Invalid student ID format' }, { status: 400 });
-    }
+    const loaded = await loadStudentForAccess(id, 'read');
+    if ('error' in loaded) return loaded.error;
 
-    const client = await clientPromise;
-    const db = client.db("student-label");
-    const student = await db.collection('students').findOne({ _id: new ObjectId(id) });
-    if (!student) return NextResponse.json({ error: 'Student not found' }, { status: 404 });
-
-    const authSession = await getServerSession(authOptions);
-    const schoolIntakeSessions = authSession
-      ? await getSchoolIntakeSessions(db, student.school)
-      : undefined;
+    const { db, student } = loaded;
+    const schoolIntakeSessions = await getSchoolIntakeSessions(db, student.school);
 
     return NextResponse.json({
       ...student,
       schoolIntakeSessions,
     });
-  } catch (error) {
+  } catch {
     return NextResponse.json({ error: 'Failed to fetch student' }, { status: 500 });
   }
 }
@@ -54,15 +72,21 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
 export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   try {
-    if (!isValidObjectId(id)) {
-      return NextResponse.json({ error: 'Invalid student ID format' }, { status: 400 });
-    }
+    const loaded = await loadStudentForAccess(id, 'update');
+    if ('error' in loaded) return loaded.error;
+
+    const { session, db, student: oldStudent } = loaded;
+    const userSchool = session.user?.school;
+    const userRole = session.user?.role;
 
     const body = await req.json();
-    const session = await getServerSession(authOptions);
-    const userSchool = (session?.user as { school?: string })?.school;
-    const client = await clientPromise;
-    const db = client.db("student-label");
+
+    if (userRole !== 'Admin' && body.school != null && body.school !== oldStudent.school) {
+      return NextResponse.json(
+        { error: 'Forbidden — cannot move a student to another school' },
+        { status: 403 },
+      );
+    }
 
     if (body.firstName != null) {
       const firstErr = usaNameError(String(body.firstName), 'First name');
@@ -71,12 +95,6 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
     if (body.lastName != null) {
       const lastErr = usaNameError(String(body.lastName), 'Last name');
       if (lastErr) return NextResponse.json({ error: lastErr }, { status: 400 });
-    }
-
-    // If cabinet or drawer is being changed, update the old and new cabinet capacities
-    const oldStudent = await db.collection('students').findOne({ _id: new ObjectId(id) });
-    if (!oldStudent) {
-      return NextResponse.json({ error: 'Student not found' }, { status: 404 });
     }
 
     const dobToCheck = body.dob || oldStudent.dob;
@@ -244,31 +262,13 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
   }
 }
 
-export async function DELETE(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  // Enforce role-based access
-  const session = await getServerSession(authOptions);
-  
-  const role = (session?.user as any)?.role;
-  if (!session) {
-    return NextResponse.json({ error: 'Unauthorized - No session' }, { status: 401 });
-  }
-  if (role !== 'Data Lead' && role !== 'Admin') {
-    return NextResponse.json({ error: 'Forbidden - Insufficient role' }, { status: 403 });
-  }
   try {
-    if (!isValidObjectId(id)) {
-      return NextResponse.json({ error: 'Invalid student ID format' }, { status: 400 });
-    }
+    const loaded = await loadStudentForAccess(id, 'delete');
+    if ('error' in loaded) return loaded.error;
 
-    const client = await clientPromise;
-    const db = client.db("student-label");
-
-    // Get the student first to check if they're in a cabinet
-    const student = await db.collection('students').findOne({ _id: new ObjectId(id) });
-    if (!student) {
-      return NextResponse.json({ error: 'Student not found' }, { status: 404 });
-    }
+    const { db, student } = loaded;
 
     // If the student is in a cabinet, decrease the cabinet's count
     if (student.cabinet && student.drawer) {

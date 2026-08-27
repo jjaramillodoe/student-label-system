@@ -336,7 +336,8 @@ export const openApiSpec = {
       get: {
         tags: ['Public'],
         summary: 'Public student lookup (QR)',
-        description: 'Lookup by `studentId` or `labelId` for the public student page.',
+        description:
+          'Lookup by `studentId` or `labelId` for the public student page. Unauthenticated. Returns a field-whitelisted filing payload (name, IDs, DOB, school, cabinet/drawer or archive box, siblings). Does not include email, phone, address, notes, or intake visits.',
         operationId: 'lookupStudentPublic',
         parameters: [
           { name: 'studentId', in: 'query', schema: { type: 'string' } },
@@ -436,20 +437,36 @@ export const openApiSpec = {
       get: {
         tags: ['Students'],
         summary: 'List students',
-        description: 'Admins see all schools; others scoped to their school.',
+        description:
+          'Paginated, school-scoped list. Admins see all schools. Pass `page` and `limit` (max 500). Search without `limit` defaults to 20 rows. Response: `{ students, total, page, limit }`.',
         operationId: 'listStudents',
         security: sessionSecurity,
         parameters: [
+          { name: 'page', in: 'query', schema: { type: 'integer', default: 1 } },
+          { name: 'limit', in: 'query', schema: { type: 'integer', default: 50, maximum: 500 } },
           { name: 'since', in: 'query', schema: { type: 'string', format: 'date-time' } },
           { name: 'search', in: 'query', schema: { type: 'string' } },
           { name: 'createdByMe', in: 'query', schema: { type: 'boolean' } },
+          { name: 'fiscalYear', in: 'query', schema: { type: 'string' } },
+          { name: 'status', in: 'query', schema: { type: 'string' } },
+          { name: 'archived', in: 'query', schema: { type: 'string', description: '0 = hide archived, 1 = only archived' } },
+          { name: 'unprinted', in: 'query', schema: { type: 'boolean' } },
+          { name: 'format', in: 'query', schema: { type: 'string', enum: ['csv'] } },
         ],
         responses: {
           '200': {
-            description: 'Array of student documents',
+            description: 'Paginated students',
             content: {
               'application/json': {
-                schema: { type: 'array', items: { $ref: '#/components/schemas/Student' } },
+                schema: {
+                  type: 'object',
+                  properties: {
+                    students: { type: 'array', items: { $ref: '#/components/schemas/Student' } },
+                    total: { type: 'integer' },
+                    page: { type: 'integer' },
+                    limit: { type: 'integer' },
+                  },
+                },
               },
             },
           },

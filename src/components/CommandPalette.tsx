@@ -43,7 +43,8 @@ import { cn } from '@/lib/utils';
 import { MINTLIFY_DOCS_URL } from '@/lib/docsUrl';
 import { extractStudentIdFromQrPayload } from '@/lib/qrPayload';
 import { useLogStudentSearch } from '@/lib/useLogStudentSearch';
-import { formatFullName, formatFullNameLower } from '@/lib/personName';
+import { formatFullName } from '@/lib/personName';
+import { parseStudentsListResponse } from '@/lib/studentsList';
 
 type ToolItem = {
   id: string;
@@ -90,21 +91,28 @@ export default function CommandPalette() {
 
   useEffect(() => {
     if (!open || status !== 'authenticated' || !canData) return;
+    const q = extractStudentIdFromQrPayload(query).trim();
+    if (q.length < 2) {
+      setStudents([]);
+      return;
+    }
     let cancelled = false;
-    (async () => {
+    const timer = window.setTimeout(async () => {
       try {
-        const res = await fetch('/api/students');
+        const res = await fetch(`/api/students?search=${encodeURIComponent(q)}&limit=8&source=command-palette`);
         if (!res.ok) return;
         const data = await res.json();
-        if (!cancelled && Array.isArray(data)) setStudents(data);
+        const parsed = parseStudentsListResponse<StudentHit>(data);
+        if (!cancelled) setStudents(parsed.students);
       } catch {
-        // ignore
+        if (!cancelled) setStudents([]);
       }
-    })();
+    }, 250);
     return () => {
       cancelled = true;
+      window.clearTimeout(timer);
     };
-  }, [open, status, canData]);
+  }, [open, status, canData, query]);
 
   useEffect(() => {
     if (!open) {
@@ -163,21 +171,7 @@ export default function CommandPalette() {
     });
   }, [tools, normalized]);
 
-  const filteredStudents = useMemo(() => {
-    if (!normalized || normalized.length < 2) return [];
-    return students
-      .filter(s => {
-        const name = formatFullNameLower(s);
-        return (
-          name.includes(normalized) ||
-          (s.labelId || '').toLowerCase().includes(normalized) ||
-          (s.studentId || '').toLowerCase().includes(normalized) ||
-          (s.dob || '').toLowerCase().includes(normalized) ||
-          (s.dob || '').replace(/-/g, '').includes(normalized.replace(/[/-]/g, ''))
-        );
-      })
-      .slice(0, 8);
-  }, [students, normalized]);
+  const filteredStudents = students.slice(0, 8);
 
   useLogStudentSearch(query, filteredStudents.length, 'command-palette', open);
 

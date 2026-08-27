@@ -59,6 +59,7 @@ import {
   normalizeStudentAddress,
 } from '@/lib/addressValidation';
 import { formatFullName } from '@/lib/personName';
+import { fetchAllStudentPages } from '@/lib/studentsList';
 import {
   checkBulkUploadDates,
   categorizeBulkIssue,
@@ -319,13 +320,12 @@ export default function BulkUploadPage() {
     if (status !== 'authenticated') return;
     async function fetchUploadContext() {
       try {
-        const [cabinetRes, studentRes, schoolRes] = await Promise.all([
+        const [cabinetRes, studentPages, schoolRes] = await Promise.all([
           fetch('/api/cabinets'),
-          fetch('/api/students'),
+          fetchAllStudentPages(),
           fetch('/api/admin/schools'),
         ]);
         const cabinetsData = await cabinetRes.json();
-        const studentsData = await studentRes.json();
         const schoolsData = await schoolRes.json();
         const normalizedCabinets = (Array.isArray(cabinetsData) ? cabinetsData : []).map((cabinet: any) => ({
           ...cabinet,
@@ -335,13 +335,7 @@ export default function BulkUploadPage() {
             : [],
         }));
         setCabinets(normalizedCabinets);
-        if (!studentRes.ok || !Array.isArray(studentsData)) {
-          console.error('Failed to load existing students for duplicate checks', studentsData);
-          setExistingStudents([]);
-          setError('Could not load existing students for duplicate checks. Refresh before uploading.');
-        } else {
-          setExistingStudents(studentsData);
-        }
+        setExistingStudents(studentPages);
 
         // Find the agencyId for the user's school
         const userSchool = (session?.user as any)?.school || '';

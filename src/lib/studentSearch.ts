@@ -104,7 +104,7 @@ export function normalizeDobToIso(input: string): string | null {
   return null;
 }
 
-function escapeRegex(value: string) {
+export function escapeRegex(value: string) {
   return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 

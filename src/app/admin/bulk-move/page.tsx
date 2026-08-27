@@ -27,6 +27,7 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { formatFullName, formatFullNameLower } from '@/lib/personName';
+import { fetchAllStudentPages } from '@/lib/studentsList';
 
 type Student = {
   _id: string;
@@ -108,14 +109,11 @@ export default function BulkMovePage() {
     setError('');
 
     try {
-      const [studentRes, cabinetRes] = await Promise.all([
-        fetch('/api/students'),
+      const [studentData, cabinetRes] = await Promise.all([
+        fetchAllStudentPages(),
         fetch('/api/cabinets'),
       ]);
-      const [studentData, cabinetData] = await Promise.all([
-        studentRes.json(),
-        cabinetRes.json(),
-      ]);
+      const cabinetData = await cabinetRes.json();
 
       setStudents(Array.isArray(studentData) ? studentData : []);
       setCabinets(Array.isArray(cabinetData) ? cabinetData : []);

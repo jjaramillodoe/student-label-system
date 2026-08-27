@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { isStudentSearchQueryValid } from '@/lib/studentSearch';
 import { studentIsArchived } from '@/lib/cabinets';
 import { formatFullName } from '@/lib/personName';
+import { parseStudentsListResponse } from '@/lib/studentsList';
 import IntakeMatchCard, { type IntakeMatchStudent } from '@/components/IntakeMatchCard';
 import ReturningVisitHistory from '@/components/ReturningVisitHistory';
 import { Input } from '@/components/ui/input';
@@ -45,7 +46,7 @@ export default function IntakeReturningFinder({
     try {
       const res = await fetch(`/api/students?search=${encodeURIComponent(query)}&source=intake`);
       const data = await res.json();
-      setStudentSearchResults(Array.isArray(data) ? data.slice(0, 10) : []);
+      setStudentSearchResults(parseStudentsListResponse<ReturningStudent>(data).students.slice(0, 10));
     } catch {
       setStudentSearchResults([]);
     } finally {

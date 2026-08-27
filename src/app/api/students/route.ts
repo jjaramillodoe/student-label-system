@@ -2,8 +2,14 @@ import { NextRequest, NextResponse } from 'next/server';
 import clientPromise from '@/lib/mongodb';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/authOptions';
-import { buildStudentSearchOrConditions } from '@/lib/studentSearch';
+import { buildStudentSearchOrConditions, escapeRegex } from '@/lib/studentSearch';
 import { logSearchEvent } from '@/lib/searchAnalytics';
+import {
+  STUDENTS_LIST_CSV_MAX,
+  STUDENTS_LIST_DEFAULT_LIMIT,
+  STUDENTS_LIST_SEARCH_LIMIT,
+  clampStudentsListLimit,
+} from '@/lib/studentsList';
 import { ObjectId } from 'mongodb';
 import { cleanIdComponent, generateLabelId, resolveAgencyId, resolveStudentId } from '@/lib/studentId';
 import {
@@ -32,50 +38,157 @@ function isValidObjectId(id: string): boolean {
 export async function GET(req: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
-    const userRole = session?.user?.role;
-    const userSchool = session?.user?.school;
-    
-    const client = await clientPromise;
-    const db = client.db("student-label");
-    
-    // Admins can see all students, others are restricted to their school
-    const query: Record<string, any> = userRole === 'Admin' ? {} : { school: userSchool };
+    if (!session?.user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+    const userRole = session.user.role;
+    const userSchool = session.user.school;
 
-    // Optional date filter: ?since=ISO-string
-    const since = req.nextUrl.searchParams.get('since');
+    const searchParams = req.nextUrl.searchParams;
+    const search = searchParams.get('search')?.trim() || '';
+    const page = Math.max(1, parseInt(searchParams.get('page') || '1', 10) || 1);
+    const limitParam = searchParams.get('limit');
+    const defaultLimit = search && !limitParam ? STUDENTS_LIST_SEARCH_LIMIT : STUDENTS_LIST_DEFAULT_LIMIT;
+    const limit = clampStudentsListLimit(
+      limitParam ? parseInt(limitParam, 10) : defaultLimit,
+      defaultLimit,
+    );
+    const format = searchParams.get('format') || '';
+    const since = searchParams.get('since');
+    const createdByMe = searchParams.get('createdByMe');
+    const fiscalYear = searchParams.get('fiscalYear')?.trim() || '';
+    const status = searchParams.get('status')?.trim() || '';
+    const archived = searchParams.get('archived')?.trim() || '';
+    const cabinet = searchParams.get('cabinet')?.trim() || '';
+    const drawer = searchParams.get('drawer')?.trim() || '';
+    const email = searchParams.get('email')?.trim() || '';
+    const startDateFrom = searchParams.get('startDateFrom')?.trim() || '';
+    const startDateTo = searchParams.get('startDateTo')?.trim() || '';
+    const unprinted = searchParams.get('unprinted') === '1' || searchParams.get('unprinted') === 'true';
+
+    const client = await clientPromise;
+    const db = client.db('student-label');
+
+    const query: Record<string, unknown> = userRole === 'Admin' ? {} : { school: userSchool };
+
     if (since) {
       query.createdAt = { $gte: since };
     }
-
-    // Optional: only return records created by the current user
-    const createdByMe = req.nextUrl.searchParams.get('createdByMe');
-    if (createdByMe === 'true' && session?.user?.email) {
+    if (createdByMe === 'true' && session.user.email) {
       query['createdBy.email'] = session.user.email;
     }
-
-    // Optional text search across name, IDs, and DOB: ?search=...
-    const search = req.nextUrl.searchParams.get('search');
-    if (search && search.trim()) {
+    if (search) {
       const orConditions = buildStudentSearchOrConditions(search);
       if (orConditions.length > 0) {
         query.$or = orConditions;
       }
     }
+    if (fiscalYear && fiscalYear !== 'all') query.fiscalYear = fiscalYear;
+    if (status && status !== 'all') query.status = status;
+    if (archived === '0' || archived === 'false') {
+      query.archived = { $ne: true };
+    } else if (archived === '1' || archived === 'true') {
+      query.archived = true;
+    }
+    if (cabinet && cabinet !== 'all') query.cabinet = cabinet;
+    if (drawer && drawer !== 'all') query.drawer = drawer;
+    if (email) {
+      query.email = { $regex: escapeRegex(email), $options: 'i' };
+    }
+    if (startDateFrom) {
+      query.startDate = { ...(query.startDate as object || {}), $gte: startDateFrom };
+    }
+    if (startDateTo) {
+      query.startDate = { ...(query.startDate as object || {}), $lte: startDateTo };
+    }
 
-    const cursor = db.collection('students').find(query).sort({ createdAt: -1 });
-    if (search && search.trim()) cursor.limit(20);
-    const students = await cursor.toArray();
-    if (search && search.trim() && session) {
+    if (unprinted) {
+      const printMatch: Record<string, unknown> = {};
+      if (userRole !== 'Admin' && userSchool) {
+        printMatch['user.school'] = userSchool;
+      }
+      const rows = await db.collection('print_history').aggregate([
+        ...(Object.keys(printMatch).length ? [{ $match: printMatch }] : []),
+        { $unwind: { path: '$students', preserveNullAndEmptyArrays: false } },
+        {
+          $group: {
+            _id: null,
+            studentIds: { $addToSet: '$students.studentId' },
+            labelIds: { $addToSet: '$students.labelId' },
+          },
+        },
+      ]).toArray();
+      const printed = [
+        ...((rows[0]?.studentIds as unknown[]) || []),
+        ...((rows[0]?.labelIds as unknown[]) || []),
+      ]
+        .map((v) => (typeof v === 'string' ? v.trim() : ''))
+        .filter(Boolean);
+      if (printed.length > 0) {
+        query.$nor = [
+          { labelId: { $in: printed } },
+          { studentId: { $in: printed } },
+        ];
+      }
+      query.archived = { $ne: true };
+    }
+
+    const { byCabinetId } = await loadCabinetDrawerLookup(db);
+
+    if (format === 'csv') {
+      const rows = await db.collection('students')
+        .find(query)
+        .sort({ createdAt: -1 })
+        .limit(STUDENTS_LIST_CSV_MAX)
+        .toArray();
+      const enriched = enrichStudentsWithCabinetNames(rows, byCabinetId);
+      const header = [
+        'labelId', 'studentId', 'firstName', 'lastName', 'dob', 'school', 'status',
+        'fiscalYear', 'cabinetName', 'drawerName', 'email', 'createdAt',
+      ];
+      const lines = [header.join(',')];
+      for (const r of enriched as Array<Record<string, unknown>>) {
+        lines.push(header.map((key) => {
+          const v = r[key];
+          const s = v == null ? '' : String(v);
+          return s.includes(',') || s.includes('"') || s.includes('\n')
+            ? `"${s.replace(/"/g, '""')}"`
+            : s;
+        }).join(','));
+      }
+      return new NextResponse(lines.join('\n'), {
+        status: 200,
+        headers: {
+          'Content-Type': 'text/csv',
+          'Content-Disposition': `attachment; filename="students-${new Date().toISOString().slice(0, 10)}.csv"`,
+        },
+      });
+    }
+
+    const total = await db.collection('students').countDocuments(query);
+    const students = await db.collection('students')
+      .find(query)
+      .sort({ createdAt: -1 })
+      .skip((page - 1) * limit)
+      .limit(limit)
+      .toArray();
+
+    if (search && page === 1 && session) {
       void logSearchEvent({
         query: search,
-        resultCount: students.length,
-        source: req.nextUrl.searchParams.get('source') || 'lookup',
+        resultCount: total,
+        source: searchParams.get('source') || 'lookup',
         school: userSchool || null,
         role: userRole || null,
       });
     }
-    const { byCabinetId } = await loadCabinetDrawerLookup(db);
-    return NextResponse.json(enrichStudentsWithCabinetNames(students, byCabinetId));
+
+    return NextResponse.json({
+      students: enrichStudentsWithCabinetNames(students, byCabinetId),
+      total,
+      page,
+      limit,
+    });
   } catch (error) {
     console.error('Error fetching students:', error);
     return NextResponse.json({ error: 'Failed to fetch students' }, { status: 500 });

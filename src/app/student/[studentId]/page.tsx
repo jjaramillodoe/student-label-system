@@ -3,8 +3,8 @@
 import { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import {
-  User, Calendar, BookOpen, Archive, Layers, School,
-  Phone, Tag, ClipboardList, ArrowLeft, Printer, Users, Boxes, MapPin,
+  Calendar, BookOpen, Archive, Layers, School,
+  Tag, ArrowLeft, Printer, Users, Boxes, MapPin,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -17,27 +17,24 @@ interface StudentDetail {
   labelId?: string;
   /** Demographic ID: {LASTNAME}{FIRSTNAME}{AGENCYID}{DOBDIGITS} */
   studentId?: string;
-  agencyId?: string;
   firstName: string;
   lastName: string;
   dob: string;
   school?: string;
-  cabinetName?: string;
-  drawerName?: string;
-  archiveBoxLabel?: string;
-  archiveLocation?: string;
-  archiveSchoolYear?: string;
-  archiveBoxId?: string;
+  cabinet?: string;
+  drawer?: string;
+  cabinetName?: string | null;
+  drawerName?: string | null;
+  archiveBoxLabel?: string | null;
+  archiveLocation?: string | null;
+  archiveSchoolYear?: string | null;
+  archiveBoxId?: string | null;
   archived?: boolean;
   status?: string;
-  phone?: string;
-  gender?: string;
   program?: string;
-  notes?: string;
   siblingFlag?: boolean;
   siblingConfirmed?: boolean;
   siblings?: Array<{ _id: string; firstName: string; lastName: string; labelId?: string; studentId?: string }>;
-  createdAt?: string;
 }
 
 function Field({ icon: Icon, label, value }: { icon: React.ElementType; label: string; value?: string | null }) {
@@ -228,30 +225,8 @@ export default function StudentDetailPage() {
             </>
           )}
           <Field icon={BookOpen}     label="Program"        value={student.program} />
-          <Field icon={User}         label="Gender"         value={student.gender} />
-          <Field icon={Phone}        label="Phone"          value={student.phone} />
           <Field icon={Tag}  label="Label ID"    value={student.labelId} />
           <Field icon={Tag}  label="Student ID"  value={student.studentId} />
-          {student.createdAt && (
-            <Field
-              icon={ClipboardList}
-              label="Registered"
-              value={new Date(student.createdAt).toLocaleDateString('en-US', {
-                year: 'numeric', month: 'long', day: 'numeric',
-              })}
-            />
-          )}
-          {student.notes && (
-            <div className="flex items-start gap-3 py-3">
-              <div className="mt-0.5 text-blue-500 shrink-0">
-                <ClipboardList size={18} />
-              </div>
-              <div>
-                <p className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">Notes</p>
-                <p className="text-sm text-gray-800 dark:text-gray-200 mt-0.5 whitespace-pre-line">{student.notes}</p>
-              </div>
-            </div>
-          )}
         </div>
 
         {/* Footer note */}

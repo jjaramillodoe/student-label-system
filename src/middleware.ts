@@ -3,6 +3,10 @@ import type { NextRequest } from 'next/server';
 import { getToken } from 'next-auth/jwt';
 import { isAllowedByNyGeoWall } from '@/lib/geoRestrict';
 import {
+  isIntakeMemberApiAllowed,
+  isIntakeMemberPageAllowed,
+} from '@/lib/intakeMemberAccess';
+import {
   extractTenantSlugFromHost,
   getTenantRootDomain,
   TENANT_ROOT_HEADER,
@@ -117,15 +121,16 @@ export async function middleware(req: NextRequest) {
     );
   }
 
-  // Intake Members: keep them on intake / profile / docs / public pages
-  if (token.role === 'Intake Member' && !path.startsWith('/api')) {
-    const allowed =
-      path.startsWith('/intake') ||
-      path.startsWith('/profile') ||
-      path.startsWith('/docs') ||
-      path.startsWith('/student') ||
-      path.startsWith('/archive');
-    if (!allowed) {
+  // Intake Members: intake / profile / docs / public pages, plus an API allowlist
+  if (token.role === 'Intake Member') {
+    if (path.startsWith('/api')) {
+      if (!isIntakeMemberApiAllowed(path, req.method)) {
+        return NextResponse.json(
+          { error: 'Forbidden — Intake Members cannot access this API.' },
+          { status: 403 },
+        );
+      }
+    } else if (!isIntakeMemberPageAllowed(path)) {
       return withTenantHeaders(
         NextResponse.redirect(new URL('/intake', req.url)),
       );

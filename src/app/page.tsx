@@ -28,8 +28,9 @@ import { Button } from '@/components/ui/button';
 import { extractStudentIdFromQrPayload } from '@/lib/qrPayload';
 import { useLogStudentSearch } from '@/lib/useLogStudentSearch';
 import { downloadCsvFile, objectsToCsv } from '@/lib/csv';
+import { fetchAllStudentPages, parseStudentsListResponse } from '@/lib/studentsList';
 import { getStoredPrintLayout, setStoredPrintLayout } from '@/lib/printLayoutStorage';
-import { formatFullName, formatFullNameLower } from '@/lib/personName';
+import { formatFullName } from '@/lib/personName';
 
 const FISCAL_YEAR_OPTIONS = [
   '2024-2025', '2025-2026', '2026-2027', '2027-2028'
@@ -63,6 +64,10 @@ function Dashboard() {
   const searchParams = useSearchParams();
   const userRole = (session?.user as any)?.role;
   const [students, setStudents] = useState<Student[]>([]);
+  const [totalStudents, setTotalStudents] = useState(0);
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
+  const [selectedById, setSelectedById] = useState<Record<string, Student>>({});
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
@@ -112,7 +117,6 @@ function Dashboard() {
       router.push('/intake');
       return;
     }
-    fetchStudents();
     fetchCabinets();
     fetchPrintedIds();
   }, [status, session, router]);
@@ -157,14 +161,42 @@ function Dashboard() {
     setError("");
     try {
       if (status !== 'authenticated') return;
-      const res = await fetch("/api/students");
+      const params = buildStudentListParams();
+      params.set('page', String(page));
+      params.set('limit', String(pageSize));
+      const res = await fetch(`/api/students?${params.toString()}`);
       const data = await res.json();
-      setStudents(data);
+      if (!res.ok) {
+        setError(data.error || "Failed to fetch students");
+        setStudents([]);
+        setTotalStudents(0);
+        return;
+      }
+      const parsed = parseStudentsListResponse<Student>(data);
+      setStudents(parsed.students);
+      setTotalStudents(parsed.total);
     } catch (err) {
       setError("Failed to fetch students");
     } finally {
       setLoading(false);
     }
+  }
+
+  function buildStudentListParams() {
+    const params = new URLSearchParams();
+    const q = extractStudentIdFromQrPayload(search).trim();
+    if (q) params.set('search', q);
+    if (filterYear && filterYear !== 'all') params.set('fiscalYear', filterYear);
+    if (filterStatus && filterStatus !== 'all') params.set('status', filterStatus);
+    if (!showArchived) params.set('archived', '0');
+    if (needsLabelMode) params.set('unprinted', '1');
+    if (advancedFilters.startDate) params.set('startDateFrom', advancedFilters.startDate);
+    if (advancedFilters.endDate) params.set('startDateTo', advancedFilters.endDate);
+    if (advancedFilters.cabinet && advancedFilters.cabinet !== 'all') params.set('cabinet', advancedFilters.cabinet);
+    if (advancedFilters.drawer && advancedFilters.drawer !== 'all') params.set('drawer', advancedFilters.drawer);
+    if (advancedFilters.email) params.set('email', advancedFilters.email);
+    params.set('source', 'dashboard');
+    return params;
   }
 
   async function fetchCabinets() {
@@ -274,59 +306,33 @@ function Dashboard() {
     );
   }
 
-  // CSV Export
-  function handleExportCsv() {
-    downloadCsvFile('students.csv', objectsToCsv(students.map(({ _id, ...rest }) => rest)));
+  // CSV Export — current filters, not just the visible page
+  async function handleExportCsv() {
+    try {
+      const params = buildStudentListParams();
+      params.set('format', 'csv');
+      const res = await fetch(`/api/students?${params.toString()}`);
+      if (!res.ok) {
+        setError('Failed to export students');
+        return;
+      }
+      const csv = await res.text();
+      const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'students.csv';
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch {
+      setError('Failed to export students');
+    }
   }
 
-  // Get unique fiscal years and statuses for dropdowns
-  const fiscalYears = Array.from(new Set(students.map(s => s.fiscalYear).filter(Boolean)));
-  const statuses = Array.from(new Set(students.map(s => s.status).filter(Boolean)));
+  const fiscalYears = FISCAL_YEAR_OPTIONS;
+  const statuses = STATUS_OPTIONS;
 
-  // Filtered students
-  const filteredStudents = students.filter(student => {
-    if (!showArchived && student.archived) return false;
-    const normalizedSearch = extractStudentIdFromQrPayload(search).toLowerCase().trim();
-    const dobDigits = (student.dob || '').replace(/[^0-9]/g, '');
-    const searchDigits = normalizedSearch.replace(/[^0-9]/g, '');
-    const matchesSearch = normalizedSearch ? (
-      (student.firstName?.toLowerCase() || '').includes(normalizedSearch) ||
-      (student.lastName?.toLowerCase() || '').includes(normalizedSearch) ||
-      formatFullNameLower(student).includes(normalizedSearch) ||
-      (student.studentId?.toLowerCase() || '').includes(normalizedSearch) ||
-      (student.labelId?.toLowerCase() || '').includes(normalizedSearch) ||
-      (student.dob?.toLowerCase() || '').includes(normalizedSearch) ||
-      (searchDigits.length >= 4 && dobDigits.includes(searchDigits))
-    ) : true;
-    const matchesYear = filterYear && filterYear !== 'all' ? student.fiscalYear === filterYear : true;
-    const matchesStatus = filterStatus && filterStatus !== 'all' ? student.status === filterStatus : true;
-
-    // Needs label: never appeared in print history (any time)
-    let matchesNeedsLabel = true;
-    if (needsLabelMode) {
-      const keys = [student.labelId, student.studentId].filter(Boolean) as string[];
-      const alreadyPrinted = keys.length > 0 && keys.some(k => printedIds.has(k));
-      matchesNeedsLabel = !alreadyPrinted && !student.archived;
-    }
-    
-    // Advanced filters
-    const matchesStartDate = advancedFilters.startDate ? 
-      student.startDate >= advancedFilters.startDate : true;
-    const matchesEndDate = advancedFilters.endDate ? 
-      student.startDate <= advancedFilters.endDate : true;
-    const matchesCabinet = advancedFilters.cabinet && advancedFilters.cabinet !== 'all' ? 
-      student.cabinet === advancedFilters.cabinet : true;
-    const matchesDrawer = advancedFilters.drawer && advancedFilters.drawer !== 'all' ? 
-      student.drawer === advancedFilters.drawer : true;
-    const matchesEmail = advancedFilters.email ? 
-      (student.email?.toLowerCase() || '').includes(advancedFilters.email.toLowerCase()) : true;
-    
-    return matchesSearch && matchesYear && matchesStatus && matchesNeedsLabel &&
-           matchesStartDate && matchesEndDate && matchesCabinet && 
-           matchesDrawer && matchesEmail;
-  });
-
-  useLogStudentSearch(search, filteredStudents.length, 'dashboard');
+  useLogStudentSearch(search, totalStudents, 'dashboard');
 
   const hasActiveFilters = Boolean(
     search ||
@@ -354,38 +360,60 @@ function Dashboard() {
     });
   }
 
-  // Pagination logic
-  const [page, setPage] = useState(1);
-  const [pageSize, setPageSize] = useState(10);
-  const pageCount = Math.ceil(filteredStudents.length / pageSize);
-  const paginatedStudents = filteredStudents.slice((page - 1) * pageSize, page * pageSize);
+  const pageCount = Math.max(1, Math.ceil(totalStudents / pageSize));
+  const paginatedStudents = students;
 
-  // Handle selection
   function toggleSelect(id: string) {
+    const student = students.find(s => s._id === id) || selectedById[id];
     setSelectedIds((prev) => prev.includes(id) ? prev.filter(_id => _id !== id) : [...prev, id]);
+    setSelectedById((prev) => {
+      if (prev[id]) {
+        const next = { ...prev };
+        delete next[id];
+        return next;
+      }
+      if (!student) return prev;
+      return { ...prev, [id]: student };
+    });
   }
-  // Select / deselect only the CURRENT PAGE (not all filtered records)
+
   function selectAll() {
-    const pageIds = paginatedStudents.map(s => s._id!);
+    const pageIds = paginatedStudents.map(s => s._id!).filter(Boolean);
     const allPageSelected = pageIds.length > 0 && pageIds.every(id => selectedIds.includes(id));
     if (allPageSelected) {
-      // Deselect this page but keep any other pages' selections
       setSelectedIds(prev => prev.filter(id => !pageIds.includes(id)));
+      setSelectedById(prev => {
+        const next = { ...prev };
+        for (const id of pageIds) delete next[id];
+        return next;
+      });
     } else {
-      // Add this page to the selection (union, no duplicates)
       setSelectedIds(prev => [...new Set([...prev, ...pageIds])]);
+      setSelectedById(prev => {
+        const next = { ...prev };
+        for (const s of paginatedStudents) {
+          if (s._id) next[s._id] = s;
+        }
+        return next;
+      });
     }
   }
-  // Header checkbox reflects current PAGE state, not all filtered
+
   const allPageSelected = paginatedStudents.length > 0 && paginatedStudents.every(s => selectedIds.includes(s._id!));
   const somePageSelected = paginatedStudents.some(s => selectedIds.includes(s._id!)) && !allPageSelected;
-  const selectedStudents = filteredStudents.filter(s => selectedIds.includes(s._id!));
+  const selectedStudents = selectedIds.map(id => selectedById[id]).filter(Boolean);
 
-  // Print history + stock decrement happen after the user confirms labels printed
-  // (see PrintView) — not when the preview opens or the Word file merely downloads.
+  useEffect(() => { setPage(1); }, [search, filterYear, filterStatus, pageSize, showArchived, needsLabelMode, advancedFilters]);
 
-  // Reset to page 1 when filters/search change
-  useEffect(() => { setPage(1); }, [search, filterYear, filterStatus, pageSize]);
+  useEffect(() => {
+    if (status !== 'authenticated') return;
+    if (userRole === 'Intake Member') return;
+    const timer = window.setTimeout(() => {
+      fetchStudents();
+    }, 300);
+    return () => window.clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [status, page, pageSize, search, filterYear, filterStatus, showArchived, needsLabelMode, advancedFilters]);
 
   // Undo delete
   function handleUndoDelete() {
@@ -817,7 +845,7 @@ function Dashboard() {
           />
           <StudentActionsBar
             selectedCount={selectedIds.length}
-            filteredCount={filteredStudents.length}
+            filteredCount={totalStudents}
             userRole={userRole}
             printLayout={printLayout}
             onExportCsv={handleExportCsv}
@@ -829,9 +857,18 @@ function Dashboard() {
               setShowPrintPreview(true);
               setPrintMode(true);
             }}
-            onPrintAllFiltered={() => {
-              const allFilteredIds = filteredStudents.map(s => s._id!);
-              setSelectedIds(allFilteredIds);
+            onPrintAllFiltered={async () => {
+              const all = await fetchAllStudentPages<Student>(buildStudentListParams());
+              const byId: Record<string, Student> = {};
+              const ids: string[] = [];
+              for (const s of all) {
+                if (s._id) {
+                  ids.push(s._id);
+                  byId[s._id] = s;
+                }
+              }
+              setSelectedIds(ids);
+              setSelectedById(byId);
               setShowPrintPreview(true);
               setPrintMode(true);
             }}
@@ -867,7 +904,7 @@ function Dashboard() {
               Show Archived
             </label>
           </div>
-          {filteredStudents.length === 0 && !loading ? (
+          {totalStudents === 0 && !loading ? (
             <StudentEmptyState
               userRole={userRole}
               hasActiveFilters={hasActiveFilters}
@@ -892,7 +929,7 @@ function Dashboard() {
           )}
           
           {/* Pagination Controls */}
-          {filteredStudents.length > 0 && (
+          {totalStudents > 0 && (
             <div className="mt-6 flex flex-col sm:flex-row justify-between items-center gap-4">
               <div className="flex items-center gap-4">
                 <div className="flex items-center gap-2">
@@ -909,12 +946,11 @@ function Dashboard() {
                     <option value={25}>25</option>
                     <option value={50}>50</option>
                     <option value={100}>100</option>
-                    <option value={filteredStudents.length}>All ({filteredStudents.length})</option>
                   </select>
                   <span className="text-sm text-muted-foreground">per page</span>
                 </div>
                 <div className="text-sm text-muted-foreground">
-                  Showing {((page - 1) * pageSize) + 1} to {Math.min(page * pageSize, filteredStudents.length)} of {filteredStudents.length} students
+                  Showing {((page - 1) * pageSize) + 1} to {Math.min(page * pageSize, totalStudents)} of {totalStudents} students
                 </div>
               </div>
               

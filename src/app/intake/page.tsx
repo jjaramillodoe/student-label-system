@@ -62,6 +62,7 @@ import {
 } from '@/components/IntakeSuccessView';
 import { annotateAssistsSearchMatches } from '@/lib/intakeMatchAnnotate';
 import { formatFullName } from '@/lib/personName';
+import { parseStudentsListResponse } from '@/lib/studentsList';
 import {
   buildIntakeDuplicateAlertMessage,
   stackedAddressForAlert,
@@ -385,9 +386,10 @@ export default function IntakePage() {
       }
       const params = new URLSearchParams({ since });
       if (scope === 'mine') params.set('createdByMe', 'true');
+      params.set('limit', '200');
       const res = await fetch(`/api/students?${params.toString()}`);
       const data = await res.json();
-      setHistoryStudents(Array.isArray(data) ? data : []);
+      setHistoryStudents(parseStudentsListResponse(data).students);
     } catch {
       setHistoryStudents([]);
     } finally {
@@ -591,7 +593,7 @@ export default function IntakePage() {
       ]);
       const liveData = await liveRes.json();
       const legacyData = legacyRes.ok ? await legacyRes.json() : { results: [] };
-      const liveRaw = Array.isArray(liveData) ? liveData.slice(0, 12) : [];
+      const liveRaw = parseStudentsListResponse(liveData).students.slice(0, 12);
       const legacyRaw = Array.isArray(legacyData.results) ? legacyData.results.slice(0, 12) : [];
       const live = annotateAssistsSearchMatches(liveRaw, q);
       const legacy = annotateAssistsSearchMatches(legacyRaw, q);
@@ -671,7 +673,7 @@ export default function IntakePage() {
       ]);
       const liveData = await liveRes.json();
       const legacyData = legacyRes.ok ? await legacyRes.json() : { results: [] };
-      const live = Array.isArray(liveData) ? liveData.slice(0, 12) : [];
+      const live = parseStudentsListResponse(liveData).students.slice(0, 12);
       const legacy = Array.isArray(legacyData.results) ? legacyData.results.slice(0, 12) : [];
       setSchoolLookupResults([...live, ...legacy]);
       setSchoolLookupDone(true);
