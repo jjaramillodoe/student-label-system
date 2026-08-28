@@ -7,7 +7,7 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint --max-warnings=0 src/lib/studentId.ts src/lib/mergeFields.ts src/lib/authLockout.ts src/lib/studentSearch.ts src/lib/studentAccess.ts src/lib/intakeMemberAccess.ts src/lib/publicStudentLookup.ts src/lib/studentsList.ts src/lib/authSecurity.ts src/lib/mongodb.ts src/lib/printStudents.ts src/lib/secretCompare.ts src/lib/requireSession.ts src/lib/rateLimit.ts src/lib/studentIndexes.ts src/lib/destructiveHttp.ts src/lib/publicArchiveBox.ts src/lib/syncAuth.ts src/lib/adminScan.ts src/lib/studentOptions.ts src/lib/mongoTransaction.ts src/lib/appLog.ts src/lib/passwordPolicy.ts src/lib/allowedUsers.ts src/lib/loadPublicStudent.ts src/lib/loadPublicArchiveBox.ts src/lib/userTableSort.ts src/lib/useDarkMode.ts src/middleware.ts \"src/lib/*.test.ts\"",
+    "lint": "eslint --max-warnings=0 src/lib/studentId.ts src/lib/mergeFields.ts src/lib/authLockout.ts src/lib/studentSearch.ts src/lib/studentAccess.ts src/lib/intakeMemberAccess.ts src/lib/publicStudentLookup.ts src/lib/studentsList.ts src/lib/authSecurity.ts src/lib/mongodb.ts src/lib/printStudents.ts src/lib/secretCompare.ts src/lib/requireSession.ts src/lib/rateLimit.ts src/lib/studentIndexes.ts src/lib/destructiveHttp.ts src/lib/publicArchiveBox.ts src/lib/syncAuth.ts src/lib/adminScan.ts src/lib/studentOptions.ts src/lib/mongoTransaction.ts src/lib/appLog.ts src/lib/passwordPolicy.ts src/lib/allowedUsers.ts src/lib/loadPublicStudent.ts src/lib/loadPublicArchiveBox.ts src/lib/userTableSort.ts src/lib/useDarkMode.ts src/lib/navConfig.ts src/middleware.ts \"src/lib/*.test.ts\"",
     "lint:all": "eslint .",
     "test": "vitest run",
     "test:watch": "vitest",

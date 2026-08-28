@@ -9,8 +9,7 @@ import { developerCreditShort } from '@/lib/credits';
 export default function Footer() {
   const pathname = usePathname() || '';
   if (
-    pathname.startsWith('/intake')
-    || pathname.startsWith('/student')
+    pathname.startsWith('/student')
     || pathname.startsWith('/archive')
     || pathname.startsWith('/auth')
     || pathname.startsWith('/docs')

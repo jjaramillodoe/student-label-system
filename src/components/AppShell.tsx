@@ -9,14 +9,8 @@ import AppTopBar from '@/components/AppTopBar';
 import Footer from '@/components/Footer';
 import { useAppSettings } from '@/lib/useAppSettings';
 import { useDarkMode } from '@/lib/useDarkMode';
-import { canUseAppShell } from '@/lib/navConfig';
+import { canUseAppShell, shouldUseAppShell } from '@/lib/navConfig';
 import { cn } from '@/lib/utils';
-
-const NO_SHELL_PREFIXES = ['/auth', '/intake', '/student', '/archive', '/docs'];
-
-function shouldUseShell(pathname: string): boolean {
-  return !NO_SHELL_PREFIXES.some((prefix) => pathname.startsWith(prefix));
-}
 
 export default function AppShell({ children }: { children: React.ReactNode }) {
   const { data: session, status } = useSession();
@@ -28,8 +22,8 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   const [collapsed, setCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
 
-  const useShell = shouldUseShell(pathname);
   const role = session?.user?.role;
+  const useShell = shouldUseAppShell(pathname, role);
   const shellEligible = canUseAppShell(role);
 
   useEffect(() => {
@@ -57,6 +51,15 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
       router.push('/intake');
     }
   }, [useShell, status, role, router]);
+
+  if (pathname.startsWith('/intake') && status === 'loading') {
+    return (
+      <div className="min-h-screen flex items-center justify-center text-muted-foreground gap-2">
+        <Loader2 className="h-5 w-5 animate-spin" />
+        Loading…
+      </div>
+    );
+  }
 
   // Fullscreen / kiosk-style routes keep their own chrome
   if (!useShell) {

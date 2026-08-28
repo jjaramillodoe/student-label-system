@@ -135,6 +135,15 @@ export function canUseAppShell(role?: string | null): boolean {
   return SHELL_ROLES.includes(role as NavRole);
 }
 
+const NO_SHELL_PREFIXES = ['/auth', '/student', '/archive', '/docs'];
+
+/** Full sidebar + top bar. Intake uses the shell for staff only; Intake Members stay kiosk. */
+export function shouldUseAppShell(pathname: string, role?: string | null): boolean {
+  if (NO_SHELL_PREFIXES.some((prefix) => pathname.startsWith(prefix))) return false;
+  if (pathname.startsWith('/intake')) return canUseAppShell(role);
+  return true;
+}
+
 export function isNavItemVisible(
   item: NavItem,
   role?: string | null,

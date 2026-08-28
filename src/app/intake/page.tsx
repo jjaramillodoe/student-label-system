@@ -3,9 +3,9 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
-import Link from 'next/link';
 import GoogleTranslate from '@/components/GoogleTranslate';
 import AppTopBar from '@/components/AppTopBar';
+import PageIntro from '@/components/PageIntro';
 import { canUseAppShell } from '@/lib/navConfig';
 import { useDarkMode } from '@/lib/useDarkMode';
 import { isStudentSearchQueryValid, parseStudentSearchQuery } from '@/lib/studentSearch';
@@ -47,7 +47,7 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
   UserPlus, AlertCircle, CheckCircle2, RotateCcw,
-  Loader2, ClipboardList, ArrowLeft,
+  Loader2, ClipboardList,
   Clock, Users, Copy, Check, ExternalLink,
   Info, List,
 } from 'lucide-react';
@@ -1003,44 +1003,38 @@ export default function IntakePage() {
     setAddressVerification(null);
   }
 
-  const staffCanOpenDashboard = canUseAppShell(session?.user?.role);
+  const inAppShell = canUseAppShell(session?.user?.role);
 
-  const intakeTopBar = (showReset: boolean) => (
+  const intakeActions = (showReset: boolean) => (
+    <>
+      {showReset && (
+        <Button
+          variant="outline"
+          size={inAppShell ? 'default' : 'sm'}
+          onClick={resetForm}
+          disabled={submitting || cabinetsLoading}
+          className="gap-1.5"
+          aria-label="Reset intake form"
+        >
+          <RotateCcw className="h-4 w-4" />
+          <span className={inAppShell ? undefined : 'hidden sm:inline'}>Reset</span>
+        </Button>
+      )}
+      <GoogleTranslate />
+    </>
+  );
+
+  const intakeKioskBar = (showReset: boolean) => (
     <AppTopBar
       user={session?.user}
       darkMode={darkMode}
       onToggleDarkMode={() => setDarkMode((d) => !d)}
       showMobileNav={false}
-      showCommandPalette={staffCanOpenDashboard}
+      showCommandPalette={false}
       eyebrow="Front desk"
       title="Student Intake"
       subtitle={session?.user?.school || null}
-      leading={staffCanOpenDashboard ? (
-        <Button variant="outline" size="sm" asChild className="shrink-0 gap-1.5">
-          <Link href="/" aria-label="Back to dashboard">
-            <ArrowLeft className="h-4 w-4" />
-            <span className="hidden sm:inline">Dashboard</span>
-          </Link>
-        </Button>
-      ) : undefined}
-      actions={(
-        <>
-          {showReset && (
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={resetForm}
-              disabled={submitting || cabinetsLoading}
-              className="gap-1.5"
-              aria-label="Reset intake form"
-            >
-              <RotateCcw className="h-4 w-4" />
-              <span className="hidden sm:inline">Reset</span>
-            </Button>
-          )}
-          <GoogleTranslate />
-        </>
-      )}
+      actions={intakeActions(showReset)}
     />
   );
 
@@ -1070,9 +1064,12 @@ export default function IntakePage() {
     }
 
     return (
-      <div className="min-h-screen bg-gradient-to-b from-emerald-50 via-background to-background dark:from-emerald-950/30 dark:via-background dark:to-background flex flex-col">
-        {intakeTopBar(false)}
-        <div className="flex-1 flex flex-col items-center justify-center p-6 gap-6">
+      <div className={inAppShell
+        ? 'flex flex-col items-center justify-center py-8 gap-6'
+        : 'min-h-screen bg-gradient-to-b from-emerald-50 via-background to-background dark:from-emerald-950/30 dark:via-background dark:to-background flex flex-col'}
+      >
+        {!inAppShell && intakeKioskBar(false)}
+        <div className={inAppShell ? 'contents' : 'flex-1 flex flex-col items-center justify-center p-6 gap-6'}>
         <div className="flex flex-col items-center gap-3 text-center ui-enter">
           <div className="flex h-14 w-14 items-center justify-center rounded-2xl border border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-300 shadow-sm">
             <CheckCircle2 className="h-7 w-7" />
@@ -1192,10 +1189,24 @@ export default function IntakePage() {
 
   // ── INTAKE FORM ─────────────────────────────────────────────────────────────
   return (
-    <div className="min-h-screen bg-gradient-to-b from-muted/40 via-background to-background">
-      {intakeTopBar(activeTab === 'register')}
+    <div className={inAppShell ? 'space-y-5' : 'min-h-screen bg-gradient-to-b from-muted/40 via-background to-background'}>
+      {inAppShell ? (
+        <PageIntro
+          eyebrow="Front desk"
+          title="Student Intake"
+          description={
+            session?.user?.school
+              ? `${session.user.school}. Register new and returning students at the front desk.`
+              : 'Register new and returning students at the front desk.'
+          }
+          icon={<UserPlus className="h-5 w-5 text-primary" />}
+          actions={intakeActions(activeTab === 'register')}
+        />
+      ) : (
+        intakeKioskBar(activeTab === 'register')
+      )}
 
-      <div className="w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8 space-y-5">
+      <div className={inAppShell ? 'space-y-5' : 'w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8 space-y-5'}>
         <IntakeIssuesBanner
           reviewHref="/intake"
           refreshToken={issuesRefresh}
