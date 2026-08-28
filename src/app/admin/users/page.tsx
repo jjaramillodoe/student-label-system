@@ -1,9 +1,9 @@
 "use client";
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import Link from 'next/link';
-import { Plus, Edit2, Trash2, Search, Mail, Shield, Loader2, AlertCircle, Users as UsersIcon, ArrowRightLeft, Eye, EyeOff, KeyRound, ShieldOff, ShieldCheck, Upload, MoreHorizontal } from 'lucide-react';
+import { Plus, Edit2, Trash2, Search, Mail, Shield, Loader2, AlertCircle, Users as UsersIcon, ArrowRightLeft, Eye, EyeOff, KeyRound, ShieldOff, ShieldCheck, Upload, MoreHorizontal, ArrowUpDown, ArrowUp, ArrowDown } from 'lucide-react';
 import PageIntro from '@/components/PageIntro';
 import BulkUploadUsersDialog from '@/components/BulkUploadUsersDialog';
 import { Input } from '@/components/ui/input';
@@ -48,6 +48,12 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { DEFAULT_INTAKE_SESSIONS } from '@/lib/intakeDefaults';
 import { intakeSessionNames, normalizeIntakeSessions } from '@/lib/intakeSession';
+import {
+  nextUserSort,
+  sortUsers,
+  type UserSortColumn,
+  type UserSortDirection,
+} from '@/lib/userTableSort';
 
 interface User {
   _id: string;
@@ -142,6 +148,8 @@ export default function UsersPage() {
   const [editingUser, setEditingUser] = useState<User | null>(null);
   const [securityUser, setSecurityUser] = useState<User | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
+  const [sortColumn, setSortColumn] = useState<UserSortColumn | null>('name');
+  const [sortDirection, setSortDirection] = useState<UserSortDirection | null>('asc');
   const [form, setForm] = useState(EMPTY_FORM);
   const [securityPassword, setSecurityPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -411,12 +419,66 @@ export default function UsersPage() {
     setShowSecurityPassword(false);
   };
 
-  const filteredUsers = users.filter(user => 
-    user.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    user.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    user.role.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    (user.school && user.school.toLowerCase().includes(searchTerm.toLowerCase()))
+  const filteredUsers = useMemo(() => {
+    const q = searchTerm.toLowerCase();
+    return users.filter((user) =>
+      user.name.toLowerCase().includes(q) ||
+      user.email.toLowerCase().includes(q) ||
+      user.role.toLowerCase().includes(q) ||
+      (user.school && user.school.toLowerCase().includes(q))
+    );
+  }, [users, searchTerm]);
+
+  const displayedUsers = useMemo(
+    () => sortUsers(filteredUsers, sortColumn, sortDirection),
+    [filteredUsers, sortColumn, sortDirection],
   );
+
+  const handleSort = (column: UserSortColumn) => {
+    const next = nextUserSort(sortColumn, sortDirection, column);
+    setSortColumn(next.column);
+    setSortDirection(next.direction);
+  };
+
+  const SortIcon = ({ column }: { column: UserSortColumn }) => {
+    if (sortColumn !== column) {
+      return <ArrowUpDown className="h-3 w-3 ml-1 text-muted-foreground opacity-50" aria-hidden />;
+    }
+    if (sortDirection === 'asc') {
+      return <ArrowUp className="h-3 w-3 ml-1 text-primary" aria-hidden />;
+    }
+    return <ArrowDown className="h-3 w-3 ml-1 text-primary" aria-hidden />;
+  };
+
+  const SortableHead = ({
+    column,
+    label,
+    children,
+  }: {
+    column: UserSortColumn;
+    label: string;
+    children: React.ReactNode;
+  }) => {
+    const ariaSort =
+      sortColumn !== column || !sortDirection
+        ? 'none'
+        : sortDirection === 'asc'
+          ? 'ascending'
+          : 'descending';
+    return (
+      <TableHead aria-sort={ariaSort}>
+        <button
+          type="button"
+          className="flex w-full items-center gap-1 hover:bg-muted/70 transition-colors select-none rounded-sm -mx-1 px-1 py-0.5 text-left"
+          onClick={() => handleSort(column)}
+          aria-label={`Sort by ${label}`}
+        >
+          {children}
+          <SortIcon column={column} />
+        </button>
+      </TableHead>
+    );
+  };
 
   const schoolOptions = Array.from(new Set([
     ...configuredSchools.filter(school => school.active).map(school => school.name),
@@ -516,16 +578,16 @@ export default function UsersPage() {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>User</TableHead>
-                  <TableHead>Role</TableHead>
-                  <TableHead>School</TableHead>
-                  <TableHead>Created</TableHead>
-                  <TableHead>Last Login</TableHead>
+                  <SortableHead column="name" label="name">User</SortableHead>
+                  <SortableHead column="role" label="role">Role</SortableHead>
+                  <SortableHead column="school" label="school">School</SortableHead>
+                  <SortableHead column="createdAt" label="created date">Created</SortableHead>
+                  <SortableHead column="lastLogin" label="last login">Last Login</SortableHead>
                   <TableHead className="text-right">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filteredUsers.length === 0 ? (
+                {displayedUsers.length === 0 ? (
                   <TableRow>
                     <TableCell colSpan={6} className="h-24 text-center">
                       <div className="flex flex-col items-center justify-center gap-2 text-muted-foreground">
@@ -535,7 +597,7 @@ export default function UsersPage() {
                     </TableCell>
                   </TableRow>
                 ) : (
-                  filteredUsers.map((user) => (
+                  displayedUsers.map((user) => (
                     <TableRow key={user._id}>
                       <TableCell>
                         <div className="flex items-center gap-3">
