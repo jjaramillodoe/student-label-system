@@ -1,11 +1,13 @@
 'use client';
 
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
-import { useSession, signOut } from 'next-auth/react';
+import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import GoogleTranslate from '@/components/GoogleTranslate';
+import AppTopBar from '@/components/AppTopBar';
 import { canUseAppShell } from '@/lib/navConfig';
+import { useDarkMode } from '@/lib/useDarkMode';
 import { isStudentSearchQueryValid, parseStudentSearchQuery } from '@/lib/studentSearch';
 import { sanitizeUsaNameInput, usaNameError, USA_NAME_HINT } from '@/lib/usaName';
 import { DEFAULT_INTAKE_ACTIVITIES, DEFAULT_INTAKE_SESSION_CONFIGS } from '@/lib/intakeDefaults';
@@ -45,7 +47,7 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
   UserPlus, AlertCircle, CheckCircle2, RotateCcw,
-  Loader2, ClipboardList, LogOut, ArrowLeft,
+  Loader2, ClipboardList, ArrowLeft,
   Clock, Users, Copy, Check, ExternalLink,
   Info, List,
 } from 'lucide-react';
@@ -97,6 +99,7 @@ interface NextSlot extends NextCabinetSlot {}
 export default function IntakePage() {
   const { data: session, status: authStatus } = useSession();
   const router = useRouter();
+  const { darkMode, setDarkMode } = useDarkMode();
 
   const [form, setForm] = useState(emptyForm());
   const [cabinets, setCabinets] = useState<Cabinet[]>([]);
@@ -1000,6 +1003,47 @@ export default function IntakePage() {
     setAddressVerification(null);
   }
 
+  const staffCanOpenDashboard = canUseAppShell(session?.user?.role);
+
+  const intakeTopBar = (showReset: boolean) => (
+    <AppTopBar
+      user={session?.user}
+      darkMode={darkMode}
+      onToggleDarkMode={() => setDarkMode((d) => !d)}
+      showMobileNav={false}
+      showCommandPalette={staffCanOpenDashboard}
+      eyebrow="Front desk"
+      title="Student Intake"
+      subtitle={session?.user?.school || null}
+      leading={staffCanOpenDashboard ? (
+        <Button variant="outline" size="sm" asChild className="shrink-0 gap-1.5">
+          <Link href="/" aria-label="Back to dashboard">
+            <ArrowLeft className="h-4 w-4" />
+            <span className="hidden sm:inline">Dashboard</span>
+          </Link>
+        </Button>
+      ) : undefined}
+      actions={(
+        <>
+          {showReset && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={resetForm}
+              disabled={submitting || cabinetsLoading}
+              className="gap-1.5"
+              aria-label="Reset intake form"
+            >
+              <RotateCcw className="h-4 w-4" />
+              <span className="hidden sm:inline">Reset</span>
+            </Button>
+          )}
+          <GoogleTranslate />
+        </>
+      )}
+    />
+  );
+
   if (authStatus === 'loading') {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -1026,7 +1070,9 @@ export default function IntakePage() {
     }
 
     return (
-      <div className="min-h-screen bg-gradient-to-b from-emerald-50 via-background to-background dark:from-emerald-950/30 dark:via-background dark:to-background flex flex-col items-center justify-center p-6 gap-6">
+      <div className="min-h-screen bg-gradient-to-b from-emerald-50 via-background to-background dark:from-emerald-950/30 dark:via-background dark:to-background flex flex-col">
+        {intakeTopBar(false)}
+        <div className="flex-1 flex flex-col items-center justify-center p-6 gap-6">
         <div className="flex flex-col items-center gap-3 text-center ui-enter">
           <div className="flex h-14 w-14 items-center justify-center rounded-2xl border border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-300 shadow-sm">
             <CheckCircle2 className="h-7 w-7" />
@@ -1089,6 +1135,7 @@ export default function IntakePage() {
         <Button variant="outline" onClick={resetForm} className="gap-2">
           <RotateCcw className="h-4 w-4" /> {savedAsVisit ? 'Log Another Visit' : 'Register Another Student'}
         </Button>
+        </div>
       </div>
     );
   }
@@ -1146,61 +1193,9 @@ export default function IntakePage() {
   // ── INTAKE FORM ─────────────────────────────────────────────────────────────
   return (
     <div className="min-h-screen bg-gradient-to-b from-muted/40 via-background to-background">
-      {/* Top bar */}
-      <header className="border-b border-border/80 bg-background/85 backdrop-blur-md sticky top-0 z-40">
-        <div className="w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3.5 flex items-center justify-between gap-3">
-          <div className="flex items-center gap-3 min-w-0 ui-enter">
-            {canUseAppShell(session?.user?.role) && (
-              <Button variant="outline" size="sm" asChild className="shrink-0 gap-1.5">
-                <Link href="/" aria-label="Back to dashboard">
-                  <ArrowLeft className="h-4 w-4" />
-                  <span className="hidden sm:inline">Dashboard</span>
-                </Link>
-              </Button>
-            )}
-            <div className="ui-icon-mark shrink-0">
-              <UserPlus className="h-5 w-5 text-primary" />
-            </div>
-            <div className="min-w-0">
-              <p className="ui-eyebrow">Front desk</p>
-              <h1 className="text-lg sm:text-xl font-semibold tracking-tight leading-tight truncate">
-                Student Intake
-              </h1>
-              {session?.user?.school && (
-                <p className="text-xs text-muted-foreground truncate">{session.user.school}</p>
-              )}
-            </div>
-          </div>
-          <div className="flex items-center gap-2 sm:gap-3 shrink-0 ui-enter ui-enter-delay-1">
-            {activeTab === 'register' && (
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={resetForm}
-                disabled={submitting || cabinetsLoading}
-                className="gap-1.5"
-              >
-                <RotateCcw className="h-4 w-4" />
-                <span className="hidden sm:inline">Reset</span>
-              </Button>
-            )}
-            <div className="flex flex-col items-end gap-0.5">
-              <GoogleTranslate />
-              <p className="hidden lg:block text-[10px] text-muted-foreground max-w-[14rem] text-right leading-tight">
-                Translate for the student, then switch back to English.
-              </p>
-            </div>
-            <span className="text-sm text-muted-foreground hidden md:inline truncate max-w-[10rem]">
-              {session?.user?.name}
-            </span>
-            <Button variant="ghost" size="sm" onClick={() => signOut({ callbackUrl: '/auth/signin' })} className="gap-1.5 text-muted-foreground">
-              <LogOut className="h-4 w-4" /> Sign Out
-            </Button>
-          </div>
-        </div>
-      </header>
+      {intakeTopBar(activeTab === 'register')}
 
-      <main className="w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8 space-y-5">
+      <div className="w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8 space-y-5">
         <IntakeIssuesBanner
           reviewHref="/intake"
           refreshToken={issuesRefresh}
@@ -1499,7 +1494,7 @@ export default function IntakePage() {
             />
           </TabsContent>
         </Tabs>
-      </main>
+      </div>
 
       {/* Duplicate confirmation dialog */}
       <Dialog open={confirmDupeOpen} onOpenChange={setConfirmDupeOpen}>

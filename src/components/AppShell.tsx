@@ -8,6 +8,7 @@ import AppSidebar from '@/components/AppSidebar';
 import AppTopBar from '@/components/AppTopBar';
 import Footer from '@/components/Footer';
 import { useAppSettings } from '@/lib/useAppSettings';
+import { useDarkMode } from '@/lib/useDarkMode';
 import { canUseAppShell } from '@/lib/navConfig';
 import { cn } from '@/lib/utils';
 
@@ -22,7 +23,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname() || '';
   const router = useRouter();
   const { settings } = useAppSettings();
-  const [darkMode, setDarkMode] = useState(false);
+  const { darkMode, setDarkMode } = useDarkMode();
   const [mounted, setMounted] = useState(false);
   const [collapsed, setCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -33,21 +34,9 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     setMounted(true);
-    const savedDarkMode = localStorage.getItem('darkMode');
-    const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-    const shouldUseDark = savedDarkMode !== null ? savedDarkMode === 'true' : prefersDark;
-    setDarkMode(shouldUseDark);
-    document.documentElement.classList.toggle('dark', shouldUseDark);
-
     const savedCollapsed = localStorage.getItem('sidebar-collapsed');
     if (savedCollapsed !== null) setCollapsed(savedCollapsed === 'true');
   }, []);
-
-  useEffect(() => {
-    if (!mounted) return;
-    localStorage.setItem('darkMode', darkMode.toString());
-    document.documentElement.classList.toggle('dark', darkMode);
-  }, [darkMode, mounted]);
 
   useEffect(() => {
     if (!mounted) return;

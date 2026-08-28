@@ -1,5 +1,6 @@
 'use client';
 
+import type { ReactNode } from 'react';
 import { signOut } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import {
@@ -34,7 +35,17 @@ type AppTopBarProps = {
   } | null;
   darkMode: boolean;
   onToggleDarkMode: () => void;
-  onOpenMobileNav: () => void;
+  onOpenMobileNav?: () => void;
+  /** Left-column eyebrow. Dashboard uses “Workspace”. */
+  eyebrow?: string;
+  /** Left-column title. Defaults to the user’s school. */
+  title?: string;
+  /** Optional third line (e.g. school under “Student Intake”). */
+  subtitle?: string | null;
+  leading?: ReactNode;
+  actions?: ReactNode;
+  showCommandPalette?: boolean;
+  showMobileNav?: boolean;
 };
 
 function getUserInitials(name?: string | null) {
@@ -54,6 +65,8 @@ function getRoleBadgeColor(role?: string | null) {
       return 'bg-blue-100 text-blue-700 border-blue-200 dark:bg-blue-900/30 dark:text-blue-400 dark:border-blue-800';
     case 'Data Member':
       return 'bg-green-100 text-green-700 border-green-200 dark:bg-green-900/30 dark:text-green-400 dark:border-green-800';
+    case 'Intake Member':
+      return 'bg-amber-100 text-amber-800 border-amber-200 dark:bg-amber-900/30 dark:text-amber-300 dark:border-amber-800';
     default:
       return 'bg-gray-100 text-gray-700 border-gray-200 dark:bg-gray-800 dark:text-gray-300 dark:border-gray-700';
   }
@@ -64,39 +77,49 @@ export default function AppTopBar({
   darkMode,
   onToggleDarkMode,
   onOpenMobileNav,
+  eyebrow = 'Workspace',
+  title,
+  subtitle,
+  leading,
+  actions,
+  showCommandPalette = true,
+  showMobileNav = true,
 }: AppTopBarProps) {
   const router = useRouter();
+  const heading = title || user?.school || 'Student Label System';
+  const extraLine = subtitle === undefined ? null : subtitle;
 
   return (
     <header className="sticky top-0 z-30 border-b border-border/80 bg-background/85 backdrop-blur-md">
-      <div className="flex h-14 items-center justify-between gap-3 px-3 sm:px-4">
+      <div className="flex min-h-14 items-center justify-between gap-3 px-3 sm:px-4 py-2">
         <div className="flex items-center gap-2 min-w-0">
-          <Button
-            type="button"
-            variant="outline"
-            size="icon"
-            className="md:hidden h-9 w-9 shrink-0"
-            onClick={onOpenMobileNav}
-            aria-label="Open navigation menu"
-          >
-            <Menu className="h-4 w-4" />
-          </Button>
-          <div className="min-w-0 md:hidden">
-            <p className="text-sm font-semibold truncate">Student Label System</p>
-            {user?.school && (
-              <p className="text-[11px] text-muted-foreground truncate">{user.school}</p>
-            )}
-          </div>
-          <div className="hidden md:block min-w-0">
-            <p className="ui-eyebrow">Workspace</p>
-            <p className="text-sm font-medium truncate">
-              {user?.school || 'Student Label System'}
-            </p>
+          {showMobileNav && (
+            <Button
+              type="button"
+              variant="outline"
+              size="icon"
+              className="md:hidden h-9 w-9 shrink-0"
+              onClick={onOpenMobileNav}
+              aria-label="Open navigation menu"
+            >
+              <Menu className="h-4 w-4" />
+            </Button>
+          )}
+          {leading}
+          <div className="min-w-0">
+            <p className="ui-eyebrow">{eyebrow}</p>
+            <p className="text-sm font-medium truncate">{heading}</p>
+            {extraLine ? (
+              <p className="text-[11px] text-muted-foreground truncate">{extraLine}</p>
+            ) : title && user?.school ? (
+              <p className="text-[11px] text-muted-foreground truncate md:hidden">{user.school}</p>
+            ) : null}
           </div>
         </div>
 
-        <div className="flex items-center gap-2 sm:gap-3">
-          <CommandPalette />
+        <div className="flex flex-wrap items-center justify-end gap-2 sm:gap-3 min-w-0">
+          {actions}
+          {showCommandPalette && <CommandPalette />}
           <Button
             variant="outline"
             size="icon"

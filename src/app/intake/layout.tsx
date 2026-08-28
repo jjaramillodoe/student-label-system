@@ -6,7 +6,7 @@ export const metadata: Metadata = {
 };
 
 export default function IntakeLayout({ children }: { children: React.ReactNode }) {
-  // Intentionally plain — AppShell skips /intake so the front-desk kiosk
-  // stays distraction-free without the left sidebar.
+  // Front-desk kiosk: no sidebar. The page reuses AppTopBar so staff get
+  // the same header chrome as the dashboard.
   return <>{children}</>;
 }
