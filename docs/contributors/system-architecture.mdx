@@ -61,8 +61,9 @@ There is **no Redis**, **no message queue**, and **no separate backend service**
 | Authentication | `/auth/signin`, `/api/auth/*`, `/admin/security` | Login, MFA, 12h JWT sessions, auth event log |
 | App shell | `AppShell`, `navConfig` | Left sidebar for Admin / Data Lead / Data Member |
 | Intake | `/intake`, `/api/intake/*` | Student registration at front desk (no sidebar) |
+| ISRF | `/admin/isrf`, `/api/isrf` | Fill FY2027 Individual Student Record Form PDF |
 | Students | `/api/students`, `/admin/students/*` | CRUD, bulk upload, lookup |
-| Storage | `/admin/cabinets`, `/api/cabinets/*` | Cabinets, drawers, archive boxes |
+| Storage | `/admin/cabinets`, `/api/cabinets/*` | Cabinets, drawers, archive flag (`isArchived` / `status`), archive boxes |
 | Printing | `/api/print/*` | Avery 5163 labels, print history |
 | Admin | `/admin/*` | Enrollment, duplicates, settings, users |
 | Tenant host | middleware + `/api/tenant` | School subdomain portals |

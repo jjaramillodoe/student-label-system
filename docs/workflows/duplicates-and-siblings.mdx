@@ -17,7 +17,7 @@ Data Leads use **Students → Duplicates** (`/admin/duplicates`) to resolve pote
 During **NEW** registration, Intake checks in two stages:
 
 1. **Check ASISTS first** — search by name, DOB (MM/DD/YYYY or YYYY-MM-DD), or both. A DOB-only search returns only students born that day.
-2. **After unlock** — when personal info is filled, the system re-checks **same DOB** (always shown for sibling review), **similar name** (match %), and **home address**.
+2. **After unlock** — when personal info is filled, the system re-checks **similar name** (match %), **related last names**, and **home address**. Same calendar DOB is required for that panel, but a shared birthday alone is **not** enough.
 
 Staff can:
 
@@ -60,7 +60,7 @@ The system scans students for:
 - **Same DOB + similar name** (fuzzy match, including middle-name omissions), **or**
 - **Same DOB + same home address** (even when names do not fuzzy-match)
 
-On Intake, **all same-DOB** students also appear for review (with match %), so siblings with different first names are not dropped when staff type a new name.
+On Intake, a same-DOB row appears when **any** of these is true: name similarity of about **50% or more**, last names look related, or the home address matches. Unrelated people who only share a birthday (common ASISTS hits) stay off the panel.
 
 Pairs already confirmed as siblings, manually dismissed, or still flagged in the first section are excluded.
 

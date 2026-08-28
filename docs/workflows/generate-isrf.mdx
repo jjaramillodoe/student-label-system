@@ -1,0 +1,58 @@
+---
+title: Generate ISRF
+description: Fill the FY2027 Individual Student Record Form from a student intake record.
+---
+
+**Daily → Generate ISRF** (`/admin/isrf`) fills the FY2027 Individual Student Record Form (ISRF) PDF from information already on the student record.
+
+<Info>
+  **Admin**, **Data Lead**, and **Data Member** can generate ISRFs. Intake Members do not see this page.
+</Info>
+
+## When to use it
+
+Use this after a **NEW** registration (or after Data Leads complete demographics on the student record) when staff need a paper ISRF for the student file. Empty intake fields stay blank on the PDF for staff to complete by hand.
+
+## Fill an ISRF
+
+<Steps>
+  <Step title="Open Generate ISRF">
+    In the left sidebar, **Daily → Generate ISRF**, or go to [nycadultedlabels.nyc/admin/isrf](https://nycadultedlabels.nyc/admin/isrf).
+  </Step>
+  <Step title="Search">
+    Type at least two characters. Search matches name, **Label ID**, **Student ID**, or date of birth.
+  </Step>
+  <Step title="Select the student">
+    Click **Select** on the matching row. A field list shows what will be written onto the form.
+  </Step>
+  <Step title="Preview or download">
+    **Preview** opens the filled PDF in the page. **Download** saves a file named like `ISRF-Last-First-LabelID.pdf`.
+  </Step>
+</Steps>
+
+## What the PDF includes
+
+When the intake record has the values, the form fills:
+
+- Name (including middle initial), date of birth, gender
+- Address
+- Home and cell phones, email
+- Emergency contact
+- Original start date
+- Employment status
+- Hispanic / Latino origin and race / identity
+- Barriers to learning / employment (Yes / No)
+
+Date boxes on the form use **MMDDYYYY** (eight digits, no slashes).
+
+<Note>
+  **SSN** and the **student signature** stay blank. Staff complete those on the printed form.
+</Note>
+
+Demographics are collected on **NEW** intake — see [Intake workflow](/workflows/intake#new-student-demographics). RETURNING visits do not re-ask those questions.
+
+## Related pages
+
+- [Intake workflow](/workflows/intake)
+- [Labels and scanning](/workflows/labels-and-scanning)
+- [User roles](/user-roles)

@@ -50,6 +50,7 @@
         "group": "Daily workflows",
         "pages": [
           "workflows/intake",
+          "workflows/generate-isrf",
           "workflows/labels-and-scanning",
           "workflows/duplicates-and-siblings",
           "workflows/email-validation"

@@ -67,17 +67,27 @@ Staff still enter names and answers in English as the student tells them — Tra
   </Step>
   <Step title="Enter personal information">
     - First and last name (required) — A–Z, spaces, and hyphens
+    - **MI** (middle initial) — optional, one letter
     - **Date of birth** — calendar min **1920-01-01**, max today; a human-readable date appears under the picker
     - **Age rules** — must be at least **16** for adult education; BE/ESL requires **21** on their birthday, or within **6 weeks** of turning 21 (near-eligible — intake may continue with an eligibility notice)
   </Step>
   <Step title="Contact and address">
-    - Phone and email
+    - **Home phone** and **cell phone** (optional **Same as cell** for home)
+    - **Emergency contact** name/relationship and phone
+    - Email
     - **Paste full address** → **Parse**, or enter street, **Apt/Unit**, city, state, ZIP separately
     - **Verify with NYC Geoclient** before submit (when configured)
     - **View on Google Maps** after verify
   </Step>
+  <Step title="Employment, race/ethnicity, and barriers">
+    Required for **NEW** students (feeds the [ISRF PDF](/workflows/generate-isrf)):
+    - **Employment status** — choose one
+    - **Hispanic / Latino origin** — choose one
+    - **Race / identity** — choose all that apply (at least one)
+    - **Barriers to learning / employment** — Yes or No for every item
+  </Step>
   <Step title="Review duplicate matches">
-    After name and DOB are entered, the panel under Date of Birth lists possible matches with **% match** and **Same DOB**. Same calendar DOB always surfaces for sibling review. See [Duplicates and siblings](/workflows/duplicates-and-siblings). Only use **This is a different person** for a true sibling or coincidence. Use **Copy alert message** or **Email with alert** to notify your Data Lead with a structured review note.
+    After name and DOB are entered, the panel under Date of Birth lists possible matches with **% match** and **Same DOB**. Same birthday alone is not enough — the name must be similar (about **50%+**), the last names look related, or the home address matches. Unrelated ASISTS hits that only share a DOB stay off the list. See [Duplicates and siblings](/workflows/duplicates-and-siblings). Only use **This is a different person** for a true sibling or coincidence. Use **Copy alert message** or **Email with alert** to notify your Data Lead with a structured review note.
   </Step>
   <Step title="Complete intake details">
     Choose **BE** or **ESL**, intake activities, placement class, **intake session**, Time In, and Leaving/Staying (Time Out required if Leaving).
@@ -86,6 +96,10 @@ Staff still enter names and answers in English as the student tells them — Tra
     Click **Register Student**. The success screen shows a summary of what was saved — not a label print preview.
   </Step>
 </Steps>
+
+## NEW student demographics
+
+Employment, Hispanic / Latino origin, race / identity, and barriers are required on **NEW** intake only. They fill the [FY2027 ISRF](/workflows/generate-isrf). RETURNING visits keep personal info locked and do not re-ask these questions.
 
 ## Session hours (required)
 
@@ -197,6 +211,7 @@ The alert includes school, reporter, NEW student fields, match details, and a li
 ## Related pages
 
 - [Address and NYC verification](/reference/address-and-verification)
+- [Generate ISRF](/workflows/generate-isrf)
 - [Labels and scanning](/workflows/labels-and-scanning)
 - [Duplicates and siblings](/workflows/duplicates-and-siblings)
 - [Archive and school year](/storage/archive-and-school-year)

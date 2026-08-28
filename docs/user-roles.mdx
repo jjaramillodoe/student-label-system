@@ -23,7 +23,7 @@ Full access including user management, **Admin → Security** (failed logins, lo
 
 **Scope:** Assigned school
 
-Manage school data, cabinets (including **custom drawer capacity**), bulk imports, duplicate review (with address comparison), NYC address verification on All Students, sibling confirmation, unassigned queue, bulk move, enrollment dashboard, school settings (including **intake session time windows**), school year rollover, archive boxes, and cleanup tools.
+Manage school data, cabinets (including **Active** / **Archived** tabs and **Restore**), bulk imports, duplicate review (with address comparison), NYC address verification on All Students, sibling confirmation, unassigned queue, bulk move, enrollment dashboard, school settings (including **intake session time windows**), school year rollover, archive boxes, **Generate ISRF**, and cleanup tools.
 
 <Note>
   **Email Validation** (`/admin/validation`) and **MotherDuck Analytics** (`/admin/motherduck-analytics`) are **Admin-only**. Data Leads use in-app **Analytics** (`/admin/analytics`) for school-scoped metrics.
@@ -33,13 +33,13 @@ Manage school data, cabinets (including **custom drawer capacity**), bulk import
 
 **Scope:** Assigned school
 
-Add, edit, search, print, and export student records for their assigned school. Open **Intake** from the sidebar when covering the front desk. On Find & print, use **Needs label** to show only students who have never been printed. Print Avery **5163** or **94205** labels in batches via **Download Word Doc** (Letter, 100%), then confirm **Yes — mark as printed**. Uses the same **left sidebar** as Data Leads, with fewer admin links.
+Add, edit, search, print, and export student records for their assigned school. Open **Intake** from the sidebar when covering the front desk. Fill the **FY2027 ISRF** from **Daily → Generate ISRF**. On Find & print, use **Needs label** to show only students who have never been printed. Print Avery **5163** or **94205** labels in batches via **Download Word Doc** (Letter, 100%), then confirm **Yes — mark as printed**. Uses the same **left sidebar** as Data Leads, with fewer admin links.
 
 ## Intake Member
 
 **Scope:** Assigned school
 
-Access only the **Intake Form** (full-screen — no left sidebar). Register new and returning students, capture and verify addresses (NEW), run live duplicate checks (name + address), notify Data Leads with **Copy alert message** / **Email with alert**, enforce session hours, flag potential siblings, and review a success summary after save. Labels are printed later from the Dashboard. Cannot access the main dashboard or admin tools.
+Access only the **Intake Form** (full-screen — no left sidebar). Register new and returning students, capture ISRF demographics on **NEW** (employment, race/ethnicity, barriers), verify addresses (NEW), run live duplicate checks (name + address), notify Data Leads with **Copy alert message** / **Email with alert**, enforce session hours, flag potential siblings, and review a success summary after save. Labels are printed later from the Dashboard. Cannot access the main dashboard or admin tools.
 
 <Warning>
   Intake Members are limited to `/intake` and their assigned intake sessions. Admins and Data Leads can open Intake for testing.
@@ -59,6 +59,7 @@ Sidebar groups: **Daily**, **Students**, **Storage**, **Print**, **Admin**, **He
 | Capability | Intake Member | Data Member | Data Lead | Admin |
 | --- | --- | --- | --- | --- |
 | Register / log visits on Intake | ✓ | — | ✓ | ✓ |
+| Generate ISRF PDF | — | ✓ | ✓ | ✓ |
 | Search & edit students | — | ✓ | ✓ | ✓ |
 | Print label batches | — | ✓ | ✓ | ✓ |
 | Cabinets & archive | — | — | ✓ | ✓ |

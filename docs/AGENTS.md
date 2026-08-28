@@ -41,7 +41,7 @@ Install Mintlify skill: `npm run docs:skill`
 - Document staff-facing workflows, not internal MongoDB schema
 - Do not document secrets, `.env` values, or production credentials
 - Age rules for intake: **16+** overall; BE/ESL **21** on birthday, or **near-eligible within 6 weeks** (submit allowed + eligibility notice). Birth year before **1920** needs admin confirmation. Farther under 21 → Pathways to Graduation ([p2g.nyc/contact](https://p2g.nyc/contact/))
-- Intake duplicate UI: ASISTS gate first, then DOB panel with **% match** + **Same DOB**; DOB-only search must not match label-ID year fragments; sibling ack survives name edits
+- Intake duplicate UI: ASISTS gate first, then DOB panel with **% match** + **Same DOB**. Same birthday alone is not enough (need ~50%+ name match, similar last name, or same address). DOB-only search must not match label-ID year fragments; sibling ack survives name edits
 - Duplicate notify: **Copy alert message** / **Email with alert** use a structured Data Lead note (subject, school, reporter, NEW student, matches, `/admin/duplicates` link) — blank fields show as —
 - Intake enforces **session start/end times**; Enrollment flags outside-session and handoff issues
 - Archived returning students keep archive box location + QR — do **not** auto-assign a new drawer
@@ -53,6 +53,9 @@ Install Mintlify skill: `npm run docs:skill`
 - Idle session prompt is configurable in Admin System Settings (default 15 min idle + grace); client-side only
 - Avery labels show **Last, First**, DOB, **5-digit print sequence**, Label ID barcode, and QR
 - Drawers use capacity **100 / 200 / 400** or **Custom** (1–5000) with automatic **Section 01–08** (hidden from Intake; shown on Dashboard location and Cabinets)
+- Cabinets page: **Active** / **Archived** tabs (default Active). **Archive** opens EOY packing; full closeout sets archived. **Restore** returns the cabinet to Active without deleting box history
+- **Generate ISRF** (`/admin/isrf`) is Admin / Data Lead / Data Member — fills FY2027 ISRF from intake (SSN and signature stay blank)
+- NEW intake collects ISRF demographics: middle initial, home/cell phones, emergency contact, employment, Hispanic/Latino origin, race (multi), barriers Y/N
 - **Email Validation** and **MotherDuck Analytics** are Admin-only; in-app **Analytics** is Admin + Data Lead
 - Do not document Cursor/MCP contributor setup in Mintlify (staff-facing docs only)
 - Bulk upload preview validates duplicates/dates and supports per-row **Remove**; successful clean uploads redirect to Dashboard

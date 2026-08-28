@@ -17,6 +17,9 @@ The Student Label System helps Adult Education programs manage student file labe
   <Card title="Address verification" icon="map-pin" href="/reference/address-and-verification">
     Street + apt fields, NYC Geoclient, and address-aware duplicate matching.
   </Card>
+  <Card title="Generate ISRF" icon="file-pen" href="/workflows/generate-isrf">
+    Fill the FY2027 Individual Student Record Form from an intake record.
+  </Card>
   <Card title="Archive & school year" icon="box-archive" href="/storage/archive-and-school-year">
     Close out cabinets, print box labels, and scan public box QR codes.
   </Card>
@@ -43,6 +46,18 @@ The Student Label System helps Adult Education programs manage student file labe
   </Accordion>
   <Accordion title="Custom domain — nycadultedlabels.nyc">
     Production lives at [nycadultedlabels.nyc](https://nycadultedlabels.nyc). Schools can use portals like `school1.nycadultedlabels.nyc`. See [School subdomains](/contributors/school-subdomains).
+  </Accordion>
+  <Accordion title="Active and Archived cabinet tabs">
+    **Storage → Cabinets** defaults to **Active**. Full end-of-year archive moves a cabinet to the **Archived** tab. Use **Restore** to bring it back for new files. Capacity totals ignore archived cabinets. See [Cabinets and drawers](/storage/cabinets-and-drawers#active-and-archived-cabinets).
+  </Accordion>
+  <Accordion title="Generate ISRF from intake">
+    **Daily → Generate ISRF** fills the FY2027 Individual Student Record Form from the student record (Admin, Data Lead, Data Member). SSN and signature stay blank. See [Generate ISRF](/workflows/generate-isrf).
+  </Accordion>
+  <Accordion title="NEW intake demographics for the ISRF">
+    NEW registrations collect middle initial, home and cell phones, emergency contact, employment, Hispanic / Latino origin, race / identity, and Yes/No barriers. See [Intake workflow](/workflows/intake#new-student-demographics).
+  </Accordion>
+  <Accordion title="Quieter same-DOB duplicate panel">
+    Intake no longer lists every ASISTS hit that only shares a birthday. Same-DOB matches need similar names (about 50%+), a related last name, or the same home address. See [Duplicates and siblings](/workflows/duplicates-and-siblings).
   </Accordion>
   <Accordion title="Cabinets: labels, roster, map, scan, and safer moves">
     Print cabinet/drawer/section labels, export drawer rosters, drag students between sections, floor map, barcode locate, locked drawers, peak capacity warnings, move history CSV, and fix-from-Health/Unassigned. See [Cabinets and drawers](/storage/cabinets-and-drawers).

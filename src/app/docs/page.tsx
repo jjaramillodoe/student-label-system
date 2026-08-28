@@ -1,7 +1,7 @@
 import Link from 'next/link';
 import {
   Activity, Archive, Barcode, BookOpen, Boxes, Building2, CalendarRange,
-  CheckCircle2, CopyCheck, ExternalLink, FileSpreadsheet, HeartPulse,
+  CheckCircle2, CopyCheck, ExternalLink, FilePen, FileSpreadsheet, HeartPulse,
   KeyRound, Layers, Link2, Lock, Mail, MapPin, MoveRight, PackageOpen, Printer,
   QrCode, Search, Settings, Shield, ShieldCheck, Sparkles,
   Upload, UserPlus, Users, ClipboardList, TrendingUp,
@@ -28,7 +28,7 @@ const roleGuides = [
   {
     role: 'Data Member',
     scope: 'Assigned school',
-    notes: 'Add, edit, search, print, and export student records for their assigned school. Use Needs label on Find & print for never-printed students. Print Avery 5163 / 94205 via Download Word Doc on Letter.',
+    notes: 'Add, edit, search, print, and export student records for their assigned school. Generate ISRF PDFs from Daily → Generate ISRF. Use Needs label on Find & print for never-printed students. Print Avery 5163 / 94205 via Download Word Doc on Letter.',
   },
   {
     role: 'Intake Member',
@@ -63,6 +63,7 @@ const featureGroups = [
     items: [
       'Available only to Intake Members (and Admins/Data Leads for testing).',
       'NEW students: required Check ASISTS first (name, DOB, or both), then contact & address (street + Apt/Unit), NYC Geoclient verify, Google Maps link.',
+      'NEW demographics for the ISRF: middle initial, home/cell phones, emergency contact, employment, Hispanic/Latino origin, race/identity, and Yes/No barriers.',
       'Age rules: 16+ overall; BE/ESL requires age 21, or near-eligible within 6 weeks (eligibility notice). Farther under 21 → P2G referral.',
       'After unlock, duplicate panel shows % match and Same DOB. Same birthday alone is not enough — names must be similar (or share a last name / home address).',
       'RETURNING students: search on the same screen, visit history accordion, personal info and address locked; record today\'s visit only.',
@@ -74,6 +75,18 @@ const featureGroups = [
       '"Copy alert message" and "Email with alert" send a structured Data Lead note (school, reporter, NEW student, matches, Duplicates link).',
       'Autosaves a browser draft so you can Resume after an idle sign-out; success screen links to Dashboard Needs label for printing.',
       'Intake History tab shows registrations for today or this week, filtered to your own or all staff.',
+    ],
+  },
+  {
+    title: 'Generate ISRF',
+    description: 'Fill the FY2027 Individual Student Record Form from a student intake record.',
+    icon: FilePen,
+    isNew: true,
+    items: [
+      'Daily → Generate ISRF (/admin/isrf) for Admin, Data Lead, and Data Member.',
+      'Search by name, Label ID, Student ID, or DOB, then Preview or Download the filled PDF.',
+      'Fills identity, phones, emergency contact, employment, race/ethnicity, and barriers when those fields exist.',
+      'SSN and student signature stay blank for staff to complete on paper.',
     ],
   },
   {
@@ -126,10 +139,11 @@ const featureGroups = [
     icon: Boxes,
     items: [
       'Create cabinets with multiple drawers and capacities.',
-      'Filter and sort by school, capacity status, usage, and name.',
+      'Filter and sort with **Active** / **Archived** tabs, plus school, capacity status, usage, and name.',
       'Smart Fill to quickly create standard cabinet structures.',
       'Archive cabinets at year-end: choose box size (50 / 100 / 200 files), storage location, and school year.',
-      'End-of-year closeout switch allows archiving even when drawers are not completely full.',
+      'End-of-year closeout switch allows archiving even when drawers are not completely full; a full archive moves the cabinet to the Archived tab.',
+      'Restore on an archived card returns the cabinet to Active. Box history stays on file.',
       'Students move into physical archive boxes; cabinet drawers are cleared for the new school year.',
       'Sync cabinet counts when data needs recalculation.',
     ],
@@ -241,6 +255,7 @@ const featureGroups = [
 const quickLinks = [
   { href: '/', label: 'Dashboard', icon: Layers },
   { href: '/intake', label: 'Intake Form', icon: ClipboardList, isNew: true },
+  { href: '/admin/isrf', label: 'Generate ISRF', icon: FilePen, isNew: true },
   { href: '/admin/students/bulk-upload', label: 'Bulk Upload', icon: FileSpreadsheet },
   { href: '/admin/cabinets', label: 'Cabinets', icon: Building2 },
   { href: '/admin/school-year', label: 'School Year Rollover', icon: CalendarRange, isNew: true },
@@ -494,7 +509,7 @@ address, apt, city, state, zip`}
                   { n: '2', label: 'Review Cabinet Health and the Unassigned Queue — resolve any students missing a valid drawer before archiving.' },
                   { n: '3', label: 'On Cabinets, open the cabinet to archive. Choose box size (50 / 100 / 200), storage location, and school year.' },
                   { n: '4', label: 'If drawers are not completely full, turn on End-of-year closeout to allow a partial-year archive.' },
-                  { n: '5', label: 'After archiving, sync students to physical boxes if prompted. Each box gets a unique ID and printable label.' },
+                  { n: '5', label: 'After archiving, sync students to physical boxes if prompted. Each box gets a unique ID and printable label. A full closeout moves the cabinet to Cabinets → Archived; Restore brings it back to Active if it must take new files.' },
                   { n: '6', label: 'Print or Download PDF from the box label dialog. Attach the label to the physical box — QR links to the public box page.' },
                   { n: '7', label: 'Store boxes at the recorded location. Keep physical files for the 7-year retention period.' },
                   { n: '8', label: 'When a returning archived student is logged in Intake, their archive box location and QR are shown — a new drawer is not auto-assigned for the school year.' },

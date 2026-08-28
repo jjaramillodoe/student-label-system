@@ -10,7 +10,7 @@ description: Active file storage — drawers, sections, labels, moves, capacity 
 - Create cabinets with multiple drawers
 - Drawer capacity: presets **100**, **200**, **400**, or **Custom** (1–5000 files)
 - Cabinet total capacity is the **sum** of its drawer capacities
-- Filter by school, capacity status, usage, and name
+- Switch **Active** / **Archived** tabs; filter by school, capacity status, usage, and name
 - **Smart Fill** creates standard cabinet structures quickly (default **400** per drawer)
 - **Sync Counts** recalculates drawer counts and refreshes automatic **sections**
 - Renaming a drawer keeps its stable ID so students are **not** orphaned
@@ -22,6 +22,29 @@ description: Active file storage — drawers, sections, labels, moves, capacity 
 <Frame caption="Add Cabinet — Custom drawer capacity (1–5000 files)">
   <img src="/images/screenshots/cabinets-add-custom-capacity.png" alt="Add New Cabinet dialog with Custom capacity selected and 250 files entered" />
 </Frame>
+
+## Active and archived cabinets
+
+The page defaults to **Active**. Use **Archived** to review packed cabinets without mixing them into daily capacity work.
+
+| Tab | What you see |
+| --- | --- |
+| **Active** | Cabinets available for intake, moves, the floor map, and new file assignments |
+| **Archived** | Cabinets closed after a full end-of-year archive |
+
+The summary strip (stored files, available, needs attention) counts **active** cabinets only.
+
+### Archive vs Restore
+
+- **Archive** on an active card opens the packing wizard (full closeout or partial). A **full** archive moves the cabinet to the **Archived** tab and shows a confirmation banner.
+- **Restore** on an archived card returns the cabinet to **Active** so it can receive new files. Archive-box history stays on file.
+- After Restore, a confirmation banner appears and the page switches back to **Active**.
+
+If an archived cabinet has no packing record, the card says so and still offers **Restore to Active**.
+
+<Note>
+  Partial archive (selected statuses or drawers) leaves the cabinet **Active**. Only a full end-of-year closeout sends it to the Archived tab. See [Archive and school year](/storage/archive-and-school-year).
+</Note>
 
 ## Automatic sections
 
@@ -85,7 +108,7 @@ Optional row/column fields are also on the Edit Cabinet form.
 
 ## Scan to locate
 
-Use **Scan Barcode** on the Cabinets page (or enter a Label ID). The matching cabinet / drawer / section is highlighted so staff can find the physical file quickly.
+Use **Scan Barcode** on the Cabinets page (or enter a Label ID). The matching cabinet / drawer / section is highlighted so staff can find the physical file quickly. If the file is in an **archived** cabinet, the page switches to the **Archived** tab first.
 
 ## Move history
 
