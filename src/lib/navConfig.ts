@@ -20,6 +20,7 @@ import {
   LineChart,
   ClipboardList,
   FileText,
+  FilePen,
   BookOpen,
   ExternalLink,
   Info,
@@ -64,6 +65,7 @@ export const NAV_GROUPS: NavGroup[] = [
     items: [
       { href: '/', label: 'Dashboard', icon: FileText },
       { href: '/intake', label: 'Intake', icon: ClipboardList, roles: ['Admin', 'Data Lead', 'Data Member'], emphasize: true },
+      { href: '/admin/isrf', label: 'Generate ISRF', icon: FilePen, roles: ['Admin', 'Data Lead', 'Data Member'] },
       { href: '/admin/unassigned', label: 'Unassigned', icon: Inbox, roles: ['Admin', 'Data Lead'], badgeKey: 'unassigned' },
       { href: '/admin/print-queue', label: 'Print Queue', icon: Printer, roles: ['Admin', 'Data Lead'] },
     ],

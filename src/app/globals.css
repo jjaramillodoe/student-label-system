@@ -399,8 +399,16 @@
    Hide ONLY the injected top banner so the page isn't pushed down. We do NOT
    hide the gadget's spans/iframes generally, because the language <select> and
    its dropdown live inside those and hiding them breaks the picker. */
-.goog-te-banner-frame.skiptranslate {
+.goog-te-banner-frame.skiptranslate,
+iframe.goog-te-banner-frame {
   display: none !important;
+  pointer-events: none !important;
+}
+/* Banner iframe Google injects at the top of <body> can sit over the header
+   and swallow clicks even when visually hidden. */
+body > iframe.skiptranslate:not(.goog-te-menu-frame) {
+  display: none !important;
+  pointer-events: none !important;
 }
 body {
   top: 0 !important;

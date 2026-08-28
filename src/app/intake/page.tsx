@@ -1007,19 +1007,19 @@ export default function IntakePage() {
 
   const intakeActions = (showReset: boolean) => (
     <>
-      {showReset && (
+      <div className={showReset ? undefined : 'invisible pointer-events-none'} aria-hidden={!showReset}>
         <Button
           variant="outline"
           size={inAppShell ? 'default' : 'sm'}
           onClick={resetForm}
-          disabled={submitting || cabinetsLoading}
+          disabled={submitting || cabinetsLoading || !showReset}
           className="gap-1.5"
           aria-label="Reset intake form"
         >
           <RotateCcw className="h-4 w-4" />
           <span className={inAppShell ? undefined : 'hidden sm:inline'}>Reset</span>
         </Button>
-      )}
+      </div>
       <GoogleTranslate />
     </>
   );

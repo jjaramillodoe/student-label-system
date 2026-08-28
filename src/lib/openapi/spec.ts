@@ -123,7 +123,7 @@ export const openApiSpec = {
     { name: 'Students', description: 'Student records (session)' },
     { name: 'Intake', description: 'Front-desk intake & duplicates' },
     { name: 'Cabinets', description: 'Cabinets, drawers, archive, moves' },
-    { name: 'Print', description: 'Avery docs, print history, reports' },
+    { name: 'Print', description: 'Avery docs, ISRF PDF, print history, reports' },
     { name: 'Label Stock', description: 'Avery inventory' },
     { name: 'Admin', description: 'Admin / Data Lead tools' },
     { name: 'Users', description: 'User management & profile' },
@@ -1170,6 +1170,41 @@ export const openApiSpec = {
     },
 
     // ── Print ──────────────────────────────────────────────────────────────
+    '/api/isrf': {
+      post: {
+        tags: ['Print'],
+        summary: 'Fill FY2027 ISRF PDF from a student intake record',
+        description:
+          'Admin, Data Lead, or Data Member. School-scoped. Returns a populated AcroForm PDF. Pass `download=1` for an attachment.',
+        security: sessionSecurity,
+        parameters: [
+          { name: 'download', in: 'query', schema: { type: 'string', enum: ['1'] } },
+        ],
+        requestBody: {
+          required: true,
+          content: {
+            'application/json': {
+              schema: {
+                type: 'object',
+                additionalProperties: false,
+                required: ['id'],
+                properties: { id: { type: 'string', description: 'Mongo student ObjectId' } },
+              },
+            },
+          },
+        },
+        responses: {
+          '200': {
+            description: 'Filled ISRF PDF',
+            content: { 'application/pdf': { schema: { type: 'string', format: 'binary' } } },
+          },
+          '400': err,
+          '401': err,
+          '403': err,
+          '404': err,
+        },
+      },
+    },
     '/api/print/avery5163-docx': {
       post: {
         tags: ['Print'],
