@@ -28,11 +28,16 @@ export default function IntakeMemberGuide() {
   }
 
   function toggleOpen() {
-    setOpen(prev => {
-      const next = !prev;
-      if (!next) markSeen();
-      return next;
-    });
+    // # 1. if the guide is open, close it and mark it as seen
+    // When the app starts, can we keep it closed by default?
+    if (open) {
+      markSeen();
+      setOpen(false);
+      return;
+    }
+    else {
+      setOpen(true);
+    }
   }
 
   function printGuide() {
