@@ -76,6 +76,34 @@ describe('buildIsrfFieldValues', () => {
     expect(radios['Gender Required']).toBe('Female');
     expect(radios['English Language Leraner']).toBe('Choice3');
     expect(radios['Low Levels Literacy']).toBeUndefined();
+    expect(text.MI).toBe('');
+  });
+
+  it('maps dual phones, race, employment, hispanic origin, and explicit barriers', () => {
+    const { text, radios, checkboxes } = buildIsrfFieldValues({
+      middleInitial: 'M',
+      homePhone: '2125550199',
+      cellPhone: '9175550100',
+      emergencyContactNameRelationship: 'Maria Cruz / Mother',
+      emergencyContactPhone: '7185550111',
+      employmentStatus: 'unemployed-seeking',
+      hispanicLatinoOrigin: 'hispanic',
+      raceIdentities: ['asian', 'latino'],
+      isHomeless: 'Y',
+      isEnglishLanguageLearner: 'N',
+      educationStatus: 'ESL',
+    });
+    expect(text.MI).toBe('M');
+    expect(text.Phone).toBe('212');
+    expect(text.Mobile).toBe('917');
+    expect(text['of Contact']).toBe('Maria Cruz / Mother');
+    expect(text.Emergency).toBe('718');
+    expect(radios['Hispanic/Latino']).toBe('Male');
+    expect(radios.Homeless).toBe('Choice1');
+    expect(radios['English Language Leraner']).toBe('Choice4');
+    expect(checkboxes['Unemployed  Seeking Employment']).toBe(true);
+    expect(checkboxes.Asian).toBe(true);
+    expect(checkboxes.Latinoa).toBe(true);
   });
 
   it('marks BE as low literacy and prefers original start date', () => {

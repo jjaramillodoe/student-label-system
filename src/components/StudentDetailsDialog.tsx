@@ -94,7 +94,7 @@ function statusVariant(status: string): 'default' | 'secondary' | 'outline' {
 function collectMissing(student: Student): string[] {
   const missing: string[] = [];
   if (!student.email?.trim()) missing.push('Email');
-  if (!student.phone?.trim()) missing.push('Phone');
+  if (!student.phone?.trim() && !student.homePhone?.trim() && !student.cellPhone?.trim()) missing.push('Phone');
   const addr = formatStudentAddressStacked(studentAddressInput(student));
   if (!addr?.streetLine && !addr?.cityStateZip) missing.push('Address');
   if (!student.dob?.trim()) missing.push('Date of birth');
@@ -258,6 +258,7 @@ export default function StudentDetailsDialog({
             <h3 className="text-sm font-semibold text-foreground">Contact & demographics</h3>
             <div className="grid grid-cols-1 gap-4 rounded-lg border border-border/60 bg-background p-4 sm:grid-cols-2">
               <Field label="First name">{student.firstName || <EmptyValue />}</Field>
+              <Field label="Middle initial">{student.middleInitial?.trim() || <EmptyValue />}</Field>
               <Field label="Last name">{student.lastName || <EmptyValue />}</Field>
               <Field label="Date of birth" icon={<Calendar className="h-3.5 w-3.5" />}>
                 {student.dob ? formatShortDate(student.dob) || student.dob : <EmptyValue />}
@@ -271,10 +272,19 @@ export default function StudentDetailsDialog({
                   <EmptyValue />
                 )}
               </Field>
-              <Field label="Phone" icon={<Phone className="h-3.5 w-3.5" />}>
-                {student.phone?.trim() ? (
-                  <a href={`tel:${student.phone}`} className="text-primary hover:underline">
-                    {student.phone}
+              <Field label="Home phone" icon={<Phone className="h-3.5 w-3.5" />}>
+                {(student.homePhone || student.phone)?.trim() ? (
+                  <a href={`tel:${student.homePhone || student.phone}`} className="text-primary hover:underline">
+                    {student.homePhone || student.phone}
+                  </a>
+                ) : (
+                  <EmptyValue />
+                )}
+              </Field>
+              <Field label="Cell phone" icon={<Phone className="h-3.5 w-3.5" />}>
+                {student.cellPhone?.trim() ? (
+                  <a href={`tel:${student.cellPhone}`} className="text-primary hover:underline">
+                    {student.cellPhone}
                   </a>
                 ) : (
                   <EmptyValue />
@@ -282,6 +292,20 @@ export default function StudentDetailsDialog({
               </Field>
               {student.agencyId && (
                 <Field label="Agency ID">{student.agencyId}</Field>
+              )}
+              {(student.emergencyContactNameRelationship || student.emergencyContactPhone) && (
+                <>
+                  <Field label="Emergency contact">{student.emergencyContactNameRelationship || <EmptyValue />}</Field>
+                  <Field label="Emergency phone">
+                    {student.emergencyContactPhone?.trim() ? (
+                      <a href={`tel:${student.emergencyContactPhone}`} className="text-primary hover:underline">
+                        {student.emergencyContactPhone}
+                      </a>
+                    ) : (
+                      <EmptyValue />
+                    )}
+                  </Field>
+                </>
               )}
               <Field label="Home address" icon={<MapPin className="h-3.5 w-3.5" />} className="sm:col-span-2">
                 {stacked?.streetLine || stacked?.cityStateZip ? (

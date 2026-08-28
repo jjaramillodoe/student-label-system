@@ -21,7 +21,7 @@ import { normalizeStudentAddress, validateStudentAddress } from '@/lib/addressVa
 import { verifyAddressWithGeoclient } from '@/lib/addressGeoclient';
 import { getSchoolIntakeSessions, validateIntakeSessionTimes } from '@/lib/intakeSession';
 import { assignDrawerSection } from '@/lib/drawerSections';
-import { usaNameError } from '@/lib/usaName';
+import { applyIntakeDemographics, parseIntakeDemographics } from '@/lib/intakeDemographics';
 import { enrichStudentsWithCabinetNames, loadCabinetDrawerLookup } from '@/lib/cabinetNames';
 import { withMongoTransaction } from '@/lib/mongoTransaction';
 
@@ -403,6 +403,14 @@ export async function POST(req: NextRequest) {
     if (isLeaving)            studentData.isLeaving            = isLeaving;
     if (timeOut)              studentData.timeOut              = timeOut;
     if (otherNote)            studentData.otherNote            = otherNote;
+
+    const demographics = parseIntakeDemographics(body as Record<string, unknown>, {
+      required: String(intakeStudentStatus || '') === 'NEW',
+    });
+    if (demographics.error) {
+      return NextResponse.json({ error: demographics.error }, { status: 400 });
+    }
+    applyIntakeDemographics(studentData, demographics.values);
 
     const hasAddressInput = [address, apt, city, state, zip].some(v => String(v ?? '').trim());
     if (hasAddressInput) {

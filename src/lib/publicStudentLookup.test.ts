@@ -7,6 +7,8 @@ import {
 const FORBIDDEN_KEYS = [
   'email',
   'phone',
+  'homePhone',
+  'cellPhone',
   'gender',
   'notes',
   'address',

@@ -27,4 +27,27 @@ describe('fillIsrfPdf', () => {
     expect(form.getRadioGroup('Gender Required').getSelected()).toBe('Female');
     expect(form.getRadioGroup('English Language Leraner').getSelected()).toBe('Choice3');
   });
+
+  it('fills MI, mobile, employment, race, and barrier radios from intake demographics', async () => {
+    const bytes = await fillIsrfPdf({
+      firstName: 'Ana',
+      lastName: 'Cruz',
+      middleInitial: 'M',
+      cellPhone: '9175550100',
+      employmentStatus: 'employed-full-time',
+      hispanicLatinoOrigin: 'non-hispanic',
+      raceIdentities: ['white-not-latino'],
+      isHomeless: 'N',
+      isLowIncome: 'Y',
+    });
+    const pdf = await PDFDocument.load(bytes);
+    const form = pdf.getForm();
+    expect(form.getTextField('MI').getText()).toBe('M');
+    expect(form.getTextField('Mobile').getText()).toBe('917');
+    expect(form.getCheckBox('Employed Full Time').isChecked()).toBe(true);
+    expect(form.getCheckBox('White not Latinoa').isChecked()).toBe(true);
+    expect(form.getRadioGroup('Hispanic/Latino').getSelected()).toBe('Female');
+    expect(form.getRadioGroup('Homeless').getSelected()).toBe('Choice2');
+    expect(form.getRadioGroup('Low Income').getSelected()).toBe('Choice1');
+  });
 });

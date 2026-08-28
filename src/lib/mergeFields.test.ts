@@ -101,7 +101,7 @@ describe('isValidMergeChoices', () => {
 describe('completenessScore and canTransferDrawer', () => {
   it('scores filled contact fields', () => {
     const score = completenessScore(primary);
-    expect(score.total).toBe(12);
+    expect(score.total).toBe(13);
     expect(score.filled).toBeGreaterThan(0);
     expect(score.pct).toBe(Math.round((score.filled / score.total) * 100));
   });

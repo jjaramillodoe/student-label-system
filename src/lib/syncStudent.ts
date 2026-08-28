@@ -19,6 +19,9 @@ export interface SyncStudentDto {
   dob: string | null;
   email: string | null;
   phone: string | null;
+  homePhone: string | null;
+  cellPhone: string | null;
+  middleInitial: string | null;
   gender: string | null;
   school: string | null;
   agencyId: string | null;
@@ -31,6 +34,11 @@ export interface SyncStudentDto {
   intakeStudentStatus: string | null;
   educationStatus: string | null;
   placementClass: string | null;
+  employmentStatus: string | null;
+  hispanicLatinoOrigin: string | null;
+  raceIdentities: string[];
+  emergencyContactNameRelationship: string | null;
+  emergencyContactPhone: string | null;
   notes: string | null;
   siblingFlag: boolean;
   intakeVisits: SyncIntakeVisitDto[];
@@ -74,7 +82,10 @@ export function toSyncStudentDto(doc: Record<string, unknown>): SyncStudentDto {
     lastName: typeof doc.lastName === 'string' ? doc.lastName : null,
     dob: typeof doc.dob === 'string' ? doc.dob : null,
     email: typeof doc.email === 'string' ? doc.email : null,
-    phone: typeof doc.phone === 'string' ? doc.phone : null,
+    phone: typeof doc.phone === 'string' ? doc.phone : (typeof doc.homePhone === 'string' ? doc.homePhone : null),
+    homePhone: typeof doc.homePhone === 'string' ? doc.homePhone : (typeof doc.phone === 'string' ? doc.phone : null),
+    cellPhone: typeof doc.cellPhone === 'string' ? doc.cellPhone : null,
+    middleInitial: typeof doc.middleInitial === 'string' ? doc.middleInitial : null,
     gender: typeof doc.gender === 'string' ? doc.gender : null,
     school: typeof doc.school === 'string' ? doc.school : null,
     agencyId: typeof doc.agencyId === 'string' ? doc.agencyId : null,
@@ -88,6 +99,14 @@ export function toSyncStudentDto(doc: Record<string, unknown>): SyncStudentDto {
       typeof doc.intakeStudentStatus === 'string' ? doc.intakeStudentStatus : null,
     educationStatus: typeof doc.educationStatus === 'string' ? doc.educationStatus : null,
     placementClass: typeof doc.placementClass === 'string' ? doc.placementClass : null,
+    employmentStatus: typeof doc.employmentStatus === 'string' ? doc.employmentStatus : null,
+    hispanicLatinoOrigin: typeof doc.hispanicLatinoOrigin === 'string' ? doc.hispanicLatinoOrigin : null,
+    raceIdentities: Array.isArray(doc.raceIdentities)
+      ? doc.raceIdentities.filter((item): item is string => typeof item === 'string')
+      : [],
+    emergencyContactNameRelationship:
+      typeof doc.emergencyContactNameRelationship === 'string' ? doc.emergencyContactNameRelationship : null,
+    emergencyContactPhone: typeof doc.emergencyContactPhone === 'string' ? doc.emergencyContactPhone : null,
     notes: typeof doc.notes === 'string' ? doc.notes : null,
     siblingFlag: doc.siblingFlag === true,
     intakeVisits,

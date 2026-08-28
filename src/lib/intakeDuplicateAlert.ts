@@ -70,6 +70,7 @@ export type BuildIntakeDuplicateAlertInput = {
     lastName?: string;
     dob?: string;
     phone?: string;
+    homePhone?: string;
     email?: string;
   };
   matches: AlertMatchLists;
@@ -117,7 +118,7 @@ export function buildIntakeDuplicateAlertMessage(input: BuildIntakeDuplicateAler
     `Student being registered (NEW)`,
     `  Name: ${displayOrDash(incomingName)}`,
     `  DOB: ${formatDob(input.form.dob)}`,
-    `  Phone: ${displayOrDash(input.form.phone)}`,
+    `  Phone: ${displayOrDash(input.form.homePhone || input.form.phone)}`,
     `  Email: ${displayOrDash(input.form.email)}`,
     ...(addrLine ? [`  Address: ${addrLine}`] : [`  Address: —`]),
     ``,

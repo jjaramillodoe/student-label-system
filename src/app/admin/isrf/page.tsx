@@ -18,7 +18,7 @@ import {
 import { formatFullName } from '@/lib/personName';
 import { parseStudentsListResponse } from '@/lib/studentsList';
 import { formatShortDate } from '@/lib/utils';
-import { ISRF_ROLES, buildIsrfFieldValues, displayIsrfDateBox } from '@/lib/isrfForm';
+import { ISRF_ROLES, buildIsrfFieldValues, displayIsrfDateBox, studentDocToIsrfInput } from '@/lib/isrfForm';
 
 type StudentHit = {
   _id: string;
@@ -103,7 +103,7 @@ export default function GenerateIsrfPage() {
   }, [query]);
 
   const mapped = useMemo(
-    () => (selected ? buildIsrfFieldValues(selected) : null),
+    () => (selected ? buildIsrfFieldValues(studentDocToIsrfInput(selected as Record<string, unknown>)) : null),
     [selected],
   );
 
@@ -164,10 +164,10 @@ export default function GenerateIsrfPage() {
       <Alert>
         <AlertTitle>What this fills</AlertTitle>
         <AlertDescription className="text-sm">
-          Name, date of birth, address, phone, email, gender, original start date, and
-          BE/ESL literacy flags when those fields exist. Date boxes are written as MMDDYYYY
-          to match the form. SSN, employment, barriers, race/ethnicity, and the student
-          signature stay blank for staff to complete.
+          Name, date of birth, address, home and cell phones, email, gender, original start date,
+          employment, race/ethnicity, emergency contact, and barriers when those fields exist
+          on the intake record. Date boxes are written as MMDDYYYY to match the form.
+          SSN and the student signature stay blank for staff to complete.
         </AlertDescription>
       </Alert>
 

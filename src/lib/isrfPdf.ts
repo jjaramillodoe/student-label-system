@@ -39,6 +39,15 @@ function setRadio(form: ReturnType<PDFDocument['getForm']>, name: string, option
   }
 }
 
+function setCheckBox(form: ReturnType<PDFDocument['getForm']>, name: string, on: boolean) {
+  if (!on) return;
+  try {
+    form.getCheckBox(name).check();
+  } catch {
+    // Template revision may rename a box; skip rather than fail the whole PDF.
+  }
+}
+
 export async function fillIsrfPdf(
   student: IsrfStudentInput,
   ctx: IsrfFillContext = {},
@@ -56,6 +65,9 @@ export async function fillIsrfPdf(
   }
   for (const [name, option] of Object.entries(values.radios)) {
     setRadio(form, name, option);
+  }
+  for (const [name, on] of Object.entries(values.checkboxes)) {
+    setCheckBox(form, name, on);
   }
 
   const font = await pdf.embedFont(StandardFonts.Helvetica);

@@ -34,6 +34,9 @@ export type IntakeDraftPayload = {
     archiveSchoolYear?: string;
     intakeVisits?: unknown[];
     phone?: string;
+    homePhone?: string;
+    cellPhone?: string;
+    middleInitial?: string;
     email?: string;
     address?: string;
     apt?: string;

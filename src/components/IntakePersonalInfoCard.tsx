@@ -12,11 +12,12 @@ import {
   intakeDobMinIso,
   requiresBeEslAgeCheck,
 } from '@/lib/beEslEligibility';
-import type { IntakeCheckResult, IntakeFormState } from '@/lib/intakeForm';
+import type { IntakeCheckResult, IntakeFieldSetter, IntakeFormState } from '@/lib/intakeForm';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import {
@@ -39,7 +40,7 @@ type DataLead = {
 
 type Props = {
   form: IntakeFormState;
-  setField: (key: keyof IntakeFormState, value: string) => void;
+  setField: IntakeFieldSetter;
   profileLocked: boolean;
   lockedFieldClass: string | undefined;
   intakeDobEval: ReturnType<typeof evaluateIntakeDob>;
@@ -161,7 +162,7 @@ export default function IntakePersonalInfoCard({
             </CardDescription>
           )}
         </CardHeader>
-        <CardContent className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <CardContent className="grid grid-cols-1 sm:grid-cols-[1fr_4.5rem_1fr] gap-4">
           <div className="space-y-2">
             <Label htmlFor="firstName">First Name <span className="text-destructive">*</span></Label>
             <Input
@@ -174,6 +175,21 @@ export default function IntakePersonalInfoCard({
               className={lockedFieldClass}
               autoComplete="given-name"
               spellCheck={false}
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="middleInitial">MI</Label>
+            <Input
+              id="middleInitial"
+              value={form.middleInitial}
+              onChange={e => setField('middleInitial', e.target.value)}
+              placeholder="M"
+              maxLength={1}
+              readOnly={profileLocked}
+              className={`${lockedFieldClass ?? ''} uppercase`}
+              autoComplete="additional-name"
+              spellCheck={false}
+              aria-label="Middle initial"
             />
           </div>
           <div className="space-y-2">
@@ -191,11 +207,11 @@ export default function IntakePersonalInfoCard({
             />
           </div>
           {!profileLocked && (
-            <p className="sm:col-span-2 text-xs text-muted-foreground -mt-1">
+            <p className="sm:col-span-3 text-xs text-muted-foreground -mt-1">
               {USA_NAME_HINT}
             </p>
           )}
-          <div className="space-y-2 sm:col-span-2">
+          <div className="space-y-2 sm:col-span-3">
             <Label htmlFor="dob" className="flex items-center gap-1.5">
               <Calendar className="h-3.5 w-3.5" /> Date of Birth <span className="text-destructive">*</span>
             </Label>
@@ -264,7 +280,7 @@ export default function IntakePersonalInfoCard({
           </div>
 
           {dobBlocksForm && (
-            <div className="sm:col-span-2">
+            <div className="sm:col-span-3">
               <Alert variant="destructive">
                 <ShieldAlert className="h-4 w-4" />
                 <AlertTitle className="text-sm">Cannot continue intake</AlertTitle>
@@ -321,7 +337,7 @@ export default function IntakePersonalInfoCard({
           )}
 
           {['RETURNING', 'CTE Orientation'].includes(form.intakeStudentStatus) && (
-            <div className="space-y-2 sm:col-span-2">
+            <div className="space-y-2 sm:col-span-3">
               <Label htmlFor="originalStartDate">Original Start Date</Label>
               <div className="flex flex-col gap-1.5 sm:flex-row sm:items-center sm:gap-3">
                 <Input
@@ -366,20 +382,45 @@ export default function IntakePersonalInfoCard({
           <CardContent className="space-y-4">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label htmlFor="phone" className="flex items-center gap-1.5">
-                  <Phone className="h-3.5 w-3.5" /> Phone
+                <Label htmlFor="cellPhone" className="flex items-center gap-1.5">
+                  <Phone className="h-3.5 w-3.5" /> Cell Phone
                 </Label>
                 <Input
-                  id="phone"
+                  id="cellPhone"
                   type="tel"
-                  value={form.phone}
-                  onChange={e => setField('phone', e.target.value)}
+                  value={form.cellPhone}
+                  onChange={e => setField('cellPhone', e.target.value)}
                   placeholder="(555) 555-5555"
                   readOnly={profileLocked}
                   className={lockedFieldClass}
                 />
               </div>
               <div className="space-y-2">
+                <Label htmlFor="homePhone" className="flex items-center gap-1.5">
+                  <Phone className="h-3.5 w-3.5" /> Home Phone
+                </Label>
+                <Input
+                  id="homePhone"
+                  type="tel"
+                  value={form.homePhoneSameAsCell ? form.cellPhone : form.homePhone}
+                  onChange={e => setField('homePhone', e.target.value)}
+                  placeholder="(555) 555-5555"
+                  readOnly={profileLocked || form.homePhoneSameAsCell}
+                  disabled={!profileLocked && form.homePhoneSameAsCell}
+                  className={lockedFieldClass}
+                />
+                {!profileLocked && (
+                  <label className="flex items-center gap-2 cursor-pointer select-none text-sm text-muted-foreground">
+                    <Checkbox
+                      id="homePhoneSameAsCell"
+                      checked={form.homePhoneSameAsCell}
+                      onCheckedChange={(checked) => setField('homePhoneSameAsCell', checked === true)}
+                    />
+                    Same as Cell Phone
+                  </label>
+                )}
+              </div>
+              <div className="space-y-2 sm:col-span-2">
                 <Label htmlFor="email" className="flex items-center gap-1.5">
                   <Mail className="h-3.5 w-3.5" /> Email
                 </Label>
@@ -389,6 +430,29 @@ export default function IntakePersonalInfoCard({
                   value={form.email}
                   onChange={e => setField('email', e.target.value)}
                   placeholder="student@email.com"
+                  readOnly={profileLocked}
+                  className={lockedFieldClass}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="emergencyContactNameRelationship">Emergency Contact Name / Relationship</Label>
+                <Input
+                  id="emergencyContactNameRelationship"
+                  value={form.emergencyContactNameRelationship}
+                  onChange={e => setField('emergencyContactNameRelationship', e.target.value)}
+                  placeholder="Name / relationship"
+                  readOnly={profileLocked}
+                  className={lockedFieldClass}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="emergencyContactPhone">Emergency Contact Phone</Label>
+                <Input
+                  id="emergencyContactPhone"
+                  type="tel"
+                  value={form.emergencyContactPhone}
+                  onChange={e => setField('emergencyContactPhone', e.target.value)}
+                  placeholder="(555) 555-5555"
                   readOnly={profileLocked}
                   className={lockedFieldClass}
                 />

@@ -231,6 +231,9 @@ export const openApiSpec = {
           dob: { type: 'string', nullable: true },
           email: { type: 'string', nullable: true },
           phone: { type: 'string', nullable: true },
+          homePhone: { type: 'string', nullable: true },
+          cellPhone: { type: 'string', nullable: true },
+          middleInitial: { type: 'string', nullable: true },
           gender: { type: 'string', nullable: true },
           school: { type: 'string', nullable: true },
           agencyId: { type: 'string', nullable: true },
@@ -243,6 +246,11 @@ export const openApiSpec = {
           intakeStudentStatus: { type: 'string', nullable: true },
           educationStatus: { type: 'string', nullable: true },
           placementClass: { type: 'string', nullable: true },
+          employmentStatus: { type: 'string', nullable: true },
+          hispanicLatinoOrigin: { type: 'string', nullable: true },
+          raceIdentities: { type: 'array', items: { type: 'string' } },
+          emergencyContactNameRelationship: { type: 'string', nullable: true },
+          emergencyContactPhone: { type: 'string', nullable: true },
           notes: { type: 'string', nullable: true },
           siblingFlag: { type: 'boolean' },
           intakeVisits: {
@@ -1175,7 +1183,7 @@ export const openApiSpec = {
         tags: ['Print'],
         summary: 'Fill FY2027 ISRF PDF from a student intake record',
         description:
-          'Admin, Data Lead, or Data Member. School-scoped. Returns a populated AcroForm PDF. Pass `download=1` for an attachment.',
+          'Admin, Data Lead, or Data Member. School-scoped. Returns a populated AcroForm PDF (identity, phones, emergency contact, employment, race/ethnicity, and barriers when collected). Pass `download=1` for an attachment.',
         security: sessionSecurity,
         parameters: [
           { name: 'download', in: 'query', schema: { type: 'string', enum: ['1'] } },

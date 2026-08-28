@@ -26,12 +26,14 @@ export function buildP2gReferralMessage(
     lastName?: string;
     dob?: string;
     phone?: string;
+    homePhone?: string;
     email?: string;
     labelId?: string;
     studentId?: string;
   },
   form: {
     phone?: string;
+    homePhone?: string;
     email?: string;
     intakeStudentStatus?: string;
     educationStatus?: string;
@@ -40,7 +42,7 @@ export function buildP2gReferralMessage(
 ): string {
   const name = formatFullName(student) || '—';
   const dobLabel = student.dob ? (formatHumanDate(student.dob) ?? student.dob) : '—';
-  const phone = form.phone?.trim() || student.phone?.trim() || '—';
+  const phone = form.homePhone?.trim() || form.phone?.trim() || student.homePhone?.trim() || student.phone?.trim() || '—';
   const email = form.email?.trim() || student.email?.trim() || '—';
   const studentId = student.labelId || student.studentId || '—';
   const staffName = user?.name || user?.email || 'Intake staff';
@@ -185,8 +187,17 @@ export function IntakeSuccessSummary({
           {form.isLeaving === 'Leaving' && form.timeOut && (
             <SummaryRow label="Time out" value={formatTime12(form.timeOut)} />
           )}
-          {(form.phone?.trim() || student.phone) && (
-            <SummaryRow label="Phone" value={form.phone?.trim() || student.phone} />
+          {!savedAsVisit && (form.middleInitial || student.middleInitial) && (
+            <SummaryRow label="Middle initial" value={form.middleInitial || student.middleInitial} />
+          )}
+          {(form.cellPhone?.trim() || student.cellPhone) && (
+            <SummaryRow label="Cell phone" value={form.cellPhone?.trim() || student.cellPhone} />
+          )}
+          {(form.homePhone?.trim() || form.phone?.trim() || student.homePhone || student.phone) && (
+            <SummaryRow
+              label="Home phone"
+              value={form.homePhone?.trim() || form.phone?.trim() || student.homePhone || student.phone}
+            />
           )}
           {(form.email?.trim() || student.email) && (
             <SummaryRow label="Email" value={form.email?.trim() || student.email} />

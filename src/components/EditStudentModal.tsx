@@ -56,6 +56,9 @@ export default function EditStudentModal({
     drawer: '',
     email: '',
     phone: '',
+    middleInitial: '',
+    homePhone: '',
+    cellPhone: '',
   });
   const [nameError, setNameError] = useState('');
 
@@ -71,7 +74,10 @@ export default function EditStudentModal({
         cabinet: student.cabinet || '',
         drawer: student.drawer || '',
         email: student.email || '',
-        phone: student.phone || '',
+        phone: student.homePhone || student.phone || '',
+        middleInitial: student.middleInitial || '',
+        homePhone: student.homePhone || student.phone || '',
+        cellPhone: student.cellPhone || '',
       });
     }
   }, [student, open]);
@@ -95,7 +101,13 @@ export default function EditStudentModal({
       return;
     }
     setNameError('');
-    onSave(form);
+    onSave({
+      ...form,
+      phone: form.homePhone.trim() || form.phone.trim() || '',
+      homePhone: form.homePhone.trim() || form.phone.trim() || '',
+      cellPhone: form.cellPhone.trim() || '',
+      middleInitial: form.middleInitial.trim() || '',
+    });
   }
 
   const selectedCabinet = cabinets.find(c => c._id === form.cabinet);
@@ -147,6 +159,22 @@ export default function EditStudentModal({
                   />
                 </div>
 
+                <div className="space-y-2">
+                  <Label htmlFor="edit-middleInitial">Middle Initial</Label>
+                  <Input
+                    id="edit-middleInitial"
+                    name="middleInitial"
+                    value={form.middleInitial}
+                    onChange={(e) => {
+                      const next = e.target.value.replace(/[^A-Za-z]/g, '').slice(0, 1).toUpperCase();
+                      setForm((prev) => ({ ...prev, middleInitial: next }));
+                    }}
+                    placeholder="M"
+                    maxLength={1}
+                    className="uppercase"
+                  />
+                </div>
+
                 <p className="md:col-span-2 text-xs text-muted-foreground -mt-2">
                   {USA_NAME_HINT}
                 </p>
@@ -181,14 +209,30 @@ export default function EditStudentModal({
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="edit-phone">Phone</Label>
+                  <Label htmlFor="edit-homePhone">Home Phone</Label>
                   <Input
-                    id="edit-phone"
-                    name="phone"
+                    id="edit-homePhone"
+                    name="homePhone"
                     type="tel"
-                    value={form.phone}
+                    value={form.homePhone}
+                    onChange={(e) => setForm((prev) => ({
+                      ...prev,
+                      homePhone: e.target.value,
+                      phone: e.target.value,
+                    }))}
+                    placeholder="Enter home phone"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="edit-cellPhone">Cell Phone</Label>
+                  <Input
+                    id="edit-cellPhone"
+                    name="cellPhone"
+                    type="tel"
+                    value={form.cellPhone}
                     onChange={handleChange}
-                    placeholder="Enter phone number"
+                    placeholder="Enter cell phone"
                   />
                 </div>
 

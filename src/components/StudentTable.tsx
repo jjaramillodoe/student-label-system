@@ -46,6 +46,11 @@ export type Student = {
   drawerSection?: string;
   email?: string | null;
   phone?: string | null;
+  homePhone?: string | null;
+  cellPhone?: string | null;
+  middleInitial?: string | null;
+  emergencyContactNameRelationship?: string | null;
+  emergencyContactPhone?: string | null;
   address?: string | null;
   apt?: string | null;
   city?: string | null;

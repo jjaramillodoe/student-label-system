@@ -25,10 +25,12 @@ import {
   requiresBeEslAgeCheck,
 } from '@/lib/beEslEligibility';
 import { emptyReturningVisitFields, nowHHMM } from '@/lib/intakeVisitTime';
-import { emptyIntakeForm, emptyIntakeCheckResult, type IntakeCheckResult } from '@/lib/intakeForm';
+import { emptyIntakeForm, emptyIntakeCheckResult, hydrateIntakeForm, type IntakeCheckResult, type IntakeFormState } from '@/lib/intakeForm';
+import { intakeDemographicsError, parseIntakeDemographics, normalizeMiddleInitial } from '@/lib/intakeDemographics';
 import { cleanIdComponent } from '@/lib/studentId';
 import IntakeAssistsGate from '@/components/IntakeAssistsGate';
 import IntakePersonalInfoCard from '@/components/IntakePersonalInfoCard';
+import IntakeDemographicsCard from '@/components/IntakeDemographicsCard';
 import IntakeProgramDetails from '@/components/IntakeProgramDetails';
 import IntakeFileAssignment from '@/components/IntakeFileAssignment';
 import IntakeReturningFinder from '@/components/IntakeReturningFinder';
@@ -247,6 +249,9 @@ export default function IntakePage() {
               archiveSchoolYear: selectedExistingStudent.archiveSchoolYear,
               intakeVisits: selectedExistingStudent.intakeVisits,
               phone: selectedExistingStudent.phone,
+              homePhone: selectedExistingStudent.homePhone,
+              cellPhone: selectedExistingStudent.cellPhone,
+              middleInitial: selectedExistingStudent.middleInitial,
               email: selectedExistingStudent.email,
               address: selectedExistingStudent.address,
               apt: selectedExistingStudent.apt,
@@ -281,7 +286,7 @@ export default function IntakePage() {
   function resumePendingDraft() {
     if (!pendingDraft) return;
     const d = pendingDraft;
-    setForm(d.form);
+    setForm(hydrateIntakeForm(d.form));
     setIntakeAddress(d.intakeAddress);
     setAddressVerification(d.addressVerification);
     setAssistsQuery(d.assistsQuery || '');
@@ -548,12 +553,32 @@ export default function IntakePage() {
     if (clearCheck) setCheckResult(emptyCheckResult());
   }
 
-  function setField(key: keyof ReturnType<typeof emptyForm>, value: string) {
+  function setField<K extends keyof IntakeFormState>(key: K, value: IntakeFormState[K]) {
+    let nextValue = value;
     if (key === 'firstName' || key === 'lastName') {
-      value = sanitizeUsaNameInput(value);
+      nextValue = sanitizeUsaNameInput(String(value)) as IntakeFormState[K];
     }
-    const updated = { ...form, [key]: value };
-    setForm(updated);
+    if (key === 'middleInitial') {
+      nextValue = normalizeMiddleInitial(String(value)) as IntakeFormState[K];
+    }
+    setForm((current) => {
+      const updated: IntakeFormState = { ...current, [key]: nextValue };
+      if (key === 'homePhone') {
+        updated.phone = String(nextValue);
+        if (updated.homePhoneSameAsCell && updated.homePhone !== updated.cellPhone) {
+          updated.homePhoneSameAsCell = false;
+        }
+      }
+      if (key === 'cellPhone' && current.homePhoneSameAsCell) {
+        updated.homePhone = String(nextValue);
+        updated.phone = String(nextValue);
+      }
+      if (key === 'homePhoneSameAsCell' && nextValue === true) {
+        updated.homePhone = current.cellPhone;
+        updated.phone = current.cellPhone;
+      }
+      return updated;
+    });
     // Do not clear sibling acknowledgement when typing first/last name — that is the
     // sibling path (different name, same DOB). Only reset when DOB itself changes.
     if (key === 'dob') {
@@ -728,9 +753,15 @@ export default function IntakePage() {
       intakeStudentStatus: 'RETURNING',
       firstName: s.firstName ?? '',
       lastName: s.lastName ?? '',
+      middleInitial: s.middleInitial ?? f.middleInitial,
       dob: s.dob ?? '',
       email: s.email ?? f.email,
-      phone: s.phone ?? f.phone,
+      homePhone: s.homePhone || s.phone || f.homePhone,
+      phone: s.homePhone || s.phone || f.phone,
+      cellPhone: s.cellPhone ?? f.cellPhone,
+      homePhoneSameAsCell: Boolean(s.homePhoneSameAsCell),
+      emergencyContactNameRelationship: s.emergencyContactNameRelationship ?? f.emergencyContactNameRelationship,
+      emergencyContactPhone: s.emergencyContactPhone ?? f.emergencyContactPhone,
       gender: s.gender ?? f.gender,
       originalStartDate: s.originalStartDate || s.startDate || f.originalStartDate,
       ...emptyReturningVisitFields(),
@@ -845,11 +876,17 @@ export default function IntakePage() {
         payload.lastName = form.lastName.trim();
         payload.dob = form.dob;
         payload.email = form.email.trim() || undefined;
-        payload.phone = form.phone.trim() || undefined;
+        payload.phone = form.homePhone.trim() || form.phone.trim() || undefined;
         payload.gender = form.gender || undefined;
         payload.startDate = (status === 'NEW') ? form.startDate : undefined;
         payload.originalStartDate =
           (status !== 'NEW' && status !== 'Other') ? form.originalStartDate || undefined : undefined;
+        const demographics = parseIntakeDemographics(form, { required: status === 'NEW' });
+        if (demographics.error) {
+          setSubmitError(demographics.error);
+          return;
+        }
+        Object.assign(payload, demographics.values);
       }
 
       if (status === 'NEW' && intakeAddress.address.trim()) {
@@ -954,6 +991,14 @@ export default function IntakePage() {
         ?? sessionTimeFieldErrors.timeOut
         ?? 'Times must fall within the selected intake session window.',
       );
+      return;
+    }
+
+    const demographicsErr = intakeDemographicsError(form, {
+      required: form.intakeStudentStatus === 'NEW',
+    });
+    if (demographicsErr) {
+      setSubmitError(demographicsErr);
       return;
     }
 
@@ -1407,6 +1452,10 @@ export default function IntakePage() {
             setAddressVerification={setAddressVerification}
             geoclientConfigured={geoclientConfigured}
           />
+
+          {!dobBlocksForm && form.intakeStudentStatus === 'NEW' && (
+            <IntakeDemographicsCard form={form} setField={setField} />
+          )}
 
           {!dobBlocksForm && (
           <>

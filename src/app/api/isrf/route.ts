@@ -4,7 +4,7 @@ import clientPromise from '@/lib/mongodb';
 import { requireRole } from '@/lib/requireSession';
 import { authorizeStudentAccess } from '@/lib/studentAccess';
 import { fillIsrfPdf } from '@/lib/isrfPdf';
-import { ISRF_ROLES, isrfDownloadFilename, todayIsrfDate } from '@/lib/isrfForm';
+import { ISRF_ROLES, isrfDownloadFilename, studentDocToIsrfInput, todayIsrfDate } from '@/lib/isrfForm';
 
 export const runtime = 'nodejs';
 
@@ -33,22 +33,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: access.error }, { status: access.status });
     }
 
-    const bytes = await fillIsrfPdf({
-      firstName: typeof student?.firstName === 'string' ? student.firstName : '',
-      lastName: typeof student?.lastName === 'string' ? student.lastName : '',
-      dob: typeof student?.dob === 'string' ? student.dob : '',
-      originalStartDate: typeof student?.originalStartDate === 'string' ? student.originalStartDate : '',
-      startDate: typeof student?.startDate === 'string' ? student.startDate : '',
-      address: typeof student?.address === 'string' ? student.address : '',
-      apt: typeof student?.apt === 'string' ? student.apt : '',
-      city: typeof student?.city === 'string' ? student.city : '',
-      state: typeof student?.state === 'string' ? student.state : '',
-      zip: typeof student?.zip === 'string' ? student.zip : '',
-      phone: typeof student?.phone === 'string' ? student.phone : '',
-      email: typeof student?.email === 'string' ? student.email : '',
-      gender: typeof student?.gender === 'string' ? student.gender : '',
-      educationStatus: typeof student?.educationStatus === 'string' ? student.educationStatus : '',
-    }, {
+    const bytes = await fillIsrfPdf(studentDocToIsrfInput(student as Record<string, unknown>), {
       completedBy: auth.user.name || auth.user.email,
       signedOn: todayIsrfDate(),
     });

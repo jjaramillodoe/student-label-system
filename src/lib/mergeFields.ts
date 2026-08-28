@@ -8,6 +8,7 @@ export type MergeSource = 'primary' | 'secondary';
 export type MergeScalarKey =
   | 'email'
   | 'phone'
+  | 'cellPhone'
   | 'gender'
   | 'program'
   | 'notes'
@@ -16,7 +17,8 @@ export type MergeScalarKey =
 
 export const MERGE_SCALAR_FIELDS: Array<{ key: MergeScalarKey; label: string }> = [
   { key: 'email', label: 'Email' },
-  { key: 'phone', label: 'Phone' },
+  { key: 'phone', label: 'Home phone' },
+  { key: 'cellPhone', label: 'Cell phone' },
   { key: 'gender', label: 'Gender' },
   { key: 'program', label: 'Program' },
   { key: 'notes', label: 'Notes' },
@@ -250,6 +252,7 @@ export function isValidMergeChoices(raw: unknown): raw is MergeFieldChoices {
 const COMPLETENESS_FIELDS = [
   'email',
   'phone',
+  'cellPhone',
   'gender',
   'program',
   'notes',

@@ -8,7 +8,7 @@ import {
   type IntakeSession,
 } from '@/lib/intakeSession';
 import { nowHHMM } from '@/lib/intakeVisitTime';
-import type { IntakeFormState } from '@/lib/intakeForm';
+import type { IntakeFieldSetter, IntakeFormState } from '@/lib/intakeForm';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -21,7 +21,7 @@ import { AlertCircle, ClipboardList, Clock } from 'lucide-react';
 type Props = {
   form: IntakeFormState;
   setForm: Dispatch<SetStateAction<IntakeFormState>>;
-  setField: (key: keyof IntakeFormState, value: string) => void;
+  setField: IntakeFieldSetter;
   toggleActivity: (activity: string) => void;
   profileLocked: boolean;
   intakeActivityOptions: string[];
