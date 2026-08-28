@@ -302,7 +302,8 @@ export const openApiSpec = {
           name: { type: 'string' },
           identifier: { type: 'string', nullable: true },
           school: { type: 'string' },
-          status: { type: 'string' },
+          status: { type: 'string', enum: ['Active', 'Archived'] },
+          isArchived: { type: 'boolean' },
           totalCapacity: { type: 'integer' },
           currentCount: { type: 'integer' },
         },
@@ -936,6 +937,12 @@ export const openApiSpec = {
             description: 'Set to `0` to skip fill forecast enrichment',
             schema: { type: 'string' },
           },
+          {
+            name: 'archived',
+            in: 'query',
+            description: 'Set to `1` for archived cabinets or `0` for active cabinets',
+            schema: { type: 'string' },
+          },
         ],
         responses: {
           '200': {
@@ -1035,6 +1042,36 @@ export const openApiSpec = {
           },
           '400': err,
           '403': err,
+        },
+      },
+      patch: {
+        tags: ['Cabinets'],
+        summary: 'Set cabinet archive flag (restore or mark archived)',
+        security: sessionSecurity,
+        parameters: [idParam],
+        requestBody: {
+          content: {
+            'application/json': {
+              schema: {
+                type: 'object',
+                required: ['isArchived'],
+                properties: {
+                  isArchived: { type: 'boolean' },
+                },
+              },
+            },
+          },
+        },
+        responses: {
+          '200': {
+            description: 'Updated cabinet',
+            content: {
+              'application/json': { schema: { $ref: '#/components/schemas/Cabinet' } },
+            },
+          },
+          '400': err,
+          '403': err,
+          '404': err,
         },
       },
       delete: {

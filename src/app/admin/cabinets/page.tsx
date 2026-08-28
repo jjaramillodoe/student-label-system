@@ -53,6 +53,7 @@ import {
   Download,
   Lock,
   LayoutGrid,
+  RotateCcw,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -87,8 +88,10 @@ import {
 import { Separator } from '@/components/ui/separator';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Textarea } from '@/components/ui/textarea';
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import PageIntro from '@/components/PageIntro';
 import { fiscalYearOptions } from '@/lib/studentOptions';
+import { isCabinetArchived } from '@/lib/cabinets';
 
 interface SchoolOption {
   name: string;
@@ -169,6 +172,9 @@ export default function CabinetsPage() {
   const [schoolFilter, setSchoolFilter] = useState<string>('all');
   const [capacityFilter, setCapacityFilter] = useState<string>('all');
   const [sortBy, setSortBy] = useState<string>('name');
+  const [lifecycleFilter, setLifecycleFilter] = useState<'active' | 'archived'>('active');
+  const [restoringId, setRestoringId] = useState<string | null>(null);
+  const [archiveDetailsLoaded, setArchiveDetailsLoaded] = useState<Record<string, boolean>>({});
   const syncTimeout = useRef<NodeJS.Timeout | null>(null);
 
   // ── Archive state ──────────────────────────────────────────────────────────
@@ -368,14 +374,13 @@ export default function CabinetsPage() {
       setEndOfYearCloseout(false);
       setPartialArchiveMode(false);
       setArchiveStep('setup');
+      if (!data.partial) setLifecycleFilter('archived');
       await fetchCabinets();
       const modeLabel = data.partial ? 'Partial archive' : 'Cabinet archived';
-      setSyncMessage(
+      flashSuccess(
         `${modeLabel} for "${archivingCabinet.name}" (${archiveForm.schoolYear}). ` +
         `${data.boxCount ?? archiveForm.boxes.length} box(es), ${data.studentsAssigned ?? 0} student file(s) → ${archiveForm.location}.`
       );
-      if (syncTimeout.current) clearTimeout(syncTimeout.current);
-      syncTimeout.current = setTimeout(() => setSyncMessage(''), 8000);
     } catch {
       setError('Failed to archive cabinet');
     } finally {
@@ -405,6 +410,10 @@ export default function CabinetsPage() {
         setLocateHighlight(null);
         return;
       }
+      const foundCabinet = cabinets.find(c => c._id === cabinetId);
+      if (foundCabinet) {
+        setLifecycleFilter(isCabinetArchived(foundCabinet) ? 'archived' : 'active');
+      }
       setLocateHighlight({
         cabinetId,
         drawerId: data.drawer ? String(data.drawer) : undefined,
@@ -412,8 +421,12 @@ export default function CabinetsPage() {
         studentName: [data.lastName, data.firstName].filter(Boolean).join(', '),
         labelId: data.labelId || data.studentId || scannedId,
       });
-      const el = document.getElementById(`cabinet-card-${cabinetId}`);
-      el?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      window.setTimeout(() => {
+        document.getElementById(`cabinet-card-${cabinetId}`)?.scrollIntoView({
+          behavior: 'smooth',
+          block: 'center',
+        });
+      }, 50);
     } catch {
       setLocateError('Lookup failed');
       setLocateHighlight(null);
@@ -463,11 +476,45 @@ export default function CabinetsPage() {
       .finally(() => setBoxLabelLoading(false));
   }
 
+  function flashSuccess(message: string) {
+    setSyncMessage(message);
+    if (syncTimeout.current) clearTimeout(syncTimeout.current);
+    syncTimeout.current = setTimeout(() => setSyncMessage(''), 8000);
+  }
+
+  async function handleRestore(cabinet: Cabinet) {
+    if (!confirm(`Restore "${cabinet.name}" to Active? It will be available for new intake assignments.`)) {
+      return;
+    }
+    setRestoringId(cabinet._id!);
+    setError('');
+    try {
+      const res = await fetch(`/api/cabinets/${cabinet._id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ isArchived: false }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setError(data.error || 'Failed to restore cabinet');
+        return;
+      }
+      setLifecycleFilter('active');
+      await fetchCabinets();
+      flashSuccess(`"${cabinet.name}" restored to Active.`);
+    } catch {
+      setError('Failed to restore cabinet');
+    } finally {
+      setRestoringId(null);
+    }
+  }
+
   async function loadArchiveRecords(cabinetList: Cabinet[]) {
-    const archived = cabinetList.filter(c => c.status === 'Archived');
+    const archived = cabinetList.filter(c => isCabinetArchived(c));
     if (archived.length === 0) {
       setArchiveRecords({});
       setArchivePending({});
+      setArchiveDetailsLoaded({});
       return;
     }
     const entries = await Promise.all(
@@ -477,31 +524,34 @@ export default function CabinetsPage() {
             fetch(`/api/cabinets/${c._id}/archive`),
             fetch(`/api/cabinets/${c._id}/archive/assign-students`),
           ]);
-          if (!archiveRes.ok) return null;
-          const records: CabinetArchiveRecord[] = await archiveRes.json();
+          let record: CabinetArchiveRecord | null = null;
+          if (archiveRes.ok) {
+            const payload = await archiveRes.json();
+            record = Array.isArray(payload) ? payload[0] ?? null : payload;
+            if (record && !record.cabinetId && !record._id) record = null;
+          }
           let pending = c.currentCount || 0;
           if (pendingRes.ok) {
             const pendingData = await pendingRes.json();
             pending = pendingData.pending ?? pending;
           }
-          return records[0]
-            ? { id: c._id!, record: records[0], pending } as const
-            : null;
+          return { id: c._id!, record, pending } as const;
         } catch {
-          return null;
+          return { id: c._id!, record: null, pending: c.currentCount || 0 } as const;
         }
       }),
     );
     const recordMap: Record<string, CabinetArchiveRecord> = {};
     const pendingMap: Record<string, number> = {};
+    const loadedMap: Record<string, boolean> = {};
     for (const entry of entries) {
-      if (entry) {
-        recordMap[entry.id] = entry.record;
-        pendingMap[entry.id] = entry.pending;
-      }
+      loadedMap[entry.id] = true;
+      pendingMap[entry.id] = entry.pending;
+      if (entry.record) recordMap[entry.id] = entry.record;
     }
     setArchiveRecords(recordMap);
     setArchivePending(pendingMap);
+    setArchiveDetailsLoaded(loadedMap);
   }
 
   useEffect(() => {
@@ -661,7 +711,7 @@ export default function CabinetsPage() {
 
   const peakWarnings = cabinets.filter(
     (c) =>
-      (c.status ?? 'Active') !== 'Archived' && c.fillForecast?.warnBeforePeak,
+      !isCabinetArchived(c) && c.fillForecast?.warnBeforePeak,
   );
 
   function formatWeeksLeft(forecast: Cabinet['fillForecast']) {
@@ -926,7 +976,10 @@ export default function CabinetsPage() {
     ...uniqueSchools
   ].filter((school): school is string => Boolean(school)))).sort();
 
-  const cabinetStats = cabinets.reduce(
+  const activeCabinets = cabinets.filter(c => !isCabinetArchived(c));
+  const archivedCabinets = cabinets.filter(c => isCabinetArchived(c));
+
+  const cabinetStats = activeCabinets.reduce(
     (stats, cabinet) => {
       const usagePercent = getUsagePercent(cabinet);
       stats.totalCapacity += cabinet.totalCapacity || 0;
@@ -942,6 +995,8 @@ export default function CabinetsPage() {
   const filteredCabinets = cabinets.filter(cabinet => {
     const query = searchQuery.toLowerCase();
     const usagePercent = getUsagePercent(cabinet);
+    const matchesLifecycle =
+      lifecycleFilter === 'archived' ? isCabinetArchived(cabinet) : !isCabinetArchived(cabinet);
     const matchesSearch = (
       cabinet.name.toLowerCase().includes(query) ||
       cabinet.identifier?.toLowerCase().includes(query) ||
@@ -954,7 +1009,7 @@ export default function CabinetsPage() {
       (capacityFilter === 'nearFull' && usagePercent >= 80 && usagePercent < 100) ||
       (capacityFilter === 'full' && usagePercent === 100) ||
       (capacityFilter === 'overCapacity' && usagePercent > 100);
-    return matchesSearch && matchesSchool && matchesCapacity;
+    return matchesLifecycle && matchesSearch && matchesSchool && matchesCapacity;
   }).sort((a, b) => {
     switch (sortBy) {
       case 'usageHigh':
@@ -1015,7 +1070,7 @@ export default function CabinetsPage() {
       <div className="flex flex-wrap gap-x-8 gap-y-3 rounded-lg border border-border bg-muted/30 px-4 py-3 ui-enter ui-enter-delay-1">
         <div>
           <p className="text-[11px] uppercase tracking-wide text-muted-foreground">Cabinets</p>
-          <p className="text-xl font-semibold tabular-nums tracking-tight">{cabinets.length}</p>
+          <p className="text-xl font-semibold tabular-nums tracking-tight">{activeCabinets.length}</p>
         </div>
         <div>
           <p className="text-[11px] uppercase tracking-wide text-muted-foreground">Stored files</p>
@@ -1064,6 +1119,26 @@ export default function CabinetsPage() {
           </AlertDescription>
         </Alert>
       )}
+
+      <Tabs
+        value={lifecycleFilter}
+        onValueChange={(value) => setLifecycleFilter(value as 'active' | 'archived')}
+      >
+        <TabsList>
+          <TabsTrigger value="active" className="gap-1.5">
+            Active
+            <Badge variant="secondary" className="h-5 px-1.5 text-[11px] tabular-nums">
+              {activeCabinets.length}
+            </Badge>
+          </TabsTrigger>
+          <TabsTrigger value="archived" className="gap-1.5">
+            Archived
+            <Badge variant="secondary" className="h-5 px-1.5 text-[11px] tabular-nums">
+              {archivedCabinets.length}
+            </Badge>
+          </TabsTrigger>
+        </TabsList>
+      </Tabs>
 
       {/* Actions and Search */}
       <div className="flex flex-col gap-4">
@@ -1229,7 +1304,7 @@ export default function CabinetsPage() {
               </Badge>
             )}
             <span className="text-sm text-muted-foreground">
-              Showing {filteredCabinets.length} of {cabinets.length} cabinets
+              Showing {filteredCabinets.length} of {lifecycleFilter === 'archived' ? archivedCabinets.length : activeCabinets.length} cabinets
             </span>
             <Button
               variant="ghost"
@@ -1281,14 +1356,20 @@ export default function CabinetsPage() {
           <CardContent className="flex flex-col items-center justify-center py-12">
             <Building2 className="h-12 w-12 text-muted-foreground mb-4" />
             <h3 className="text-lg font-semibold text-foreground mb-2">
-              {searchQuery ? 'No cabinets found' : 'No cabinets yet'}
+              {searchQuery
+                ? 'No cabinets found'
+                : lifecycleFilter === 'archived'
+                  ? 'No archived cabinets'
+                  : 'No cabinets yet'}
             </h3>
             <p className="text-sm text-muted-foreground mb-4">
               {searchQuery
                 ? 'Try adjusting your search query'
-                : 'Get started by creating your first cabinet'}
+                : lifecycleFilter === 'archived'
+                  ? 'Archived cabinets appear here after end-of-year packing.'
+                  : 'Get started by creating your first cabinet'}
             </p>
-            {!searchQuery && (
+            {!searchQuery && lifecycleFilter === 'active' && (
               <Button
                 onClick={() => {
                   setEditingCabinet(null);
@@ -1344,10 +1425,27 @@ export default function CabinetsPage() {
                       </Badge>
                     </div>
                     <div className="flex gap-1 items-center">
-                      {cabinet.status === 'Archived' ? (
-                        <span className="ui-badge-warning">
-                          <Archive className="h-3 w-3" /> Archived
-                        </span>
+                      {isCabinetArchived(cabinet) ? (
+                        <>
+                          <span className="ui-badge-warning">
+                            <Archive className="h-3 w-3" /> Archived
+                          </span>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            title="Restore this cabinet to Active"
+                            disabled={restoringId === cabinet._id}
+                            onClick={() => handleRestore(cabinet)}
+                            className="gap-1.5"
+                          >
+                            {restoringId === cabinet._id ? (
+                              <Loader2 className="h-4 w-4 animate-spin" />
+                            ) : (
+                              <RotateCcw className="h-4 w-4" />
+                            )}
+                            Restore
+                          </Button>
+                        </>
                       ) : (
                         <Button
                           variant={isFull ? 'default' : 'outline'}
@@ -1364,7 +1462,7 @@ export default function CabinetsPage() {
                           Archive
                         </Button>
                       )}
-                      {cabinet.status !== 'Archived' && (
+                      {!isCabinetArchived(cabinet) && (
                         <Button
                           variant="ghost"
                           size="icon"
@@ -1495,7 +1593,7 @@ export default function CabinetsPage() {
                         }
                       </span>
                     </div>
-                    {cabinet.status !== 'Archived' && cabinet.fillForecast && (
+                    { !isCabinetArchived(cabinet) && cabinet.fillForecast && (
                       <div className="space-y-1">
                         <p className="text-[11px] text-muted-foreground">
                           Fill rate: {cabinet.fillForecast.assignedInWindow} file(s) / {cabinet.fillForecast.windowDays}d
@@ -1515,7 +1613,7 @@ export default function CabinetsPage() {
 
                   <Separator />
 
-                  {cabinet.status === 'Archived' ? (
+                  {isCabinetArchived(cabinet) ? (
                     <div>
                       {archiveRecords[cabinet._id!] ? (
                         <>
@@ -1609,6 +1707,26 @@ export default function CabinetsPage() {
                             )}
                           </div>
                         </>
+                      ) : archiveDetailsLoaded[cabinet._id!] ? (
+                        <div className="space-y-3">
+                          <p className="text-sm text-muted-foreground">
+                            No packing record on file. Restore this cabinet to make it available for intake.
+                          </p>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="w-full gap-2"
+                            disabled={restoringId === cabinet._id}
+                            onClick={() => handleRestore(cabinet)}
+                          >
+                            {restoringId === cabinet._id ? (
+                              <Loader2 className="h-4 w-4 animate-spin" />
+                            ) : (
+                              <RotateCcw className="h-4 w-4" />
+                            )}
+                            Restore to Active
+                          </Button>
+                        </div>
                       ) : (
                         <p className="text-sm text-muted-foreground">Loading archive details…</p>
                       )}

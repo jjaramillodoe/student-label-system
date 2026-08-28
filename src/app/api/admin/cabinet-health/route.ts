@@ -3,6 +3,7 @@ import { requireAdminOrDataLead } from '@/lib/requireSession';
 import clientPromise from '@/lib/mongodb';
 import { formatFullName } from '@/lib/personName';
 import { findCapped, scanMeta } from '@/lib/adminScan';
+import { isCabinetArchived } from '@/lib/cabinets';
 
 type CabinetDoc = {
   _id: any;
@@ -10,6 +11,7 @@ type CabinetDoc = {
   identifier?: string | null;
   school?: string;
   status?: string;
+  isArchived?: boolean;
   totalCapacity?: number;
   currentCount?: number;
   drawers?: {
@@ -47,7 +49,7 @@ function getCabinetName(cabinet: CabinetDoc) {
 }
 
 function isArchivedCabinet(cabinet: CabinetDoc) {
-  return cabinet.status === 'Archived';
+  return isCabinetArchived(cabinet);
 }
 
 export async function GET() {

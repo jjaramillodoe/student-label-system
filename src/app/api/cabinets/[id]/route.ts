@@ -3,6 +3,7 @@ import { requireSession, requireAdminOrDataLead } from '@/lib/requireSession';
 import clientPromise from '@/lib/mongodb';
 import { ObjectId } from 'mongodb';
 import { clampDrawerCapacity, DRAWER_CAPACITY_MAX, DRAWER_CAPACITY_MIN } from '@/lib/drawerSections';
+import { cabinetArchiveSetFields, serializeCabinetRecord } from '@/lib/cabinets';
 
 export async function GET(
   request: Request,
@@ -28,7 +29,7 @@ export async function GET(
       return NextResponse.json({ error: 'Access denied - Cabinet not in your school' }, { status: 403 });
     }
 
-    return NextResponse.json(cabinet);
+    return NextResponse.json(serializeCabinetRecord(cabinet));
   } catch (error) {
     console.error('Error fetching cabinet:', error);
     return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
@@ -169,9 +170,55 @@ export async function PUT(
       { $set: updatedCabinet },
     );
 
-    return NextResponse.json({ ...updatedCabinet, _id: id });
+    return NextResponse.json(serializeCabinetRecord({ ...existingCabinet, ...updatedCabinet, _id: id }));
   } catch (error) {
     console.error('Error updating cabinet:', error);
+    return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
+  }
+}
+
+export async function PATCH(
+  request: Request,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const auth = await requireAdminOrDataLead();
+    if (!auth.ok) return auth.response;
+
+    const { id } = await params;
+    const body = await request.json();
+    if (typeof body?.isArchived !== 'boolean') {
+      return NextResponse.json({ error: 'isArchived must be a boolean' }, { status: 400 });
+    }
+
+    const client = await clientPromise;
+    const db = client.db('student-label');
+
+    const existingCabinet = await db.collection('cabinets').findOne({ _id: new ObjectId(id) });
+    if (!existingCabinet) {
+      return NextResponse.json({ error: 'Cabinet not found' }, { status: 404 });
+    }
+
+    const userRole = auth.user.role;
+    const userSchool = auth.user.school;
+
+    if (userRole !== 'Admin' && userSchool && existingCabinet.school !== userSchool) {
+      return NextResponse.json({ error: 'Access denied - Cabinet not in your school' }, { status: 403 });
+    }
+
+    const archiveFields = cabinetArchiveSetFields(body.isArchived);
+    const updatedAt = new Date().toISOString();
+    await db.collection('cabinets').updateOne(
+      { _id: new ObjectId(id) },
+      { $set: { ...archiveFields, updatedAt } },
+    );
+
+    const updated = await db.collection('cabinets').findOne({ _id: new ObjectId(id) });
+    return NextResponse.json(
+      serializeCabinetRecord(updated || { ...existingCabinet, ...archiveFields, _id: id }),
+    );
+  } catch (error) {
+    console.error('Error updating cabinet archive status:', error);
     return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
   }
 }

@@ -5,6 +5,7 @@ import { getCurrentFiscalYear } from '@/lib/fiscalYear';
 import { countPendingArchiveAssignments } from '@/lib/archiveBoxes';
 import { ObjectId } from 'mongodb';
 import { escapeRegex } from '@/lib/studentSearch';
+import { isActiveCabinet, isCabinetArchived } from '@/lib/cabinets';
 
 type ChecklistItem = {
   id: string;
@@ -65,8 +66,8 @@ export async function GET() {
         ? schoolDoc.currentFiscalYear.trim()
         : null;
 
-    const activeCabinets = cabinets.filter(c => c.status !== 'Archived');
-    const archivedCabinets = cabinets.filter(c => c.status === 'Archived');
+    const activeCabinets = cabinets.filter(c => isActiveCabinet(c));
+    const archivedCabinets = cabinets.filter(c => isCabinetArchived(c));
     const fullActiveCabinets = activeCabinets.filter(
       c => (c.totalCapacity || 0) > 0 && (c.currentCount || 0) >= (c.totalCapacity || 0),
     );

@@ -4,6 +4,7 @@ import clientPromise from '@/lib/mongodb';
 import { ObjectId } from 'mongodb';
 import { computeCabinetFillForecast } from '@/lib/cabinetCapacity';
 import { clampDrawerCapacity, DRAWER_CAPACITY_MAX, DRAWER_CAPACITY_MIN } from '@/lib/drawerSections';
+import { isCabinetArchived, serializeCabinetRecord } from '@/lib/cabinets';
 
 export async function GET(req: NextRequest) {
   try {
@@ -23,32 +24,29 @@ export async function GET(req: NextRequest) {
     }
 
     const cabinets = await db.collection('cabinets').find(query).toArray();
+    const archivedParam = req.nextUrl.searchParams.get('archived');
 
-    const serializeCabinet = (cabinet: Record<string, any>, fillForecast: unknown = undefined) => ({
-      ...cabinet,
-      _id: String(cabinet._id),
-      drawers: (cabinet.drawers || []).map((d: Record<string, any>) => ({
-        ...d,
-        _id: String(d._id ?? ''),
-      })),
-      ...(fillForecast !== undefined ? { fillForecast } : {}),
+    const visible = cabinets.filter((cabinet) => {
+      if (archivedParam === '1') return isCabinetArchived(cabinet);
+      if (archivedParam === '0') return !isCabinetArchived(cabinet);
+      return true;
     });
 
     if (!withForecast) {
-      return NextResponse.json(cabinets.map((c) => serializeCabinet(c)));
+      return NextResponse.json(visible.map((c) => serializeCabinetRecord(c)));
     }
 
     const enriched = await Promise.all(
-      cabinets.map(async (cabinet) => {
-        if ((cabinet.status ?? 'Active') === 'Archived') {
-          return serializeCabinet(cabinet, null);
+      visible.map(async (cabinet) => {
+        if (isCabinetArchived(cabinet)) {
+          return serializeCabinetRecord(cabinet, { fillForecast: null });
         }
         const fillForecast = await computeCabinetFillForecast(db, {
           _id: String(cabinet._id),
           currentCount: cabinet.currentCount,
           totalCapacity: cabinet.totalCapacity,
         });
-        return serializeCabinet(cabinet, fillForecast);
+        return serializeCabinetRecord(cabinet, { fillForecast });
       }),
     );
 
@@ -112,6 +110,8 @@ export async function POST(request: Request) {
       drawers: normalizedDrawers,
       totalCapacity: computedTotal,
       currentCount: 0,
+      isArchived: false,
+      status: 'Active' as const,
       mapRow: typeof mapRow === 'number' ? mapRow : null,
       mapCol: typeof mapCol === 'number' ? mapCol : null,
       createdAt: new Date().toISOString(),
@@ -120,7 +120,7 @@ export async function POST(request: Request) {
 
     const result = await db.collection("cabinets").insertOne(cabinet);
 
-    return NextResponse.json({ ...cabinet, _id: result.insertedId });
+    return NextResponse.json(serializeCabinetRecord({ ...cabinet, _id: result.insertedId }));
   } catch (error) {
     console.error('Error creating cabinet:', error);
     return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });

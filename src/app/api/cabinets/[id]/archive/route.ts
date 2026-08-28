@@ -8,6 +8,7 @@ import {
   moveCabinetStudentsToArchiveBoxes,
   totalBoxCapacity,
 } from '@/lib/archiveBoxes';
+import { cabinetArchiveSetFields, isCabinetArchived } from '@/lib/cabinets';
 
 export async function POST(
   request: Request,
@@ -43,7 +44,7 @@ export async function POST(
       return NextResponse.json({ error: 'Cabinet not found' }, { status: 404 });
     }
 
-    if (archiveCabinet && cabinet.status === 'Archived') {
+    if (archiveCabinet && isCabinetArchived(cabinet)) {
       return NextResponse.json({ error: 'Cabinet is already archived' }, { status: 400 });
     }
 
@@ -128,8 +129,7 @@ export async function POST(
         { _id: new ObjectId(id) },
         {
           $set: {
-            status: 'Archived',
-            archivedAt,
+            ...cabinetArchiveSetFields(true, archivedAt),
             archiveRecordId,
             updatedAt: archivedAt,
           },

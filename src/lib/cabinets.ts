@@ -6,8 +6,51 @@ export interface NextCabinetSlot {
   spacesLeft: number;
 }
 
-export function isActiveCabinet(cabinet: Pick<Cabinet, 'status'>) {
-  return (cabinet.status ?? 'Active') !== 'Archived';
+export function isCabinetArchived(cabinet: object): boolean {
+  const doc = cabinet as { status?: string; isArchived?: boolean };
+  if (doc.isArchived === true) return true;
+  if (doc.isArchived === false) return false;
+  return (doc.status ?? 'Active') === 'Archived';
+}
+
+export function isActiveCabinet(cabinet: object) {
+  return !isCabinetArchived(cabinet);
+}
+
+export function cabinetArchiveSetFields(archived: boolean, now = new Date().toISOString()) {
+  if (archived) {
+    return { isArchived: true as const, status: 'Archived' as const, archivedAt: now };
+  }
+  return { isArchived: false as const, status: 'Active' as const };
+}
+
+export function withCabinetArchiveFlags<T extends { status?: string; isArchived?: boolean }>(
+  cabinet: T,
+): T & { isArchived: boolean; status: 'Active' | 'Archived' } {
+  const archived = isCabinetArchived(cabinet);
+  return {
+    ...cabinet,
+    isArchived: archived,
+    status: archived ? 'Archived' : 'Active',
+  };
+}
+
+export function serializeCabinetRecord(cabinet: object, extras?: Record<string, unknown>) {
+  const doc = cabinet as {
+    _id?: unknown;
+    drawers?: Array<{ _id?: unknown } & Record<string, unknown>>;
+    status?: string;
+    isArchived?: boolean;
+  } & Record<string, unknown>;
+  return withCabinetArchiveFlags({
+    ...doc,
+    _id: String(doc._id),
+    drawers: (doc.drawers || []).map((d) => ({
+      ...d,
+      _id: String(d._id ?? ''),
+    })),
+    ...extras,
+  });
 }
 
 /** First open drawer on the lowest active cabinet (by identifier, then name). */

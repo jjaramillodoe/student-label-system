@@ -26,6 +26,8 @@ export interface Cabinet {
     locked?: boolean;
   }[];
   status?: 'Active' | 'Archived';
+  /** Canonical archive flag. When omitted, derived from `status === 'Archived'`. */
+  isArchived?: boolean;
   archivedAt?: string;
   archiveRecordId?: string;
   /** Optional room map position (0-based). */

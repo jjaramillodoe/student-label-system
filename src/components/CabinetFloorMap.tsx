@@ -5,6 +5,7 @@ import { Loader2 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Label } from '@/components/ui/label';
 import type { Cabinet } from '@/types/cabinet';
+import { isActiveCabinet } from '@/lib/cabinets';
 
 type Props = {
   cabinets: Cabinet[];
@@ -28,7 +29,7 @@ export default function CabinetFloorMap({
   const [overCell, setOverCell] = useState<string | null>(null);
 
   const active = useMemo(
-    () => cabinets.filter((c) => (c.status ?? 'Active') !== 'Archived'),
+    () => cabinets.filter((c) => isActiveCabinet(c)),
     [cabinets],
   );
 

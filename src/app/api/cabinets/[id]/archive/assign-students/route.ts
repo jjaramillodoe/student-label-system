@@ -9,6 +9,7 @@ import {
   syncArchiveStudentsToBoxes,
   totalBoxCapacity,
 } from '@/lib/archiveBoxes';
+import { isCabinetArchived } from '@/lib/cabinets';
 
 /**
  * GET /api/cabinets/[id]/archive/assign-students
@@ -27,7 +28,7 @@ export async function GET(
     const db = client.db('student-label');
 
     const cabinet = await db.collection('cabinets').findOne({ _id: new ObjectId(id) });
-    if (!cabinet || cabinet.status !== 'Archived') {
+    if (!cabinet || !isCabinetArchived(cabinet)) {
       return NextResponse.json({ pending: 0, inCabinet: 0 });
     }
 
@@ -72,7 +73,7 @@ export async function POST(
       return NextResponse.json({ error: 'Cabinet not found' }, { status: 404 });
     }
 
-    if (cabinet.status !== 'Archived') {
+    if (!isCabinetArchived(cabinet)) {
       return NextResponse.json({ error: 'Cabinet must be archived first' }, { status: 400 });
     }
 
