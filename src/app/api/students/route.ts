@@ -21,6 +21,7 @@ import { normalizeStudentAddress, validateStudentAddress } from '@/lib/addressVa
 import { verifyAddressWithGeoclient } from '@/lib/addressGeoclient';
 import { getSchoolIntakeSessions, validateIntakeSessionTimes } from '@/lib/intakeSession';
 import { assignDrawerSection } from '@/lib/drawerSections';
+import { usaNameError } from '@/lib/usaName';
 import { applyIntakeDemographics, parseIntakeDemographics } from '@/lib/intakeDemographics';
 import { enrichStudentsWithCabinetNames, loadCabinetDrawerLookup } from '@/lib/cabinetNames';
 import { withMongoTransaction } from '@/lib/mongoTransaction';

@@ -2,7 +2,6 @@ import { readFile } from 'fs/promises';
 import path from 'path';
 import { PDFDocument, StandardFonts } from 'pdf-lib';
 import {
-  ISRF_TEMPLATE_RELATIVE_PATH,
   buildIsrfFieldValues,
   todayIsrfDate,
   type IsrfFillContext,
@@ -13,7 +12,8 @@ let templateBytes: Uint8Array | null = null;
 
 export async function loadIsrfTemplateBytes(): Promise<Uint8Array> {
   if (templateBytes) return templateBytes;
-  const filePath = path.join(process.cwd(), ISRF_TEMPLATE_RELATIVE_PATH);
+  // Literal segments so Turbopack traces only public/pdf_templates, not the whole repo.
+  const filePath = path.join(process.cwd(), 'public', 'pdf_templates', 'ISRF FY2027.pdf');
   templateBytes = await readFile(filePath);
   return templateBytes;
 }
