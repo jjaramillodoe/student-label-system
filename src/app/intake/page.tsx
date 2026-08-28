@@ -3,7 +3,9 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { useSession, signOut } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import GoogleTranslate from '@/components/GoogleTranslate';
+import { canUseAppShell } from '@/lib/navConfig';
 import { isStudentSearchQueryValid, parseStudentSearchQuery } from '@/lib/studentSearch';
 import { sanitizeUsaNameInput, usaNameError, USA_NAME_HINT } from '@/lib/usaName';
 import { DEFAULT_INTAKE_ACTIVITIES, DEFAULT_INTAKE_SESSION_CONFIGS } from '@/lib/intakeDefaults';
@@ -43,7 +45,7 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
   UserPlus, AlertCircle, CheckCircle2, RotateCcw,
-  Loader2, ClipboardList, LogOut,
+  Loader2, ClipboardList, LogOut, ArrowLeft,
   Clock, Users, Copy, Check, ExternalLink,
   Info, List,
 } from 'lucide-react';
@@ -1148,6 +1150,14 @@ export default function IntakePage() {
       <header className="border-b border-border/80 bg-background/85 backdrop-blur-md sticky top-0 z-40">
         <div className="w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3.5 flex items-center justify-between gap-3">
           <div className="flex items-center gap-3 min-w-0 ui-enter">
+            {canUseAppShell(session?.user?.role) && (
+              <Button variant="outline" size="sm" asChild className="shrink-0 gap-1.5">
+                <Link href="/" aria-label="Back to dashboard">
+                  <ArrowLeft className="h-4 w-4" />
+                  <span className="hidden sm:inline">Dashboard</span>
+                </Link>
+              </Button>
+            )}
             <div className="ui-icon-mark shrink-0">
               <UserPlus className="h-5 w-5 text-primary" />
             </div>
