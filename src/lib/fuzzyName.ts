@@ -117,6 +117,43 @@ export function isPossibleDuplicate(a: StudentLike, b: StudentLike): boolean {
   return false;
 }
 
+/** Last names similar enough to treat a shared DOB as possible siblings / twins. */
+const FAMILY_LAST_NAME_SIM = 0.85;
+
+/**
+ * Floor for listing a same-DOB hit that is not a fuzzy duplicate, shared last name,
+ * or shared address. A 7% "Marco Gomez" vs "Shirley Alarcon" coincidence stays hidden.
+ */
+export const MIN_INTAKE_REVIEW_MATCH_PERCENT = 50;
+
+export function isLikelySameFamilyLastName(a: StudentLike, b: StudentLike): boolean {
+  const lastA = (a.lastName ?? '').trim();
+  const lastB = (b.lastName ?? '').trim();
+  if (!lastA || !lastB) return false;
+  return nameSim(lastA, lastB) >= FAMILY_LAST_NAME_SIM;
+}
+
+/**
+ * Whether a same-DOB row belongs on the intake duplicate panel.
+ * Shared birthday alone is not enough.
+ */
+export function shouldReviewSameDobMatch(
+  incoming: StudentLike,
+  existing: StudentLike,
+  opts?: { sameAddress?: boolean; similarityPercent?: number },
+): boolean {
+  const sameDob = Boolean(incoming.dob && existing.dob && incoming.dob === existing.dob);
+  if (!sameDob) return false;
+  if (opts?.sameAddress) return true;
+  if (isPossibleDuplicate(incoming, existing)) return true;
+  if (isLikelySameFamilyLastName(incoming, existing)) return true;
+  const pct = opts?.similarityPercent ?? matchPercent(
+    { firstName: incoming.firstName ?? '', lastName: incoming.lastName ?? '' },
+    existing,
+  );
+  return pct >= MIN_INTAKE_REVIEW_MATCH_PERCENT;
+}
+
 /**
  * Compute a human-readable similarity percentage for display in the UI.
  * Returns a number in [0, 100].

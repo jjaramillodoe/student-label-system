@@ -80,8 +80,8 @@ const IntakeDuplicatePanel = forwardRef<HTMLDivElement, Props>(function IntakeDu
               : 'Possible existing student(s) found'}
           </p>
           <p className={`text-xs mt-0.5 ${siblingAcknowledged ? 'text-amber-700 dark:text-amber-300' : 'text-destructive/80'}`}>
-            Review name, DOB, and address before registering. Match % shows name similarity;
-            Same DOB flags possible siblings even when names differ.
+            Review name, DOB, and address before registering. Low name matches (for example 7%)
+            are hidden. Same last name + same DOB can still flag siblings.
           </p>
         </div>
       </div>
@@ -171,9 +171,9 @@ const IntakeDuplicatePanel = forwardRef<HTMLDivElement, Props>(function IntakeDu
           className="mt-0.5"
         />
         <label htmlFor={siblingCheckboxId} className="text-sm cursor-pointer select-none">
-          <span className="font-medium">This is a different person with the same name</span>
+          <span className="font-medium">This is a different person</span>
           <span className="block text-xs text-muted-foreground mt-0.5">
-            Check this if the student is a sibling, twin, or a coincidental name match.
+            Check this if the student is a sibling, twin, or coincidental match — not the person on file.
             The record will be flagged for your Data Lead to review.
           </span>
         </label>

@@ -1,7 +1,7 @@
 import { Buffer } from 'buffer';
 import { escapeRegex, normalizeDobToIso } from '@/lib/studentSearch';
 import { parseCsv } from '@/lib/csv';
-import { isPossibleDuplicate, matchPercent } from '@/lib/fuzzyName';
+import { isPossibleDuplicate, matchPercent, shouldReviewSameDobMatch } from '@/lib/fuzzyName';
 
 /** mdb-reader's browser build calls Buffer.from internally — ensure it exists. */
 if (typeof globalThis.Buffer === 'undefined') {
@@ -277,10 +277,11 @@ export function matchLegacyRoster(
     if (sameDob && fullIncoming === fullExisting) {
       exact.push({ ...base, _similarity: 100, _sameDob: true });
     } else if (sameDob) {
-      // Keep all same-DOB legacy rows (siblings / twins), not only fuzzy name hits
+      const pct = matchPercent(incoming, s);
+      if (!shouldReviewSameDobMatch(incoming, s, { similarityPercent: pct })) continue;
       fuzzy.push({
         ...base,
-        _similarity: matchPercent(incoming, s),
+        _similarity: pct,
         _sameDob: true,
         ...(isPossibleDuplicate(incoming, s) ? {} : { _sameDobOnly: true }),
       });

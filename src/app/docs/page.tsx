@@ -64,7 +64,7 @@ const featureGroups = [
       'Available only to Intake Members (and Admins/Data Leads for testing).',
       'NEW students: required Check ASISTS first (name, DOB, or both), then contact & address (street + Apt/Unit), NYC Geoclient verify, Google Maps link.',
       'Age rules: 16+ overall; BE/ESL requires age 21, or near-eligible within 6 weeks (eligibility notice). Farther under 21 → P2G referral.',
-      'After unlock, duplicate panel shows % match and Same DOB; same DOB always surfaces for sibling review; address strengthens or weakens the match.',
+      'After unlock, duplicate panel shows % match and Same DOB. Same birthday alone is not enough — names must be similar (or share a last name / home address).',
       'RETURNING students: search on the same screen, visit history accordion, personal info and address locked; record today\'s visit only.',
       'NEW active students: automatically assigns the next available cabinet/drawer slot.',
       'After save, shows a registration/visit summary (location, session, times) — not a label print dialog.',

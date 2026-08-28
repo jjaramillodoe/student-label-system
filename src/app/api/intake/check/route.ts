@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { requireSession } from '@/lib/requireSession';
 import clientPromise from '@/lib/mongodb';
-import { nameSim, matchPercent, isPossibleDuplicate } from '@/lib/fuzzyName';
+import { nameSim, matchPercent, isPossibleDuplicate, shouldReviewSameDobMatch } from '@/lib/fuzzyName';
 import {
   boostMatchPercentForAddress,
   compareStudentAddresses,
@@ -128,9 +128,13 @@ export async function POST(request: Request) {
         : null;
       const addressHit = addressCmp ? isSameAddressMatch(addressCmp.match) : false;
 
-      // Always surface same-DOB rows for review (siblings / twins / coincidence).
-      // Previously only name-fuzzy or same-address rows were kept — typing a different
-      // first name cleared the panel after "Not the same person".
+      if (!shouldReviewSameDobMatch(incoming, s, {
+        sameAddress: addressHit,
+        similarityPercent: pct,
+      })) {
+        continue;
+      }
+
       const boosted = addressHit && addressCmp
         ? boostMatchPercentForAddress(pct, addressCmp.match)
         : pct;
