@@ -4,6 +4,7 @@ import Providers from '@/components/Providers';
 import AppShell from '@/components/AppShell';
 import ScrollToTop from '@/components/ScrollToTop';
 import { Analytics } from '@vercel/analytics/react';
+import { SpeedInsights } from '@vercel/speed-insights/next';
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -31,6 +32,7 @@ export default function RootLayout({
         </a>
         <Providers>
           <Analytics />
+          <SpeedInsights />
           <AppShell>
             {children}
           </AppShell>

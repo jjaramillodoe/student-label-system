@@ -35,6 +35,7 @@
     "@radix-ui/react-tooltip": "^1.2.8",
     "@types/qrcode.react": "^1.0.5",
     "@vercel/analytics": "^2.0.1",
+    "@vercel/speed-insights": "^2.0.0",
     "@zxing/library": "^0.21.3",
     "bcrypt": "^6.0.0",
     "buffer": "^6.0.3",
