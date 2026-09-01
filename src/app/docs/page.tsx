@@ -199,7 +199,7 @@ const featureGroups = [
     items: [
       'Clickable Today / Week / Month / All Time counts (students with a new file or returning visit).',
       'Period metrics: new files, visits, clock-out rate, open visits, and BE/ESL.',
-      'Charts: daily new files vs visits, intake by session, and arrivals by hour.',
+      'Table is the default view. Switch to Graphs for session mix, arrivals by hour, and daily new files vs visits.',
       'Staff leaderboard with gold/silver/bronze ranking and relative progress bars.',
       'Filterable enrollment table: by period, staff member, or student/staff name search.',
       'Shows who registered each student (name + email) on every row.',

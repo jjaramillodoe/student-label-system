@@ -6,7 +6,7 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import PageIntro from '@/components/PageIntro';
 import {
-  UserPlus, Users, Clock, TrendingUp,
+  UserPlus, Users, Clock, TrendingUp, Table2, BarChart3,
   RefreshCw, Loader2, Search, Filter, ChevronLeft, ChevronRight,
   Medal, Award, Star, AlertTriangle, Link2,
   ChevronDown, ChevronUp, Wrench,
@@ -21,6 +21,7 @@ import {
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from '@/components/ui/table';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Skeleton } from '@/components/ui/skeleton';
 import {
   epeVisitDurationMinutes,
@@ -365,6 +366,7 @@ export default function EnrollmentPage() {
   const [pagination, setPagination] = useState<Pagination | null>(null);
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [issuesOnly, setIssuesOnly] = useState(false);
+  const [view, setView] = useState<'table' | 'graphs'>('table');
   const [issuesRefresh, setIssuesRefresh] = useState(0);
   const [fixTarget, setFixTarget] = useState<{ id: string; name: string } | null>(null);
 
@@ -528,9 +530,101 @@ export default function EnrollmentPage() {
             ))}
         </div>
 
-        <EnrollmentInsightsPanel insights={insights} loading={loading} />
+        <Tabs
+          value={view}
+          onValueChange={(value) => setView(value as 'table' | 'graphs')}
+          className="space-y-4"
+        >
+          <TabsList>
+            <TabsTrigger value="table" className="gap-1.5">
+              <Table2 className="h-3.5 w-3.5" />
+              Table
+            </TabsTrigger>
+            <TabsTrigger value="graphs" className="gap-1.5">
+              <BarChart3 className="h-3.5 w-3.5" />
+              Graphs
+            </TabsTrigger>
+          </TabsList>
 
-        {/* ── Intake time summary ── */}
+          <TabsContent value="graphs" className="space-y-6 mt-0">
+            <EnrollmentInsightsPanel insights={insights} loading={loading} />
+
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+              <Card className="lg:col-span-1">
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-base flex items-center gap-2">
+                    <Users className="h-4 w-4 text-primary" /> Staff Registrations
+                  </CardTitle>
+                  <CardDescription>
+                    Students with a registration or visit in this period. Click a name to filter the table.
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  {loading && staff.length === 0
+                    ? Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-10 w-full" />)
+                    : staff.length === 0
+                      ? <p className="text-sm text-muted-foreground italic py-4 text-center">No data for this period.</p>
+                      : staff.map((s, i) => (
+                        <button
+                          key={s.email}
+                          onClick={() => {
+                            setStaffFilter(staffFilter === s.email ? '' : s.email);
+                            setView('table');
+                          }}
+                          className={`w-full text-left rounded-lg border px-3 py-2 transition-colors hover:bg-muted/40 ${
+                            staffFilter === s.email ? 'border-primary bg-primary/5' : 'border-border'
+                          }`}
+                        >
+                          <div className="flex items-center gap-2.5">
+                            <div className={`flex h-7 w-7 items-center justify-center rounded-full border text-xs font-bold shrink-0 ${
+                              i < 3 ? RANK_COLORS[i] : 'bg-muted text-muted-foreground border-border'
+                            }`}>
+                              {i < 3 ? RANK_ICONS[i] : i + 1}
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center justify-between gap-2">
+                                <span className="text-sm font-medium truncate">{s.name}</span>
+                                <span className="text-sm font-bold text-primary shrink-0">{s.count}</span>
+                              </div>
+                              <div className="mt-1 h-1.5 rounded-full bg-muted overflow-hidden">
+                                <div
+                                  className="h-full rounded-full bg-primary/60 transition-all"
+                                  style={{ width: `${(s.count / maxStaffCount) * 100}%` }}
+                                />
+                              </div>
+                              <p className="text-[10px] text-muted-foreground mt-0.5 truncate">
+                                {s.email} · Last: {fmtDate(s.lastAt)}
+                              </p>
+                            </div>
+                          </div>
+                        </button>
+                      ))
+                  }
+                  {staffFilter && (
+                    <Button variant="ghost" size="sm" className="w-full text-xs" onClick={() => setStaffFilter('')}>
+                      Clear staff filter
+                    </Button>
+                  )}
+                </CardContent>
+              </Card>
+
+              <Card className="lg:col-span-2">
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-base flex items-center gap-2">
+                    <TrendingUp className="h-4 w-4 text-primary" /> Daily activity
+                  </CardTitle>
+                  <CardDescription>
+                    New files vs intake visits{period === 'all' ? ' · last 30 days' : ' · follows the period filter'}
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <EnrollmentDailyTrendChart daily={insights?.daily ?? []} loading={loading} />
+                </CardContent>
+              </Card>
+            </div>
+          </TabsContent>
+
+          <TabsContent value="table" className="space-y-4 mt-0">
         {intakeTime && (
           <div className="flex flex-wrap gap-x-8 gap-y-3 rounded-lg border border-border px-4 py-3">
             <div>
@@ -552,78 +646,6 @@ export default function EnrollmentPage() {
           </div>
         )}
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* ── Staff leaderboard ── */}
-          <Card className="lg:col-span-1">
-            <CardHeader className="pb-3">
-              <CardTitle className="text-base flex items-center gap-2">
-                <Users className="h-4 w-4 text-primary" /> Staff Registrations
-              </CardTitle>
-              <CardDescription>Students with a registration or visit in this period</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              {loading && staff.length === 0
-                ? Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-10 w-full" />)
-                : staff.length === 0
-                  ? <p className="text-sm text-muted-foreground italic py-4 text-center">No data for this period.</p>
-                  : staff.map((s, i) => (
-                    <button
-                      key={s.email}
-                      onClick={() => setStaffFilter(staffFilter === s.email ? '' : s.email)}
-                      className={`w-full text-left rounded-lg border px-3 py-2 transition-colors hover:bg-muted/40 ${
-                        staffFilter === s.email ? 'border-primary bg-primary/5' : 'border-border'
-                      }`}
-                    >
-                      <div className="flex items-center gap-2.5">
-                        <div className={`flex h-7 w-7 items-center justify-center rounded-full border text-xs font-bold shrink-0 ${
-                          i < 3 ? RANK_COLORS[i] : 'bg-muted text-muted-foreground border-border'
-                        }`}>
-                          {i < 3 ? RANK_ICONS[i] : i + 1}
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center justify-between gap-2">
-                            <span className="text-sm font-medium truncate">{s.name}</span>
-                            <span className="text-sm font-bold text-primary shrink-0">{s.count}</span>
-                          </div>
-                          <div className="mt-1 h-1.5 rounded-full bg-muted overflow-hidden">
-                            <div
-                              className="h-full rounded-full bg-primary/60 transition-all"
-                              style={{ width: `${(s.count / maxStaffCount) * 100}%` }}
-                            />
-                          </div>
-                          <p className="text-[10px] text-muted-foreground mt-0.5 truncate">
-                            {s.email} · Last: {fmtDate(s.lastAt)}
-                          </p>
-                        </div>
-                      </div>
-                    </button>
-                  ))
-              }
-              {staffFilter && (
-                <Button variant="ghost" size="sm" className="w-full text-xs" onClick={() => setStaffFilter('')}>
-                  Clear staff filter
-                </Button>
-              )}
-            </CardContent>
-          </Card>
-
-          {/* ── Daily trend ── */}
-          <Card className="lg:col-span-2">
-            <CardHeader className="pb-3">
-              <CardTitle className="text-base flex items-center gap-2">
-                <TrendingUp className="h-4 w-4 text-primary" /> Daily activity
-              </CardTitle>
-              <CardDescription>
-                New files vs intake visits{period === 'all' ? ' · last 30 days' : ' · follows the period filter'}
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <EnrollmentDailyTrendChart daily={insights?.daily ?? []} loading={loading} />
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* ── Enrollment list ── */}
         <Card>
           <CardHeader className="pb-3">
             <div className="flex items-center justify-between flex-wrap gap-3">
@@ -953,6 +975,8 @@ export default function EnrollmentPage() {
             )}
           </CardContent>
         </Card>
+          </TabsContent>
+        </Tabs>
 
       {fixTarget && (
         <IntakeHandoffFixDialog
