@@ -8,6 +8,7 @@ import {
   syncTopLevelIntakeFields,
   type FinalClockOutInput,
   type ClosingVisitInput,
+  type ClockOutVisitInput,
 } from '@/lib/intakeVisitFix';
 import { validateIntakeVisits } from '@/lib/intakeVisitValidation';
 import { getSchoolIntakeSessions, validateIntakeSessionTimes } from '@/lib/intakeSession';
@@ -40,6 +41,7 @@ export async function PATCH(
     visits?: unknown[];
     finalClockOuts?: FinalClockOutInput[];
     closingVisits?: ClosingVisitInput[];
+    extraClockOuts?: ClockOutVisitInput[];
   };
 
   const client = await clientPromise;
@@ -57,6 +59,7 @@ export async function PATCH(
   const sourceVisits = Array.isArray(body.visits) ? body.visits : existingVisits;
   const finalClockOuts = Array.isArray(body.finalClockOuts) ? body.finalClockOuts : [];
   const closingVisits = Array.isArray(body.closingVisits) ? body.closingVisits : [];
+  const extraClockOuts = Array.isArray(body.extraClockOuts) ? body.extraClockOuts : [];
 
   const recordedBy = {
     email: userEmail || 'unknown',
@@ -68,6 +71,8 @@ export async function PATCH(
     finalClockOuts,
     closingVisits,
     recordedBy,
+    extraClockOuts,
+    { sessionConfigs },
   );
 
   for (const visit of preview.visits) {
@@ -86,16 +91,17 @@ export async function PATCH(
 
   if (validation.hasIssues && preview.stillNeedsFinalClockOut.length > 0) {
     return NextResponse.json({
-      error: 'Still missing final Time Out on one or more days.',
+      error: 'Still missing Time Out on one or more days after the session ended.',
       stillNeedsFinalClockOut: preview.stillNeedsFinalClockOut,
       previewChanges: preview.changes,
     }, { status: 400 });
   }
 
   if (validation.hasIssues) {
+    const overlap = validation.flags.find(f => f.type === 'overlapping_times');
     const messages = validation.flags.map(f => f.message);
     return NextResponse.json({
-      error: messages[0] || 'Intake visit issues remain.',
+      error: overlap?.message || messages[0] || 'Intake visit issues remain.',
       issues: messages,
     }, { status: 400 });
   }

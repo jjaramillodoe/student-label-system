@@ -129,7 +129,7 @@ export default function IntakeMemberGuide() {
                 <li>Add <strong className="text-foreground">phone, email, and home address</strong>. Click <strong className="text-foreground">Verify with NYC Geoclient</strong> so the standardized address is saved.</li>
                 <li>Only check <strong className="text-foreground">“This is a different person”</strong> for a true sibling or coincidence — that flags the record for Data Lead review.</li>
                 <li>Complete <strong className="text-foreground">BE or ESL</strong>, intake activity, placement class, session, and <strong className="text-foreground">Time In</strong> (defaults to now).</li>
-                <li>Choose <strong className="text-foreground">Staying</strong> if another staff member will continue intake, or <strong className="text-foreground">Leaving</strong> with Time Out when the student is done for the day.</li>
+                <li>Choose <strong className="text-foreground">Staying</strong> if another staff member will continue intake, or <strong className="text-foreground">Leaving</strong> with Time Out when the student is departing. They may return later the same day — log a new visit.</li>
                 <li>Click <strong className="text-foreground">Register Student</strong> and review the success summary. Labels are printed later from the Dashboard via <strong className="text-foreground">Download Word Doc</strong> (Letter, 100%).</li>
               </ol>
             </div>
@@ -157,7 +157,7 @@ export default function IntakeMemberGuide() {
               <li>✓ DOB validated (16+; BE/ESL age 21 or within 6 weeks)</li>
               <li>✓ Address verified with Geoclient (new students)</li>
               <li>✓ Time In correct; Time Out if student is leaving</li>
-              <li>✓ Handoff visits marked <strong>Staying</strong> — only final staff clocks out</li>
+              <li>✓ Handoff visits marked <strong>Staying</strong>; Leaving + Time Out if they depart (same-day return is OK)</li>
               <li>✓ Placement class and intake activity completed</li>
             </ul>
           </div>

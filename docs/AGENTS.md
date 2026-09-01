@@ -43,7 +43,7 @@ Install Mintlify skill: `npm run docs:skill`
 - Age rules for intake: **16+** overall; BE/ESL **21** on birthday, or **near-eligible within 6 weeks** (submit allowed + eligibility notice). Birth year before **1920** needs admin confirmation. Farther under 21 → Pathways to Graduation ([p2g.nyc/contact](https://p2g.nyc/contact/))
 - Intake duplicate UI: ASISTS gate first, then DOB panel with **% match** + **Same DOB**. Same birthday alone is not enough (need ~50%+ name match, similar last name, or same address). DOB-only search must not match label-ID year fragments; sibling ack survives name edits
 - Duplicate notify: **Copy alert message** / **Email with alert** use a structured Data Lead note (subject, school, reporter, NEW student, matches, `/admin/duplicates` link) — blank fields show as —
-- Intake enforces **session start/end times**; Enrollment flags outside-session and handoff issues
+- Intake enforces **session start/end times**; Enrollment flags outside-session, overlapping times, and missing Time-Out after the session ends (same-day return after Leaving is allowed)
 - Archived returning students keep archive box location + QR — do **not** auto-assign a new drawer
 - Intake success shows a **summary** (not single-label print); batch Avery 5163 / 94205 via **Download Word Doc** (Letter, 100%) from Dashboard, then **Yes — mark as printed**
 - Dashboard **Needs label** = never printed (full print history for the school), not “created in last 7 days”

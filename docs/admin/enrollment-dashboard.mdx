@@ -26,10 +26,14 @@ Enrollment can flag visits with:
 | Flag | Meaning |
 | --- | --- |
 | **Outside Session Hours** | Time In or Time Out falls outside the school's session window |
-| **Early Time Out** | Time Out on a same-day handoff visit that should have been Staying |
-| **No Final Time Out** | Multiple same-day activities with no final clock-out |
+| **Overlapping times** | A later visit's Time In is before an earlier visit's Time Out |
+| **Missing Time-Out** | The last check-in of the day is still open after the session or calendar day ended |
 
-Use **Show issues only** to focus on rows that need attention. From Intake, the yellow banner's **Fix** dialog corrects session hours and handoff problems.
+Same-day **Leaving → returning intake → Leaving** is allowed. Staff handoffs stay **Staying** until the student actually departs.
+
+Missing Time-Out rows sort to the top of the current page and show a red **Missing Time-Out** badge with **Fix**.
+
+Use **Show issues only** to focus on rows that need attention. From Intake, the yellow banner's **Fix** dialog includes a how-to, **Set End Time** (now / session end), and **Dismiss & Re-admit** for earlier open visits.
 
 <Tip>
   Catch bad times at the source: Intake blocks submit when Time In / Time Out do not match the selected session. Enrollment flags are mainly for older records or edge cases.

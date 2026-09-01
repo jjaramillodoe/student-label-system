@@ -32,6 +32,7 @@ import {
   validateIntakeVisits,
   flagsForVisit,
   INTAKE_FLAG_LABELS,
+  primaryIntakeIssueLabel,
   type IntakeVisitValidation,
   type IntakeVisitFlag,
 } from '@/lib/intakeVisitValidation';
@@ -227,9 +228,9 @@ function IntakeFlagBadge({ flag }: { flag: IntakeVisitFlag }) {
   const style =
     flag.type === 'outside_session_window'
       ? 'ui-badge-info'
-      : flag.type === 'premature_clock_out'
-        ? 'ui-badge-warning'
-        : 'ui-badge-danger';
+      : flag.type === 'overlapping_times' || flag.type === 'missing_final_clock_out'
+        ? 'ui-badge-danger'
+        : 'ui-badge-warning';
   return (
     <span title={flag.message} className={`${style} text-[10px]`}>
       <AlertTriangle className="h-2.5 w-2.5 shrink-0" />
@@ -259,7 +260,7 @@ function IntakeVisitHistory({
         >
           <p className="font-medium flex items-center gap-1.5">
             <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
-            Intake issue — {issue.dayLabel}
+            {issue.missingFinalClockOut ? 'Missing Time-Out' : 'Intake issue'} — {issue.dayLabel}
           </p>
           <ul className="mt-1 list-disc list-inside space-y-0.5 text-amber-800/90 dark:text-amber-200/90">
             {issue.messages.map(msg => (
@@ -454,11 +455,22 @@ export default function EnrollmentPage() {
 
   if (authStatus === 'loading') return null;
 
-  const displayedEnrollments = issuesOnly
-    ? enrollments.filter(e =>
-        validateEnrollmentVisits(e, schoolSessionMap, defaultIntakeSessions).hasIssues,
-      )
-    : enrollments;
+  const displayedEnrollments = (() => {
+    const list = issuesOnly
+      ? enrollments.filter(e =>
+          validateEnrollmentVisits(e, schoolSessionMap, defaultIntakeSessions).hasIssues,
+        )
+      : enrollments;
+    return [...list].sort((a, b) => {
+      const aVal = validateEnrollmentVisits(a, schoolSessionMap, defaultIntakeSessions);
+      const bVal = validateEnrollmentVisits(b, schoolSessionMap, defaultIntakeSessions);
+      const aMissing = aVal.flags.some(f => f.type === 'missing_final_clock_out');
+      const bMissing = bVal.flags.some(f => f.type === 'missing_final_clock_out');
+      if (aMissing !== bMissing) return aMissing ? -1 : 1;
+      if (aVal.hasIssues !== bVal.hasIssues) return aVal.hasIssues ? -1 : 1;
+      return 0;
+    });
+  })();
 
   const handleFixed = () => {
     setIssuesRefresh(n => n + 1);
@@ -539,8 +551,9 @@ export default function EnrollmentPage() {
               </p>
               <p className="text-xs mt-1 text-muted-foreground">
                 Times and durations use EPE rules: :00–:14 → :00, :15–:44 → :30, :45–:59 → next hour.
-                Hover a rounded time to see the actual clock entry. Rows with multiple same-day activities
-                are flagged for early Time Out, missing final clock-out, or Time In/Out outside the
+                Hover a rounded time to see the actual clock entry. Same-day leave-and-return cycles are
+                allowed; each completed cycle is counted separately. Open visits are flagged for Missing
+                Time-Out after the session ends, overlapping clocks, or Time In/Out outside the
                 school&apos;s configured intake session hours.
               </p>
             </div>
@@ -755,7 +768,12 @@ export default function EnrollmentPage() {
                       const isExpanded = expandedId === e._id;
                       return (
                       <>
-                      <TableRow key={e._id} className="hover:bg-muted/30">
+                      <TableRow
+                        key={e._id}
+                        className={visitValidation.hasIssues
+                          ? 'bg-amber-50/50 dark:bg-amber-950/10 hover:bg-amber-50/80 dark:hover:bg-amber-950/20'
+                          : 'hover:bg-muted/30'}
+                      >
                         <TableCell className="w-10 p-2">
                           {hasHistory ? (
                             <Button
@@ -826,15 +844,19 @@ export default function EnrollmentPage() {
                           {visitValidation.hasIssues && (
                             <div className="mt-1 flex flex-col items-start gap-1">
                               <span
-                                className="ui-badge-warning text-[10px]"
+                                className={
+                                  visitValidation.flags.some(f =>
+                                    f.type === 'missing_final_clock_out' || f.type === 'overlapping_times',
+                                  )
+                                    ? 'ui-badge-danger text-[10px]'
+                                    : 'ui-badge-warning text-[10px]'
+                                }
                                 title={visitValidation.flags.map(f => f.message).join('\n')}
                               >
                                 <AlertTriangle className="h-2.5 w-2.5" />
-                                Intake issue
+                                {primaryIntakeIssueLabel(visitValidation.flags)}
                               </span>
-                              {canFix && visitValidation.flags.some(f =>
-                                f.type === 'premature_clock_out' || f.type === 'missing_final_clock_out',
-                              ) && (
+                              {canFix && (
                                 <Button
                                   type="button"
                                   variant="outline"
@@ -915,10 +937,10 @@ export default function EnrollmentPage() {
                               </div>
                               <p className="text-xs text-muted-foreground">
                                 Latest row in the table above reflects the most recent visit. Visits are listed oldest to newest.
-                                When a student moves between staff the same day, handoff visits should be marked Staying;
-                                only the final activity should record Time Out (EPE). Total time counts from the first
-                                visit&apos;s time-in to the final clock-out each day (not each segment added up). If staff
-                                forgot, use Fix to add a catch-up activity on a later date with calendar and time pickers.
+                                Same-day staff handoffs should be marked Staying. If the student leaves and returns later that day,
+                                mark Leaving with Time Out, then log a new visit — each completed cycle is counted separately for EPE.
+                                Missing Time-Out is flagged after the session or day ends. Use Fix to set an end time, dismiss an earlier
+                                visit for re-admit, or add a catch-up activity on a later date.
                               </p>
                               <IntakeVisitHistory visits={visits} validation={visitValidation} />
                             </div>

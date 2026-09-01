@@ -9,6 +9,7 @@ import {
 } from '@/lib/beEslEligibility';
 import { getSchoolIntakeSessions, validateIntakeSessionTimes } from '@/lib/intakeSession';
 import { syncTopLevelIntakeFields } from '@/lib/intakeVisitFix';
+import { validateIntakeVisits } from '@/lib/intakeVisitValidation';
 import { authorizeStudentAccess, authorizeStudentSchoolChange } from '@/lib/studentAccess';
 import { normalizeMongoId, serializeMongoDocument } from '@/lib/utils';
 import { usaNameError } from '@/lib/usaName';
@@ -216,6 +217,12 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
             : [];
 
       const nextVisits = [...existingVisits, appendVisit];
+      const overlap = validateIntakeVisits(nextVisits, { sessionConfigs: sessions })
+        .flags.find((f) => f.type === 'overlapping_times');
+      if (overlap) {
+        return NextResponse.json({ error: overlap.message }, { status: 400 });
+      }
+
       update.$set = {
         ...update.$set,
         intakeVisits: nextVisits,

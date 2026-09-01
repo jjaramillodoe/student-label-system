@@ -202,6 +202,8 @@ const featureGroups = [
       'Daily trend bar chart — hover a bar to see the exact count.',
       'Filterable enrollment table: by period, staff member, or student/staff name search.',
       'Shows who registered each student (name + email) on every row.',
+      'Flags Missing Time-Out after a session ends, overlapping clocks, and times outside session hours. Same-day return after Leaving is allowed.',
+      'Fix dialog: Set End Time (now / session end), Dismiss & Re-admit, or a catch-up visit on a later date.',
     ],
   },
   {

@@ -1,7 +1,28 @@
+import type { IntakeSession } from '@/lib/intakeSession';
+import {
+  findIntakeSession,
+  formatSessionTimeRange,
+  formatTime12,
+  isTimeInSessionWindow,
+} from '@/lib/intakeSession';
+import { parseMinutesOfDay } from '@/lib/epeClock';
+import {
+  formatDayLabel,
+  nowMinutesOfDay,
+  todayDayKey,
+  visitDayKey,
+} from '@/lib/intakeCalendar';
+
+export { formatDayLabel, visitDayKey } from '@/lib/intakeCalendar';
+
+/** Activity label used when staff add a next-day catch-up clock-out. */
+export const CATCH_UP_ACTIVITY = 'Intake completion / Clock out';
+
 export type IntakeVisitFlagType =
   | 'premature_clock_out'
   | 'missing_final_clock_out'
-  | 'outside_session_window';
+  | 'outside_session_window'
+  | 'overlapping_times';
 
 export interface IntakeVisitLike {
   date?: string;
@@ -29,12 +50,15 @@ export interface IntakeDayIssue {
   prematureCount: number;
   missingFinalClockOut: boolean;
   outsideSessionCount: number;
+  overlappingCount: number;
   messages: string[];
 }
 
 export interface IntakeVisitValidationOptions {
   /** School intake session configs — enables outside-session-window flags. */
   sessionConfigs?: IntakeSession[];
+  /** Clock used for session/day-end detection. Defaults to now. */
+  now?: Date;
 }
 
 export interface IntakeVisitValidation {
@@ -44,40 +68,61 @@ export interface IntakeVisitValidation {
   dayIssues: IntakeDayIssue[];
 }
 
-function hasTimeOut(v: IntakeVisitLike): boolean {
+export function hasTimeOut(v: IntakeVisitLike): boolean {
   return typeof v.timeOut === 'string' && v.timeOut.trim().length > 0;
 }
 
-/** Handoff visits should be Staying; only the final visit of the day may be Leaving. */
-function isClockedOut(v: IntakeVisitLike): boolean {
-  if (v.isLeaving === 'Leaving') return true;
+/** True when the visit completed a departure (Leaving + Time Out, or Time Out without Staying). */
+export function isClockedOut(v: IntakeVisitLike): boolean {
   if (v.isLeaving === 'Staying') return false;
+  if (v.isLeaving === 'Leaving') return hasTimeOut(v);
   return hasTimeOut(v);
 }
 
-export function visitDayKey(date?: string): string | null {
-  if (!date) return null;
-  const d = new Date(date);
-  if (Number.isNaN(d.getTime())) return null;
-  const y = d.getFullYear();
-  const m = String(d.getMonth() + 1).padStart(2, '0');
-  const day = String(d.getDate()).padStart(2, '0');
-  return `${y}-${m}-${day}`;
+export function isCatchUpClose(v: IntakeVisitLike): boolean {
+  return Boolean(
+    isClockedOut(v)
+    && v.intakeActivity?.some((a) => a === CATCH_UP_ACTIVITY),
+  );
 }
 
-export function formatDayLabel(dayKey: string): string {
-  const d = new Date(`${dayKey}T12:00:00`);
-  if (Number.isNaN(d.getTime())) return dayKey;
-  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+function sortDayEntries(
+  dayVisits: Array<{ visit: IntakeVisitLike; index: number }>,
+): Array<{ visit: IntakeVisitLike; index: number }> {
+  return [...dayVisits].sort((a, b) => {
+    const aIn = parseMinutesOfDay(a.visit.timeIn);
+    const bIn = parseMinutesOfDay(b.visit.timeIn);
+    if (aIn !== null && bIn !== null && aIn !== bIn) return aIn - bIn;
+    return new Date(a.visit.date || 0).getTime() - new Date(b.visit.date || 0).getTime();
+  });
 }
 
-import type { IntakeSession } from '@/lib/intakeSession';
-import {
-  findIntakeSession,
-  formatSessionTimeRange,
-  formatTime12,
-  isTimeInSessionWindow,
-} from '@/lib/intakeSession';
+export function sessionHasEndedForVisit(
+  visit: IntakeVisitLike,
+  options?: IntakeVisitValidationOptions,
+): boolean {
+  const now = options?.now ?? new Date();
+  const day = visitDayKey(visit.date);
+  if (!day) return false;
+  const today = todayDayKey(now);
+  if (day < today) return true;
+  if (day > today) return false;
+
+  const session = findIntakeSession(options?.sessionConfigs ?? [], visit.intakeSession);
+  const end = session ? parseMinutesOfDay(session.endTime) : 16 * 60;
+  if (end === null) return nowMinutesOfDay(now) > 16 * 60;
+  return nowMinutesOfDay(now) > end;
+}
+
+function hasLaterCatchUpClose(
+  visits: IntakeVisitLike[],
+  afterTime: number,
+): boolean {
+  return visits.some((visit) => {
+    const t = new Date(visit.date || 0).getTime();
+    return !Number.isNaN(t) && t > afterTime && isCatchUpClose(visit);
+  });
+}
 
 export function validateIntakeVisits(
   visits: IntakeVisitLike[],
@@ -94,44 +139,60 @@ export function validateIntakeVisits(
   });
 
   for (const [dayKey, dayVisits] of byDay) {
-    if (dayVisits.length < 2) continue;
+    const sorted = sortDayEntries(dayVisits);
 
-    const sorted = [...dayVisits].sort(
-      (a, b) => new Date(a.visit.date || 0).getTime() - new Date(b.visit.date || 0).getTime(),
-    );
+    for (let i = 0; i < sorted.length - 1; i++) {
+      const current = sorted[i];
+      const next = sorted[i + 1];
+      if (!isClockedOut(current.visit)) continue;
+      const out = parseMinutesOfDay(current.visit.timeOut);
+      const nextIn = parseMinutesOfDay(next.visit.timeIn);
+      if (out === null || nextIn === null) continue;
+      if (nextIn >= out) continue;
 
-    const allStaying = sorted.every(({ visit }) => !isClockedOut(visit));
-    const lastTimeOnDay = Math.max(
-      ...sorted.map(({ visit }) => new Date(visit.date || 0).getTime()),
-      0,
-    );
-    const hasCatchUpClose = visits.some(visit => {
-      const t = new Date(visit.date || 0).getTime();
-      return !Number.isNaN(t) && t > lastTimeOnDay && isClockedOut(visit);
-    });
-
-    if (allStaying && !hasCatchUpClose) {
       const message =
-        'Multiple intake activities on the same day but no Time Out was recorded. '
-        + 'The student was handed off between staff — only the final activity should clock the student out when intake is complete.';
-      for (const { index } of sorted) {
-        flags.push({ type: 'missing_final_clock_out', message, visitIndex: index, dayKey });
-      }
+        `Times overlap on ${formatDayLabel(dayKey)}: the later visit starts at `
+        + `${formatTime12(next.visit.timeIn || '')} but the earlier visit’s Time Out is `
+        + `${formatTime12(current.visit.timeOut || '')}. Set Time Out before the next Time In `
+        + `(or treat the earlier visit as a handoff with Staying).`;
+      flags.push({
+        type: 'overlapping_times',
+        message,
+        visitIndex: current.index,
+        dayKey,
+      });
+      flags.push({
+        type: 'overlapping_times',
+        message,
+        visitIndex: next.index,
+        dayKey,
+      });
     }
 
-    sorted.forEach(({ visit, index }, i) => {
-      const isLast = i === sorted.length - 1;
-      if (!isLast && isClockedOut(visit)) {
+    const last = sorted[sorted.length - 1];
+    if (last && !isClockedOut(last.visit)) {
+      const lastTimeOnDay = Math.max(
+        ...sorted.map(({ visit }) => new Date(visit.date || 0).getTime()),
+        0,
+      );
+      const catchUpCloses = hasLaterCatchUpClose(visits, lastTimeOnDay);
+      if (!catchUpCloses && sessionHasEndedForVisit(last.visit, options)) {
+        const session = findIntakeSession(options?.sessionConfigs ?? [], last.visit.intakeSession);
+        const windowHint = session
+          ? ` The ${session.name} window ended at ${formatSessionTimeRange(session).split('–')[1]?.trim() || session.endTime}.`
+          : '';
+        const message =
+          'Missing Time Out — this check-in is still open after the session ended. '
+          + 'Set Time Out when the student left, or add a catch-up visit if staff forgot to clock out.'
+          + windowHint;
         flags.push({
-          type: 'premature_clock_out',
-          message:
-            'Time Out recorded on a handoff activity. The student was still in intake — '
-            + 'only the last staff member of the day should add the Time Out (EPE).',
-          visitIndex: index,
+          type: 'missing_final_clock_out',
+          message,
+          visitIndex: last.index,
           dayKey,
         });
       }
-    });
+    }
   }
 
   const sessionConfigs = options?.sessionConfigs;
@@ -175,6 +236,7 @@ export function validateIntakeVisits(
         prematureCount: 0,
         missingFinalClockOut: false,
         outsideSessionCount: 0,
+        overlappingCount: 0,
         messages: [],
       });
     }
@@ -182,14 +244,26 @@ export function validateIntakeVisits(
     if (flag.type === 'premature_clock_out') issue.prematureCount += 1;
     if (flag.type === 'missing_final_clock_out') issue.missingFinalClockOut = true;
     if (flag.type === 'outside_session_window') issue.outsideSessionCount += 1;
+    if (flag.type === 'overlapping_times' && !issue.messages.includes(flag.message)) {
+      issue.overlappingCount += 1;
+    }
     if (!issue.messages.includes(flag.message)) issue.messages.push(flag.message);
   }
 
-  const flaggedVisitIndices = [...new Set(flags.map(f => f.visitIndex))];
+  const uniqueFlags: IntakeVisitFlag[] = [];
+  const seen = new Set<string>();
+  for (const flag of flags) {
+    const key = `${flag.type}:${flag.visitIndex}:${flag.message}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    uniqueFlags.push(flag);
+  }
+
+  const flaggedVisitIndices = [...new Set(uniqueFlags.map((f) => f.visitIndex))];
 
   return {
-    flags,
-    hasIssues: flags.length > 0,
+    flags: uniqueFlags,
+    hasIssues: uniqueFlags.length > 0,
     flaggedVisitIndices,
     dayIssues: [...dayIssueMap.values()].sort((a, b) => a.dayKey.localeCompare(b.dayKey)),
   };
@@ -199,11 +273,27 @@ export function flagsForVisit(
   validation: IntakeVisitValidation,
   visitIndex: number,
 ): IntakeVisitFlag[] {
-  return validation.flags.filter(f => f.visitIndex === visitIndex);
+  return validation.flags.filter((f) => f.visitIndex === visitIndex);
 }
 
 export const INTAKE_FLAG_LABELS: Record<IntakeVisitFlagType, string> = {
   premature_clock_out: 'Early Time Out',
-  missing_final_clock_out: 'No Final Time Out',
+  missing_final_clock_out: 'Missing Time-Out',
   outside_session_window: 'Outside Session Hours',
+  overlapping_times: 'Overlapping times',
 };
+
+const FLAG_PRIORITY: IntakeVisitFlagType[] = [
+  'missing_final_clock_out',
+  'overlapping_times',
+  'outside_session_window',
+  'premature_clock_out',
+];
+
+/** Most urgent label for enrollment table badges. */
+export function primaryIntakeIssueLabel(flags: IntakeVisitFlag[]): string {
+  for (const type of FLAG_PRIORITY) {
+    if (flags.some((f) => f.type === type)) return INTAKE_FLAG_LABELS[type];
+  }
+  return 'Intake issue';
+}

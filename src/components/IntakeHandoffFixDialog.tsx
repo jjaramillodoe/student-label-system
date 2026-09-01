@@ -11,13 +11,22 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select';
-import { Loader2, AlertTriangle, CheckCircle2, Wrench, CalendarDays, Clock } from 'lucide-react';
+import {
+  Loader2, AlertTriangle, CheckCircle2, Wrench, CalendarDays, Clock, HelpCircle,
+} from 'lucide-react';
 import {
   validateIntakeVisits,
   formatDayLabel,
   visitDayKey,
 } from '@/lib/intakeVisitValidation';
-import { buildIntakeFixPreview, dayAfter, getLastVisitIndexForDay } from '@/lib/intakeVisitFix';
+import {
+  buildIntakeFixPreview,
+  dayAfter,
+  getLastVisitIndexForDay,
+  listEarlierOpenVisits,
+  suggestDefaultTimeOut,
+} from '@/lib/intakeVisitFix';
+import { formatMinutesOfDay, nowMinutesOfDay, todayDayKey } from '@/lib/intakeCalendar';
 import {
   DEFAULT_INTAKE_SESSION_CONFIGS,
   findIntakeSession,
@@ -46,16 +55,11 @@ interface ClosingDraft {
 }
 
 function todayDateKey(): string {
-  const d = new Date();
-  const y = d.getFullYear();
-  const m = String(d.getMonth() + 1).padStart(2, '0');
-  const day = String(d.getDate()).padStart(2, '0');
-  return `${y}-${m}-${day}`;
+  return todayDayKey();
 }
 
 function nowHHMM(): string {
-  const d = new Date();
-  return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+  return formatMinutesOfDay(nowMinutesOfDay());
 }
 
 interface IntakeHandoffFixDialogProps {
@@ -82,6 +86,7 @@ export default function IntakeHandoffFixDialog({
   const [finalClockOuts, setFinalClockOuts] = useState<Record<string, string>>({});
   const [fixModes, setFixModes] = useState<Record<string, FixMode>>({});
   const [closingDrafts, setClosingDrafts] = useState<Record<string, ClosingDraft>>({});
+  const [extraClockOuts, setExtraClockOuts] = useState<Record<number, string>>({});
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -113,9 +118,23 @@ export default function IntakeHandoffFixDialog({
           : [];
       setVisits(list);
       originalVisitsRef.current = JSON.stringify(list);
-      setFinalClockOuts({});
+
+      const loaded = validateIntakeVisits(list, { sessionConfigs: sessions });
+      const defaults: Record<string, string> = {};
+      for (const issue of loaded.dayIssues) {
+        if (!issue.missingFinalClockOut) continue;
+        const idx = getLastVisitIndexForDay(list, issue.dayKey);
+        const visit = idx !== null ? list[idx] : null;
+        if (!visit) continue;
+        defaults[issue.dayKey] = suggestDefaultTimeOut({
+          visit,
+          session: findIntakeSession(sessions, visit.intakeSession),
+        });
+      }
+      setFinalClockOuts(defaults);
       setFixModes({});
       setClosingDrafts({});
+      setExtraClockOuts({});
     } catch {
       setError('Could not load intake visit history.');
     } finally {
@@ -151,33 +170,61 @@ export default function IntakeHandoffFixDialog({
     [finalClockOuts, fixModes],
   );
 
+  const extraClockOutList = useMemo(
+    () => Object.entries(extraClockOuts)
+      .filter(([, timeOut]) => timeOut.trim())
+      .map(([index, timeOut]) => ({ visitIndex: Number(index), timeOut: timeOut.trim() })),
+    [extraClockOuts],
+  );
+
   const validation = useMemo(
     () => validateIntakeVisits(visits, { sessionConfigs }),
     [visits, sessionConfigs],
   );
 
-  const handoffFlags = useMemo(
-    () => validation.flags.filter(f => f.type !== 'outside_session_window'),
-    [validation.flags],
-  );
-  const sessionFlags = useMemo(
-    () => validation.flags.filter(f => f.type === 'outside_session_window'),
-    [validation.flags],
-  );
-  const hasHandoffIssues = handoffFlags.length > 0;
-  const hasSessionIssues = sessionFlags.length > 0;
-
-  const sessionVisitIndices = useMemo(
-    () => [...new Set(sessionFlags.map(f => f.visitIndex))].sort((a, b) => a - b),
-    [sessionFlags],
-  );
-
   const preview = useMemo(
-    () => buildIntakeFixPreview(visits, sameDayClockOuts, closingVisits),
-    [visits, sameDayClockOuts, closingVisits],
+    () => buildIntakeFixPreview(
+      visits,
+      sameDayClockOuts,
+      closingVisits,
+      undefined,
+      extraClockOutList,
+      { sessionConfigs },
+    ),
+    [visits, sameDayClockOuts, closingVisits, extraClockOutList, sessionConfigs],
   );
 
-  const daysNeedingFinal = preview.stillNeedsFinalClockOut;
+  const pendingValidation = useMemo(
+    () => validateIntakeVisits(preview.visits, { sessionConfigs }),
+    [preview.visits, sessionConfigs],
+  );
+
+  const timeEditIndices = useMemo(
+    () => [...new Set(
+      validation.flags
+        .filter(f => f.type === 'outside_session_window' || f.type === 'overlapping_times')
+        .map(f => f.visitIndex),
+    )].sort((a, b) => a - b),
+    [validation.flags],
+  );
+
+  const daysNeedingFinal = useMemo(
+    () => validation.dayIssues
+      .filter(d => d.missingFinalClockOut)
+      .map(d => ({
+        dayKey: d.dayKey,
+        dayLabel: d.dayLabel,
+        visitIndex: getLastVisitIndexForDay(visits, d.dayKey) ?? -1,
+      }))
+      .filter(d => d.visitIndex >= 0),
+    [validation.dayIssues, visits],
+  );
+
+  const earlierOpen = useMemo(
+    () => listEarlierOpenVisits(visits, { sessionConfigs }),
+    [visits, sessionConfigs],
+  );
+
   const visitsModified = JSON.stringify(visits) !== originalVisitsRef.current;
 
   const setMode = (dayKey: string, mode: FixMode) => {
@@ -194,17 +241,23 @@ export default function IntakeHandoffFixDialog({
     }
   };
 
-  const dayIsResolved = (dayKey: string) => {
-    const mode = fixModes[dayKey] ?? 'same_day';
-    if (mode === 'catch_up') {
-      const d = closingDrafts[dayKey];
-      return Boolean(d?.visitDate?.trim() && d?.timeIn?.trim() && d?.timeOut?.trim());
-    }
-    return Boolean(finalClockOuts[dayKey]?.trim());
-  };
-
   const updateVisit = (index: number, patch: Partial<IntakeVisitRecord>) => {
     setVisits(prev => prev.map((visit, i) => (i === index ? { ...visit, ...patch } : visit)));
+  };
+
+  const applySuggestedEnd = (dayKey: string, timeOut: string) => {
+    setFixModes(prev => ({ ...prev, [dayKey]: 'same_day' }));
+    setFinalClockOuts(prev => ({ ...prev, [dayKey]: timeOut }));
+  };
+
+  const applyDismissAndReadmit = () => {
+    setExtraClockOuts(prev => {
+      const next = { ...prev };
+      for (const item of earlierOpen) {
+        next[item.visitIndex] = item.suggestedTimeOut;
+      }
+      return next;
+    });
   };
 
   const handleSave = async () => {
@@ -218,6 +271,7 @@ export default function IntakeHandoffFixDialog({
           visits,
           finalClockOuts: sameDayClockOuts,
           closingVisits,
+          extraClockOuts: extraClockOutList,
         }),
       });
       const data = await res.json();
@@ -233,13 +287,9 @@ export default function IntakeHandoffFixDialog({
     }
   };
 
-  const handoffReady = !hasHandoffIssues || (
-    preview.changes.length > 0
-    && (daysNeedingFinal.length === 0 || daysNeedingFinal.every(d => dayIsResolved(d.dayKey)))
-  );
-  const sessionReady = !hasSessionIssues;
   const hasSomethingToSave = preview.changes.length > 0 || visitsModified;
-  const canSave = handoffReady && sessionReady && hasSomethingToSave;
+  const remainingMessages = [...new Set(pendingValidation.flags.map(f => f.message))];
+  const canSave = hasSomethingToSave && remainingMessages.length === 0;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -250,8 +300,8 @@ export default function IntakeHandoffFixDialog({
             Fix intake issues — {studentName}
           </DialogTitle>
           <DialogDescription>
-            Correct session hours (Time In / Time Out must match the selected intake session)
-            or fix handoff visits — only the final same-day activity should record Time Out.
+            Set a missing Time Out, correct overlapping clocks, or adjust session hours.
+            Students may leave and return the same day — each completed cycle needs its own Time Out.
           </DialogDescription>
         </DialogHeader>
 
@@ -260,6 +310,37 @@ export default function IntakeHandoffFixDialog({
             <Loader2 className="h-5 w-5 animate-spin" />
             Loading visit history…
           </div>
+        )}
+
+        {!loading && (
+          <details className="rounded-md border bg-muted/30 px-3 py-2 text-sm">
+            <summary className="cursor-pointer font-medium flex items-center gap-1.5">
+              <HelpCircle className="h-4 w-4 text-muted-foreground shrink-0" />
+              How to resolve these issues
+            </summary>
+            <ul className="mt-2 list-disc list-inside space-y-1.5 text-xs text-muted-foreground">
+              <li>
+                <strong className="text-foreground">Handoff:</strong> the student stays on campus
+                with another staff member. Mark earlier activities <strong className="text-foreground">Staying</strong>.
+                Only the last activity needs Time Out when they leave.
+              </li>
+              <li>
+                <strong className="text-foreground">Left, then returned:</strong> mark
+                {' '}<strong className="text-foreground">Leaving</strong> with Time Out when they depart.
+                Log a new visit when they come back the same day (same session or a later one).
+              </li>
+              <li>
+                <strong className="text-foreground">Missing Time-Out:</strong> the session or day ended
+                and the last visit is still open. Use <strong className="text-foreground">Set End Time</strong>
+                {' '}(now or session end), or add a catch-up visit the next day.
+              </li>
+              <li>
+                <strong className="text-foreground">Overlapping times:</strong> Time Out on an earlier visit
+                must be at or before the next Time In. Adjust the clocks, or mark the earlier visit Staying
+                if it was a handoff.
+              </li>
+            </ul>
+          </details>
         )}
 
         {!loading && validation.hasIssues && (
@@ -273,20 +354,20 @@ export default function IntakeHandoffFixDialog({
                     <li key={issue.dayKey}>
                       {issue.dayLabel}:
                       {issue.outsideSessionCount > 0 && ` ${issue.outsideSessionCount} outside session hours`}
-                      {issue.outsideSessionCount > 0 && (issue.prematureCount > 0 || issue.missingFinalClockOut) && ' · '}
-                      {issue.prematureCount > 0 && `${issue.prematureCount} early Time Out`}
-                      {issue.prematureCount > 0 && issue.missingFinalClockOut && ' · '}
-                      {issue.missingFinalClockOut && 'no final Time Out'}
+                      {issue.outsideSessionCount > 0 && (issue.overlappingCount > 0 || issue.missingFinalClockOut) && ' · '}
+                      {issue.overlappingCount > 0 && 'overlapping times'}
+                      {issue.overlappingCount > 0 && issue.missingFinalClockOut && ' · '}
+                      {issue.missingFinalClockOut && 'missing Time-Out'}
                     </li>
                   ))}
                 </ul>
               </AlertDescription>
             </Alert>
 
-            {hasSessionIssues && (
+            {timeEditIndices.length > 0 && (
               <div className="space-y-3">
-                <p className="text-sm font-medium">Correct session hours</p>
-                {sessionVisitIndices.map(index => {
+                <p className="text-sm font-medium">Adjust visit times</p>
+                {timeEditIndices.map(index => {
                   const visit = visits[index];
                   if (!visit) return null;
                   const dayKey = visitDayKey(visit.date) || 'unknown';
@@ -297,7 +378,7 @@ export default function IntakeHandoffFixDialog({
                     timeOut: visit.timeOut,
                     sessions: sessionConfigs,
                   });
-                  const visitFlags = sessionFlags.filter(f => f.visitIndex === index);
+                  const visitFlags = validation.flags.filter(f => f.visitIndex === index);
 
                   return (
                     <div key={index} className="rounded-md border p-3 space-y-3">
@@ -377,9 +458,57 @@ export default function IntakeHandoffFixDialog({
               </div>
             )}
 
+            {earlierOpen.length > 0 && (
+              <div className="space-y-3">
+                <div className="flex items-start justify-between gap-2">
+                  <div>
+                    <p className="text-sm font-medium">Dismiss &amp; Re-admit</p>
+                    <p className="text-xs text-muted-foreground mt-0.5">
+                      Use when the student left and came back. Clock out the earlier visit so the later
+                      activity is a returning intake.
+                    </p>
+                  </div>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="h-8 text-xs shrink-0"
+                    onClick={applyDismissAndReadmit}
+                  >
+                    Clock out earlier visits
+                  </Button>
+                </div>
+                {earlierOpen.map(item => (
+                  <div key={item.visitIndex} className="rounded-md border p-3 flex flex-wrap items-end gap-3">
+                    <div className="min-w-0 flex-1">
+                      <p className="text-xs font-medium">
+                        Visit #{item.visitIndex + 1} — {item.dayLabel}
+                        {item.activity ? ` · ${item.activity}` : ''}
+                      </p>
+                      <p className="text-[11px] text-muted-foreground mt-0.5">
+                        Time In {item.timeIn || '—'} · suggested Time Out {item.suggestedTimeOut}
+                      </p>
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label className="text-xs">Time Out</Label>
+                      <Input
+                        type="time"
+                        className="h-8 text-sm w-[140px]"
+                        value={extraClockOuts[item.visitIndex] || ''}
+                        onChange={e => setExtraClockOuts(prev => ({
+                          ...prev,
+                          [item.visitIndex]: e.target.value,
+                        }))}
+                      />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+
             {preview.changes.length > 0 && (
               <div className="rounded-md border bg-muted/30 px-3 py-2 text-sm">
-                <p className="font-medium mb-1">Handoff changes to apply</p>
+                <p className="font-medium mb-1">Changes to apply</p>
                 <ul className="list-disc list-inside text-xs text-muted-foreground space-y-0.5">
                   {preview.changes.map(change => (
                     <li key={change}>{change}</li>
@@ -388,14 +517,19 @@ export default function IntakeHandoffFixDialog({
               </div>
             )}
 
-            {hasHandoffIssues && daysNeedingFinal.length > 0 && (
+            {daysNeedingFinal.length > 0 && (
               <div className="space-y-4">
-                <p className="text-sm font-medium">Close open intake (handoff / EPE)</p>
+                <p className="text-sm font-medium">Set End Time</p>
                 {daysNeedingFinal.map(day => {
                   const idx = getLastVisitIndexForDay(visits, day.dayKey);
                   const visit = idx !== null ? visits[idx] : null;
                   const mode = fixModes[day.dayKey] ?? 'same_day';
                   const draft = closingDrafts[day.dayKey];
+                  const session = visit
+                    ? findIntakeSession(sessionConfigs, visit.intakeSession)
+                    : undefined;
+                  const sessionEnd = session?.endTime || '';
+                  const suggestedNow = nowHHMM();
                   return (
                     <div key={day.dayKey} className="rounded-md border p-3 space-y-3">
                       <p className="text-xs font-medium text-foreground">
@@ -413,27 +547,51 @@ export default function IntakeHandoffFixDialog({
                             className="mt-1 accent-primary"
                           />
                           <span>
-                            <span className="font-medium">Same day — set Time Out on final activity</span>
+                            <span className="font-medium">Set End Time on the last visit</span>
                             <span className="block text-xs text-muted-foreground mt-0.5">
                               Use when you know when the student left on {day.dayLabel}.
                             </span>
                           </span>
                         </label>
                         {mode === 'same_day' && (
-                          <div className="ml-6 flex items-center gap-2">
-                            <Label htmlFor={`final-out-${day.dayKey}`} className="text-xs shrink-0">
-                              Time Out
-                            </Label>
-                            <Input
-                              id={`final-out-${day.dayKey}`}
-                              type="time"
-                              className="h-8 text-sm max-w-[160px]"
-                              value={finalClockOuts[day.dayKey] || ''}
-                              onChange={e => setFinalClockOuts(prev => ({
-                                ...prev,
-                                [day.dayKey]: e.target.value,
-                              }))}
-                            />
+                          <div className="ml-6 space-y-2">
+                            <div className="flex flex-wrap items-center gap-2">
+                              <Label htmlFor={`final-out-${day.dayKey}`} className="text-xs shrink-0">
+                                Time Out
+                              </Label>
+                              <Input
+                                id={`final-out-${day.dayKey}`}
+                                type="time"
+                                className="h-8 text-sm max-w-[160px]"
+                                value={finalClockOuts[day.dayKey] || ''}
+                                onChange={e => setFinalClockOuts(prev => ({
+                                  ...prev,
+                                  [day.dayKey]: e.target.value,
+                                }))}
+                              />
+                            </div>
+                            <div className="flex flex-wrap gap-2">
+                              <Button
+                                type="button"
+                                variant="secondary"
+                                size="sm"
+                                className="h-7 text-xs"
+                                onClick={() => applySuggestedEnd(day.dayKey, suggestedNow)}
+                              >
+                                Use now ({suggestedNow})
+                              </Button>
+                              {sessionEnd && (
+                                <Button
+                                  type="button"
+                                  variant="secondary"
+                                  size="sm"
+                                  className="h-7 text-xs"
+                                  onClick={() => applySuggestedEnd(day.dayKey, sessionEnd)}
+                                >
+                                  Use session end ({sessionEnd})
+                                </Button>
+                              )}
+                            </div>
                           </div>
                         )}
 
@@ -529,6 +687,12 @@ export default function IntakeHandoffFixDialog({
             <AlertTitle>No intake issues</AlertTitle>
             <AlertDescription>This student&apos;s intake visits look correct.</AlertDescription>
           </Alert>
+        )}
+
+        {!loading && remainingMessages.length > 0 && hasSomethingToSave && (
+          <p className="text-sm text-destructive" role="alert">
+            {remainingMessages[0]}
+          </p>
         )}
 
         {error && (

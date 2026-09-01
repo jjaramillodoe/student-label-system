@@ -27,7 +27,7 @@ export function visitMinutes(timeIn: unknown, timeOut: unknown): number | null {
   return diff;
 }
 
-/** Total minutes across visit log (per-day span: first time-in → final clock-out). */
+/** Total minutes across visit log (completed cycles summed; handoffs stay one span). */
 export function totalVisitMinutes(visits: any[] | undefined): number {
   if (!Array.isArray(visits)) return 0;
   return epeVisitsTotalMinutes(visits) ?? 0;

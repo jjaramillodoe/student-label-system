@@ -65,7 +65,7 @@ export default function IntakeIssuesBanner({
       <div className={`rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-900 flex items-center justify-between gap-2 ${className}`}>
         <span className="flex items-center gap-1.5 font-medium">
           <AlertTriangle className="h-3.5 w-3.5" />
-          {count} intake handoff issue{count !== 1 ? 's' : ''} need correction
+          {count} intake issue{count !== 1 ? 's' : ''} need correction
         </span>
         <Button variant="outline" size="sm" className="h-7 text-xs" asChild>
           <Link href={reviewHref}>Review</Link>
@@ -82,9 +82,9 @@ export default function IntakeIssuesBanner({
       </AlertTitle>
       <AlertDescription className="text-amber-800 dark:text-amber-200">
         <p className="mb-2">
-          Some students have intake times outside their session window, or multiple same-day
-          activities with incorrect Time Out / Staying status. Use Fix to correct session hours
-          or handoff visits so only the final activity records Time Out (EPE).
+          Some students have a missing Time-Out after the session ended, overlapping visit times,
+          or times outside the session window. Same-day return visits after Leaving are allowed.
+          Use Fix to set an end time, dismiss an earlier visit for re-admit, or correct hours.
         </p>
         <div className="flex flex-wrap items-center gap-2">
           <Button size="sm" variant="default" className="h-8 gap-1.5" asChild>

@@ -6,7 +6,7 @@
  * - :45–:59 → round up to next hour :00
  */
 
-import { visitDayKey } from '@/lib/intakeVisitValidation';
+import { visitDayKey } from '@/lib/intakeCalendar';
 
 export type EpeVisitLike = {
   date?: string;
@@ -55,36 +55,50 @@ export function epeVisitDurationMinutes(timeIn: unknown, timeOut: unknown): numb
 }
 
 function isVisitClockedOut(v: EpeVisitLike): boolean {
-  if (v.isLeaving === 'Leaving') return true;
   if (v.isLeaving === 'Staying') return false;
+  if (v.isLeaving === 'Leaving') {
+    return typeof v.timeOut === 'string' && v.timeOut.trim().length > 0;
+  }
   return typeof v.timeOut === 'string' && v.timeOut.trim().length > 0;
 }
 
 /**
- * EPE duration for one calendar day: earliest time-in through final clock-out.
- * Handoff visits marked Staying are not counted separately — only the day span matters.
+ * EPE duration for one calendar day.
+ * Completed cycles (Intake → Left, then Returning Intake → Left) are summed separately.
+ * A same-day staff handoff (Staying visits, then a final Time Out) still counts as one span.
  */
 export function epeDaySpanMinutes(dayVisits: EpeVisitLike[]): number | null {
   if (!dayVisits.length) return null;
 
-  const sorted = [...dayVisits].sort(
-    (a, b) => new Date(a.date || 0).getTime() - new Date(b.date || 0).getTime(),
-  );
+  const sorted = [...dayVisits].sort((a, b) => {
+    const aIn = parseMinutesOfDay(a.timeIn);
+    const bIn = parseMinutesOfDay(b.timeIn);
+    if (aIn !== null && bIn !== null && aIn !== bIn) return aIn - bIn;
+    return new Date(a.date || 0).getTime() - new Date(b.date || 0).getTime();
+  });
 
-  const firstTimeIn = sorted[0]?.timeIn;
-  if (firstTimeIn == null || firstTimeIn === '') return null;
+  let total = 0;
+  let counted = false;
+  let cycleStartIn: unknown = null;
 
-  let lastTimeOut: unknown = null;
-  for (let i = sorted.length - 1; i >= 0; i--) {
-    const v = sorted[i];
+  const flushCycle = (timeOut: unknown) => {
+    if (cycleStartIn == null || cycleStartIn === '') return;
+    const mins = epeVisitDurationMinutes(cycleStartIn, timeOut);
+    if (mins !== null) {
+      total += mins;
+      counted = true;
+    }
+    cycleStartIn = null;
+  };
+
+  for (const v of sorted) {
+    if (cycleStartIn == null) cycleStartIn = v.timeIn;
     if (isVisitClockedOut(v) && v.timeOut) {
-      lastTimeOut = v.timeOut;
-      break;
+      flushCycle(v.timeOut);
     }
   }
-  if (lastTimeOut == null || lastTimeOut === '') return null;
 
-  return epeVisitDurationMinutes(firstTimeIn, lastTimeOut);
+  return counted ? total : null;
 }
 
 /** Total EPE minutes across visit log — per-day spans summed (not per-segment). */

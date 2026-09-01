@@ -1,8 +1,13 @@
+import { parseMinutesOfDay } from '@/lib/epeClock';
+import { formatMinutesOfDay, nowMinutesOfDay, todayDayKey, visitDayKey } from '@/lib/intakeCalendar';
+import { findIntakeSession, type IntakeSession } from '@/lib/intakeSession';
 import {
-  validateIntakeVisits,
-  visitDayKey,
+  CATCH_UP_ACTIVITY,
   formatDayLabel,
+  isClockedOut,
+  validateIntakeVisits,
   type IntakeVisitLike,
+  type IntakeVisitValidationOptions,
 } from '@/lib/intakeVisitValidation';
 
 export const INTAKE_FIX_ROLES = [
@@ -30,6 +35,12 @@ export interface ClosingVisitInput {
   intakeActivity?: string[];
 }
 
+/** Clock out a specific visit (Dismiss & Re-admit / earlier cycle). */
+export interface ClockOutVisitInput {
+  visitIndex: number;
+  timeOut: string;
+}
+
 export function combineDateAndTime(visitDate: string, time: string): string {
   const [h, m] = time.split(':').map(v => parseInt(v, 10));
   const d = new Date(`${visitDate}T00:00:00`);
@@ -55,39 +66,144 @@ export interface IntakeFixPreview {
   stillNeedsFinalClockOut: Array<{ dayKey: string; dayLabel: string; visitIndex: number }>;
 }
 
+export interface EarlierOpenVisit {
+  visitIndex: number;
+  dayKey: string;
+  dayLabel: string;
+  activity?: string;
+  timeIn?: string;
+  suggestedTimeOut: string;
+}
+
 function cloneVisits(visits: IntakeVisitLike[]): IntakeVisitLike[] {
   return visits.map(v => ({ ...v }));
 }
 
-export function getLastVisitIndexForDay(visits: IntakeVisitLike[], dayKey: string): number | null {
-  let lastIndex: number | null = null;
-  let lastTime = -1;
-  visits.forEach((visit, index) => {
-    if (visitDayKey(visit.date) !== dayKey) return;
-    const t = new Date(visit.date || 0).getTime();
-    if (!Number.isNaN(t) && t >= lastTime) {
-      lastTime = t;
-      lastIndex = index;
-    }
-  });
-  return lastIndex;
+function compareVisitsOnDay(a: IntakeVisitLike, b: IntakeVisitLike): number {
+  const aIn = parseMinutesOfDay(a.timeIn);
+  const bIn = parseMinutesOfDay(b.timeIn);
+  if (aIn !== null && bIn !== null && aIn !== bIn) return aIn - bIn;
+  return new Date(a.date || 0).getTime() - new Date(b.date || 0).getTime();
 }
 
-/** Clear early Time Out on handoff visits; set same-day clock-out or append catch-up visits. */
+export function getLastVisitIndexForDay(visits: IntakeVisitLike[], dayKey: string): number | null {
+  const entries = visits
+    .map((visit, index) => ({ visit, index }))
+    .filter(({ visit }) => visitDayKey(visit.date) === dayKey);
+  if (!entries.length) return null;
+  const sorted = [...entries].sort((a, b) => compareVisitsOnDay(a.visit, b.visit));
+  return sorted[sorted.length - 1].index;
+}
+
+/**
+ * Default Time Out: one minute before the next same-day Time In,
+ * otherwise "now" if still in session today, otherwise the session end.
+ */
+export function suggestDefaultTimeOut(params: {
+  visit: IntakeVisitLike;
+  nextVisit?: IntakeVisitLike | null;
+  session?: IntakeSession | null;
+  now?: Date;
+}): string {
+  const thisIn = parseMinutesOfDay(params.visit.timeIn);
+  const nextIn = params.nextVisit ? parseMinutesOfDay(params.nextVisit.timeIn) : null;
+  if (nextIn !== null) {
+    const out = Math.max(thisIn ?? 0, nextIn - 1);
+    return formatMinutesOfDay(out);
+  }
+
+  const sessionEnd = params.session ? parseMinutesOfDay(params.session.endTime) : null;
+  const now = params.now ?? new Date();
+  const visitDay = visitDayKey(params.visit.date);
+  const today = todayDayKey(now);
+  const nowMins = nowMinutesOfDay(now);
+
+  if (
+    visitDay === today
+    && (thisIn === null || nowMins >= thisIn)
+    && (sessionEnd === null || nowMins <= sessionEnd)
+  ) {
+    return formatMinutesOfDay(nowMins);
+  }
+
+  if (sessionEnd !== null && (thisIn === null || sessionEnd >= thisIn)) {
+    return params.session!.endTime;
+  }
+
+  return formatMinutesOfDay(Math.min((thisIn ?? 0) + 30, 23 * 60 + 59));
+}
+
+/** Open visits that are not the last activity of their day — candidates for Dismiss & Re-admit. */
+export function listEarlierOpenVisits(
+  visits: IntakeVisitLike[],
+  options?: { now?: Date; sessionConfigs?: IntakeSession[] },
+): EarlierOpenVisit[] {
+  const byDay = new Map<string, Array<{ visit: IntakeVisitLike; index: number }>>();
+  visits.forEach((visit, index) => {
+    const day = visitDayKey(visit.date);
+    if (!day) return;
+    if (!byDay.has(day)) byDay.set(day, []);
+    byDay.get(day)!.push({ visit, index });
+  });
+
+  const result: EarlierOpenVisit[] = [];
+  for (const [dayKey, dayVisits] of byDay) {
+    const sorted = [...dayVisits].sort((a, b) => compareVisitsOnDay(a.visit, b.visit));
+    if (sorted.length < 2) continue;
+    for (let i = 0; i < sorted.length - 1; i++) {
+      const current = sorted[i];
+      if (isClockedOut(current.visit)) continue;
+      const next = sorted[i + 1];
+      const session = findIntakeSession(options?.sessionConfigs ?? [], current.visit.intakeSession);
+      result.push({
+        visitIndex: current.index,
+        dayKey,
+        dayLabel: formatDayLabel(dayKey),
+        activity: current.visit.intakeActivity?.join(', '),
+        timeIn: current.visit.timeIn,
+        suggestedTimeOut: suggestDefaultTimeOut({
+          visit: current.visit,
+          nextVisit: next.visit,
+          session,
+          now: options?.now,
+        }),
+      });
+    }
+  }
+  return result;
+}
+
+/** Set Time Out / catch-up visits. Does not convert valid Leaving records to Staying. */
 export function buildIntakeFixPreview(
   visits: IntakeVisitLike[],
   finalClockOuts: FinalClockOutInput[] = [],
   closingVisits: ClosingVisitInput[] = [],
   recordedBy?: { name?: string; email?: string },
+  extraClockOuts: ClockOutVisitInput[] = [],
+  options?: IntakeVisitValidationOptions,
 ): IntakeFixPreview {
   const changes: string[] = [];
   let updated = cloneVisits(visits);
+
+  for (const extra of extraClockOuts) {
+    const visit = updated[extra.visitIndex];
+    if (!visit || !extra.timeOut.trim()) continue;
+    updated[extra.visitIndex] = {
+      ...visit,
+      isLeaving: 'Leaving',
+      timeOut: extra.timeOut.trim(),
+    };
+    changes.push(
+      `Visit #${extra.visitIndex + 1} (${formatDayLabel(visitDayKey(visit.date) || '')}): `
+      + `set Time Out to ${extra.timeOut.trim()} so a later visit can be a returning intake.`,
+    );
+  }
 
   for (const closing of closingVisits) {
     if (!closing.visitDate.trim() || !closing.timeIn.trim() || !closing.timeOut.trim()) continue;
     const activity = closing.intakeActivity?.length
       ? closing.intakeActivity
-      : ['Intake completion / Clock out'];
+      : [CATCH_UP_ACTIVITY];
     updated.push({
       date: combineDateAndTime(closing.visitDate, closing.timeIn),
       timeIn: closing.timeIn.trim(),
@@ -106,23 +222,6 @@ export function buildIntakeFixPreview(
     (a, b) => new Date(a.date || 0).getTime() - new Date(b.date || 0).getTime(),
   );
 
-  const validation = validateIntakeVisits(updated);
-
-  for (const flag of validation.flags) {
-    if (flag.type !== 'premature_clock_out') continue;
-    const visit = updated[flag.visitIndex];
-    if (!visit) continue;
-    updated[flag.visitIndex] = {
-      ...visit,
-      isLeaving: 'Staying',
-      timeOut: null,
-    };
-    changes.push(
-      `Visit #${flag.visitIndex + 1} (${formatDayLabel(flag.dayKey)}): `
-      + 'changed to Staying and removed Time Out (handoff activity).',
-    );
-  }
-
   for (const entry of finalClockOuts) {
     const idx = getLastVisitIndexForDay(updated, entry.dayKey);
     if (idx === null || !entry.timeOut.trim()) continue;
@@ -134,11 +233,11 @@ export function buildIntakeFixPreview(
     };
     changes.push(
       `Visit #${idx + 1} (${formatDayLabel(entry.dayKey)}): `
-      + `set final Time Out to ${entry.timeOut.trim()} (EPE).`,
+      + `set Time Out to ${entry.timeOut.trim()} (EPE).`,
     );
   }
 
-  const after = validateIntakeVisits(updated);
+  const after = validateIntakeVisits(updated, options);
   const stillNeedsFinalClockOut = after.dayIssues
     .filter(d => d.missingFinalClockOut)
     .map(d => ({
