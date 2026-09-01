@@ -197,9 +197,10 @@ const featureGroups = [
     icon: TrendingUp,
     isNew: true,
     items: [
-      'Metric cards: Today, This Week, This Month, All Time.',
+      'Clickable Today / Week / Month / All Time counts (students with a new file or returning visit).',
+      'Period metrics: new files, visits, clock-out rate, open visits, and BE/ESL.',
+      'Charts: daily new files vs visits, intake by session, and arrivals by hour.',
       'Staff leaderboard with gold/silver/bronze ranking and relative progress bars.',
-      'Daily trend bar chart — hover a bar to see the exact count.',
       'Filterable enrollment table: by period, staff member, or student/staff name search.',
       'Shows who registered each student (name + email) on every row.',
       'Flags Missing Time-Out after a session ends, overlapping clocks, and times outside session hours. Same-day return after Leaving is allowed.',

@@ -73,3 +73,20 @@ export function formatMinutesOfDay(minutes: number): string {
   const m = normalized % 60;
   return `${pad2(h)}:${pad2(m)}`;
 }
+
+/** UTC instant of midnight on `dayKey` (YYYY-MM-DD) in the school timezone. */
+export function schoolDayStartUtc(
+  dayKey: string,
+  timeZone: string = SCHOOL_INTAKE_TZ,
+): Date {
+  const [year, month, day] = dayKey.split('-').map(Number);
+  if (!year || !month || !day) return new Date(NaN);
+  const utcMidnight = Date.UTC(year, month - 1, day, 0, 0, 0);
+  for (let hour = 0; hour <= 30; hour++) {
+    const instant = new Date(utcMidnight + hour * 60 * 60 * 1000);
+    if (todayDayKey(instant, timeZone) === dayKey && nowMinutesOfDay(instant, timeZone) === 0) {
+      return instant;
+    }
+  }
+  return new Date(`${dayKey}T04:00:00.000Z`);
+}

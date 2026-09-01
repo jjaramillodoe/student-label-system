@@ -7,6 +7,12 @@ import {
   normalizeIntakeSessions,
   type IntakeSession,
 } from '@/lib/intakeSession';
+import {
+  enrollmentPeriodMongoFilter,
+  parseEnrollmentPeriod,
+  schoolPeriodStartUtc,
+} from '@/lib/enrollmentPeriod';
+import { buildEnrollmentInsights } from '@/lib/enrollmentInsights';
 
 function escapeRegex(value: string) {
   return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -42,23 +48,6 @@ function buildEnrollmentSearchFilter(search: string): Record<string, unknown> | 
   return { $or: or };
 }
 
-function startOf(unit: 'today' | 'week' | 'month' | 'year'): Date {
-  const now = new Date();
-  if (unit === 'today') {
-    return new Date(now.getFullYear(), now.getMonth(), now.getDate());
-  }
-  if (unit === 'week') {
-    const day = now.getDay();
-    const diff = day === 0 ? -6 : 1 - day; // Monday
-    return new Date(now.getFullYear(), now.getMonth(), now.getDate() + diff);
-  }
-  if (unit === 'month') {
-    return new Date(now.getFullYear(), now.getMonth(), 1);
-  }
-  // year
-  return new Date(now.getFullYear(), 0, 1);
-}
-
 export async function GET(req: NextRequest) {
   const auth = await requireRole(['Admin', 'Data Lead', 'Data Member']);
   if (!auth.ok) return auth.response;
@@ -70,25 +59,29 @@ export async function GET(req: NextRequest) {
 
   const schoolFilter: Record<string, any> = role !== 'Admin' ? { school } : {};
 
-  // Optional period filter from query param
-  const period = req.nextUrl.searchParams.get('period') || 'month'; // today|week|month|year|all
+  const period = parseEnrollmentPeriod(req.nextUrl.searchParams.get('period'));
   const staffFilter = req.nextUrl.searchParams.get('staff') || '';
   const search = req.nextUrl.searchParams.get('search') || '';
   const page = parseInt(req.nextUrl.searchParams.get('page') || '1', 10);
   const limit = 50;
+  const now = new Date();
 
-  // ── Metrics: counts for each time window ──────────────────────────────────
+  const todayFilter = enrollmentPeriodMongoFilter(schoolPeriodStartUtc('today', now));
+  const weekFilter = enrollmentPeriodMongoFilter(schoolPeriodStartUtc('week', now));
+  const monthFilter = enrollmentPeriodMongoFilter(schoolPeriodStartUtc('month', now));
+  const yearFilter = enrollmentPeriodMongoFilter(schoolPeriodStartUtc('year', now));
+
+  // ── Metrics: students with a registration or intake visit in each window ──
   const [countToday, countWeek, countMonth, countYear, countAll] = await Promise.all([
-    db.collection('students').countDocuments({ ...schoolFilter, createdAt: { $gte: startOf('today').toISOString() } }),
-    db.collection('students').countDocuments({ ...schoolFilter, createdAt: { $gte: startOf('week').toISOString() } }),
-    db.collection('students').countDocuments({ ...schoolFilter, createdAt: { $gte: startOf('month').toISOString() } }),
-    db.collection('students').countDocuments({ ...schoolFilter, createdAt: { $gte: startOf('year').toISOString() } }),
+    db.collection('students').countDocuments({ ...schoolFilter, ...todayFilter }),
+    db.collection('students').countDocuments({ ...schoolFilter, ...weekFilter }),
+    db.collection('students').countDocuments({ ...schoolFilter, ...monthFilter }),
+    db.collection('students').countDocuments({ ...schoolFilter, ...yearFilter }),
     db.collection('students').countDocuments(schoolFilter),
   ]);
 
-  // ── Staff leaderboard: count by createdBy.email for current period ─────────
-  const periodStart = period === 'all' ? null : startOf(period as any).toISOString();
-  const periodFilter = periodStart ? { createdAt: { $gte: periodStart } } : {};
+  const periodStart = period === 'all' ? null : schoolPeriodStartUtc(period, now);
+  const periodFilter = enrollmentPeriodMongoFilter(periodStart);
 
   const staffAgg = await db.collection('students').aggregate([
     { $match: { ...schoolFilter, ...periodFilter } },
@@ -109,23 +102,9 @@ export async function GET(req: NextRequest) {
     lastAt: r.lastAt,
   }));
 
-  // ── Daily trend: enrollments per day for current period (last 30 days max) ─
-  const trendStart = period === 'all'
-    ? new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString()
-    : (periodStart ?? startOf('month').toISOString());
-
-  const trendAgg = await db.collection('students').aggregate([
-    { $match: { ...schoolFilter, createdAt: { $gte: trendStart } } },
-    {
-      $group: {
-        _id: { $substr: ['$createdAt', 0, 10] }, // YYYY-MM-DD
-        count: { $sum: 1 },
-      },
-    },
-    { $sort: { _id: 1 } },
-  ]).toArray();
-
-  const trend = trendAgg.map(r => ({ date: r._id, count: r.count }));
+  const trendStartDate = period === 'all'
+    ? new Date(Date.now() - 30 * 24 * 60 * 60 * 1000)
+    : (periodStart ?? schoolPeriodStartUtc('month', now));
 
   // ── Paginated enrollment list ──────────────────────────────────────────────
   const searchFilter = buildEnrollmentSearchFilter(search);
@@ -140,7 +119,7 @@ export async function GET(req: NextRequest) {
   const total = await db.collection('students').countDocuments(listQuery);
   const enrollments = await db.collection('students')
     .find(listQuery)
-    .sort({ createdAt: -1 })
+    .sort({ updatedAt: -1, createdAt: -1 })
     .skip((page - 1) * limit)
     .limit(limit)
     .project({
@@ -159,7 +138,15 @@ export async function GET(req: NextRequest) {
   // ── Total intake time across the filtered query (all pages, all visits) ────
   const timedDocs = await db.collection('students')
     .find(listQuery)
-    .project({ timeIn: 1, timeOut: 1, intakeVisits: 1 })
+    .project({
+      createdAt: 1,
+      educationStatus: 1,
+      intakeSession: 1,
+      timeIn: 1,
+      timeOut: 1,
+      isLeaving: 1,
+      intakeVisits: 1,
+    })
     .toArray();
 
   let totalIntakeMinutes = 0;
@@ -174,6 +161,11 @@ export async function GET(req: NextRequest) {
     if (mins !== null && mins > 0) { totalIntakeMinutes += mins; timedStudents += 1; }
   }
   const avgIntakeMinutes = timedStudents > 0 ? Math.round(totalIntakeMinutes / timedStudents) : 0;
+
+  const insights = buildEnrollmentInsights(timedDocs, {
+    periodStart,
+    trendStart: trendStartDate,
+  });
 
   const enrichedEnrollments = enrollments.map(e => ({
     ...e,
@@ -199,8 +191,9 @@ export async function GET(req: NextRequest) {
   return NextResponse.json({
     metrics: { today: countToday, week: countWeek, month: countMonth, year: countYear, all: countAll },
     intakeTime: { totalMinutes: totalIntakeMinutes, avgMinutes: avgIntakeMinutes, sessions: timedStudents, visits: totalVisits },
+    insights,
     staffBreakdown,
-    trend,
+    trend: insights.daily.map(d => ({ date: d.date, count: d.visits })),
     enrollments: enrichedEnrollments,
     schoolIntakeSessions,
     defaultIntakeSessions: DEFAULT_INTAKE_SESSION_CONFIGS,

@@ -41,7 +41,10 @@ import { resolveSchoolIntakeSessions } from '@/lib/intakeIssues';
 import { canFixIntakeHandoff } from '@/lib/intakeVisitFix';
 import IntakeIssuesBanner from '@/components/IntakeIssuesBanner';
 import IntakeHandoffFixDialog from '@/components/IntakeHandoffFixDialog';
+import EnrollmentInsightsPanel, { EnrollmentDailyTrendChart } from '@/components/EnrollmentInsightsPanel';
 import { formatFullName } from '@/lib/personName';
+import type { EnrollmentInsights } from '@/lib/enrollmentInsights';
+import { cn } from '@/lib/utils';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 interface Metrics {
@@ -53,7 +56,6 @@ interface Metrics {
 }
 interface IntakeTime { totalMinutes: number; avgMinutes: number; sessions: number; visits: number; }
 interface StaffMember { email: string; name: string; count: number; lastAt: string; }
-interface TrendPoint { date: string; count: number; }
 interface Enrollment {
   _id: string;
   firstName: string;
@@ -104,11 +106,6 @@ function fmtDate(iso: string) {
 function fmtTime(iso: string) {
   if (!iso) return '';
   return new Date(iso).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
-}
-function fmtDateShort(iso: string) {
-  if (!iso) return '—';
-  const d = new Date(iso + 'T00:00:00');
-  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
 }
 function initials(name: string) {
   return name.split(/\s+/).map(w => w[0] ?? '').join('').toUpperCase().slice(0, 2);
@@ -188,27 +185,6 @@ const RANK_ICONS = [
   <Award key={1} className="h-3.5 w-3.5 text-slate-500" />,
   <Star key={2} className="h-3.5 w-3.5 text-orange-500" />,
 ];
-
-// ── Mini bar chart ────────────────────────────────────────────────────────────
-function TrendBar({ trend }: { trend: TrendPoint[] }) {
-  if (!trend.length) return <p className="text-xs text-muted-foreground italic">No trend data yet.</p>;
-  const max = Math.max(...trend.map(t => t.count), 1);
-  return (
-    <div className="flex items-end gap-1 h-16">
-      {trend.map(t => (
-        <div key={t.date} className="flex flex-col items-center gap-0.5 flex-1 group relative">
-          <div
-            className="w-full rounded-t-sm bg-primary/70 hover:bg-primary transition-colors"
-            style={{ height: `${Math.max(4, (t.count / max) * 56)}px` }}
-          />
-          <span className="text-[9px] text-muted-foreground hidden group-hover:block absolute bottom-full mb-1 bg-popover border rounded px-1.5 py-0.5 whitespace-nowrap shadow-sm z-10">
-            {fmtDateShort(t.date)}: {t.count}
-          </span>
-        </div>
-      ))}
-    </div>
-  );
-}
 
 function validateEnrollmentVisits(
   enrollment: Enrollment,
@@ -379,8 +355,8 @@ export default function EnrollmentPage() {
 
   const [metrics, setMetrics] = useState<Metrics | null>(null);
   const [intakeTime, setIntakeTime] = useState<IntakeTime | null>(null);
+  const [insights, setInsights] = useState<EnrollmentInsights | null>(null);
   const [staff, setStaff] = useState<StaffMember[]>([]);
-  const [trend, setTrend] = useState<TrendPoint[]>([]);
   const [enrollments, setEnrollments] = useState<Enrollment[]>([]);
   const [schoolSessionMap, setSchoolSessionMap] = useState<Record<string, IntakeSession[]>>({});
   const [defaultIntakeSessions, setDefaultIntakeSessions] = useState<IntakeSession[]>(
@@ -428,8 +404,8 @@ export default function EnrollmentPage() {
       const data = await res.json();
       setMetrics(data.metrics);
       setIntakeTime(data.intakeTime ?? null);
+      setInsights(data.insights ?? null);
       setStaff(data.staffBreakdown || []);
-      setTrend(data.trend || []);
       setEnrollments(data.enrollments || []);
       setSchoolSessionMap(data.schoolIntakeSessions || {});
       if (Array.isArray(data.defaultIntakeSessions) && data.defaultIntakeSessions.length) {
@@ -477,11 +453,11 @@ export default function EnrollmentPage() {
     load();
   };
 
-  const METRIC_CARDS = metrics ? [
-    { label: 'Today', value: metrics.today },
-    { label: 'This Week', value: metrics.week },
-    { label: 'This Month', value: metrics.month },
-    { label: 'All Time', value: metrics.all },
+  const PERIOD_CARDS = metrics ? [
+    { key: 'today' as const, label: 'Today', value: metrics.today, hint: 'Students with activity today' },
+    { key: 'week' as const, label: 'This Week', value: metrics.week, hint: 'Monday–today' },
+    { key: 'month' as const, label: 'This Month', value: metrics.month, hint: 'New files + returning visits' },
+    { key: 'all' as const, label: 'All Time', value: metrics.all, hint: 'Every student file' },
   ] : [];
 
   const maxStaffCount = Math.max(...staff.map(s => s.count), 1);
@@ -501,8 +477,8 @@ export default function EnrollmentPage() {
           title="Enrollments"
           description={
             isAdmin
-              ? 'Search registrations, review intake time, and filter by staff or school.'
-              : `Search and review enrollments for ${school || 'your school'}.`
+              ? 'Search registrations and returning visits, review intake time, and filter by staff or school.'
+              : `Search registrations and returning visits for ${school || 'your school'}.`
           }
           icon={<UserPlus className="h-5 w-5 text-primary" />}
           actions={
@@ -529,50 +505,49 @@ export default function EnrollmentPage() {
           </div>
         )}
 
-        {/* ── Registration counts ── */}
-        <div className="flex flex-wrap gap-x-8 gap-y-3 rounded-lg border border-border bg-muted/30 px-4 py-3">
+        {/* ── Activity period counts ── */}
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
           {loading && !metrics
-            ? Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-10 w-20" />)
-            : METRIC_CARDS.map(m => (
-              <div key={m.label}>
+            ? Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-[72px] w-full" />)
+            : PERIOD_CARDS.map(m => (
+              <button
+                key={m.key}
+                type="button"
+                onClick={() => setPeriod(m.key)}
+                className={cn(
+                  'rounded-lg border px-4 py-3 text-left transition-colors',
+                  period === m.key
+                    ? 'border-primary bg-primary/5'
+                    : 'border-border bg-muted/30 hover:bg-muted/50',
+                )}
+              >
                 <p className="text-[11px] uppercase tracking-wide text-muted-foreground">{m.label}</p>
                 <p className="text-xl font-semibold tabular-nums tracking-tight">{m.value.toLocaleString()}</p>
-              </div>
+                <p className="text-[11px] text-muted-foreground mt-0.5">{m.hint}</p>
+              </button>
             ))}
         </div>
 
+        <EnrollmentInsightsPanel insights={insights} loading={loading} />
+
         {/* ── Intake time summary ── */}
         {intakeTime && (
-          <div className="space-y-3">
-            <div className="rounded-lg border border-border bg-muted/40 px-4 py-3 text-sm">
-              <p className="font-medium flex items-center gap-2 text-foreground">
-                <Clock className="h-4 w-4 text-muted-foreground" />
-                EPE Clock — half-hour rounding
-              </p>
-              <p className="text-xs mt-1 text-muted-foreground">
-                Times and durations use EPE rules: :00–:14 → :00, :15–:44 → :30, :45–:59 → next hour.
-                Hover a rounded time to see the actual clock entry. Same-day leave-and-return cycles are
-                allowed; each completed cycle is counted separately. Open visits are flagged for Missing
-                Time-Out after the session ends, overlapping clocks, or Time In/Out outside the
-                school&apos;s configured intake session hours.
-              </p>
+          <div className="flex flex-wrap gap-x-8 gap-y-3 rounded-lg border border-border px-4 py-3">
+            <div>
+              <p className="text-[11px] uppercase tracking-wide text-muted-foreground">Total intake time (EPE)</p>
+              <p className="text-xl font-semibold tabular-nums tracking-tight">{fmtTotalHM(intakeTime.totalMinutes)}</p>
+              <p className="text-[11px] text-muted-foreground">{intakeTime.totalMinutes.toLocaleString()} minutes</p>
             </div>
-            <div className="flex flex-wrap gap-x-8 gap-y-3 rounded-lg border border-border px-4 py-3">
-              <div>
-                <p className="text-[11px] uppercase tracking-wide text-muted-foreground">Total intake time</p>
-                <p className="text-xl font-semibold tabular-nums tracking-tight">{fmtTotalHM(intakeTime.totalMinutes)}</p>
-                <p className="text-[11px] text-muted-foreground">{intakeTime.totalMinutes.toLocaleString()} minutes</p>
-              </div>
-              <div>
-                <p className="text-[11px] uppercase tracking-wide text-muted-foreground">Avg per student</p>
-                <p className="text-xl font-semibold tabular-nums tracking-tight">{fmtTotalHM(intakeTime.avgMinutes)}</p>
-                <p className="text-[11px] text-muted-foreground">{intakeTime.avgMinutes} min · all visits</p>
-              </div>
-              <div>
-                <p className="text-[11px] uppercase tracking-wide text-muted-foreground">Total visits</p>
-                <p className="text-xl font-semibold tabular-nums tracking-tight">{intakeTime.visits.toLocaleString()}</p>
-                <p className="text-[11px] text-muted-foreground">{intakeTime.sessions.toLocaleString()} students with time logged</p>
-              </div>
+            <div>
+              <p className="text-[11px] uppercase tracking-wide text-muted-foreground">Avg per student</p>
+              <p className="text-xl font-semibold tabular-nums tracking-tight">{fmtTotalHM(intakeTime.avgMinutes)}</p>
+              <p className="text-[11px] text-muted-foreground">{intakeTime.avgMinutes} min · all visits</p>
+            </div>
+            <div className="max-w-md">
+              <p className="text-[11px] uppercase tracking-wide text-muted-foreground">EPE rounding</p>
+              <p className="text-xs text-muted-foreground mt-1">
+                :00–:14 → :00 · :15–:44 → :30 · :45–:59 → next hour. Hover a time in the table for actual vs EPE.
+              </p>
             </div>
           </div>
         )}
@@ -584,7 +559,7 @@ export default function EnrollmentPage() {
               <CardTitle className="text-base flex items-center gap-2">
                 <Users className="h-4 w-4 text-primary" /> Staff Registrations
               </CardTitle>
-              <CardDescription>Grouped by period filter</CardDescription>
+              <CardDescription>Students with a registration or visit in this period</CardDescription>
             </CardHeader>
             <CardContent className="space-y-3">
               {loading && staff.length === 0
@@ -600,13 +575,11 @@ export default function EnrollmentPage() {
                       }`}
                     >
                       <div className="flex items-center gap-2.5">
-                        {/* Rank badge */}
                         <div className={`flex h-7 w-7 items-center justify-center rounded-full border text-xs font-bold shrink-0 ${
                           i < 3 ? RANK_COLORS[i] : 'bg-muted text-muted-foreground border-border'
                         }`}>
                           {i < 3 ? RANK_ICONS[i] : i + 1}
                         </div>
-                        {/* Name + bar */}
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center justify-between gap-2">
                             <span className="text-sm font-medium truncate">{s.name}</span>
@@ -638,21 +611,14 @@ export default function EnrollmentPage() {
           <Card className="lg:col-span-2">
             <CardHeader className="pb-3">
               <CardTitle className="text-base flex items-center gap-2">
-                <TrendingUp className="h-4 w-4 text-primary" /> Daily Enrollment Trend
+                <TrendingUp className="h-4 w-4 text-primary" /> Daily activity
               </CardTitle>
-              <CardDescription>Registrations per day — hover a bar for the count</CardDescription>
+              <CardDescription>
+                New files vs intake visits{period === 'all' ? ' · last 30 days' : ' · follows the period filter'}
+              </CardDescription>
             </CardHeader>
             <CardContent>
-              {loading && trend.length === 0
-                ? <Skeleton className="h-16 w-full" />
-                : <TrendBar trend={trend} />
-              }
-              {!loading && trend.length > 0 && (
-                <div className="flex justify-between text-[10px] text-muted-foreground mt-1 px-0.5">
-                  <span>{fmtDateShort(trend[0].date)}</span>
-                  <span>{fmtDateShort(trend[trend.length - 1].date)}</span>
-                </div>
-              )}
+              <EnrollmentDailyTrendChart daily={insights?.daily ?? []} loading={loading} />
             </CardContent>
           </Card>
         </div>
@@ -668,6 +634,7 @@ export default function EnrollmentPage() {
                 {pagination && (
                   <CardDescription>
                     {pagination.total.toLocaleString()} total · page {pagination.page} of {pagination.pages}
+                    {' '}· period includes new registrations and returning visits
                   </CardDescription>
                 )}
               </div>
@@ -752,7 +719,7 @@ export default function EnrollmentPage() {
                         <TableCell colSpan={tableColSpan + 1} className="text-center py-12 text-muted-foreground">
                           {issuesOnly
                             ? 'No intake issues on this page. Try a wider period or search.'
-                            : 'No enrollments match the current filters.'}
+                            : 'No intake activity in this period. Returning visits on older files now count — try Refresh, or use All Time.'}
                         </TableCell>
                       </TableRow>
                     )}
