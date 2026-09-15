@@ -45,7 +45,6 @@ import {
   BorderStyle, VerticalAlign,
   LineRuleType, AlignmentType,
   type ISectionOptions,
-  type TableVerticalAlign,
 } from 'docx';
 import QRCode   from 'qrcode';
 // @ts-ignore
@@ -57,14 +56,14 @@ import {
   LABEL_DOCX_CELL_MARGIN_TOP,
   LABEL_DOCX_DOB_AFTER,
   LABEL_DOCX_NAME_AFTER,
-  LABEL_DOCX_SEQ_FRAME_H,
+  LABEL_DOCX_SEQ_AFTER,
+  LABEL_DOCX_SEQ_LINE,
   LABEL_DOCX_TEXT_MARGIN_LEFT,
   LABEL_DOCX_TEXT_MARGIN_RIGHT,
   LABEL_DOCX_TEXT_MARGIN_TOP,
   LABEL_DOB_FONT_SIZE_HALF_PT,
   LABEL_QR_SIZE_PX,
   LABEL_SEQ_FONT_SIZE_HALF_PT,
-  LABEL_SEQ_NUDGE_TOP_TWIPS,
   LABEL_TEXT_COLUMN_RATIO,
   labelNameFontSizeHalfPt,
 } from '@/lib/avery5163LabelStyle';
@@ -87,7 +86,7 @@ const LABEL_H_ROW    = Math.round(2      * T);   // 2880 — exactly 2", matches
 const GAP_W          = Math.round(0.25   * T);   // 360
 
 // ── Border helpers ────────────────────────────────────────────────────────────
-const N   = { style: BorderStyle.NONE, size: 0, color: 'auto' } as const;
+const N   = { style: BorderStyle.NONE, size: 0, color: 'FFFFFF' } as const;
 const NBR = { top: N, bottom: N, left: N, right: N };
 const NBA = { ...NBR, insideH: N, insideV: N };
 
@@ -222,18 +221,21 @@ async function buildLabelCell(s: StudentData | null, sequence?: number): Promise
     labelId ? makeBarcode(labelId) : Promise.resolve(null as unknown as Buffer),
   ]);
 
-  // [ name / DOB ] | [ QR spanning ]
-  // [ sequence centered, 2mm above midpoint ]
-  // [ barcode ]
+  // Compact top stack for folder tabs: sequence → name → DOB → barcode | QR
   const INNER_W  = LABEL_W - LABEL_DOCX_CELL_MARGIN_LEFT - LABEL_DOCX_CELL_MARGIN_RIGHT;
-  const INNER_H  = LABEL_H_ROW - LABEL_DOCX_CELL_MARGIN_TOP - LABEL_DOCX_CELL_MARGIN_BOTTOM;
   const LEFT_COL = Math.round(INNER_W * LABEL_TEXT_COLUMN_RATIO);
   const RIGHT_COL = INNER_W - LEFT_COL;
   const NAME_LINE = 360;
   const DOB_LINE = 240;
   const BARCODE_H_PX = 22;
 
-  const nameDobParas: Paragraph[] = [
+  const leftParas: Paragraph[] = [
+    ...(seqText
+      ? [textPara(
+          [new TextRun({ text: seqText, bold: true, size: LABEL_SEQ_FONT_SIZE_HALF_PT, font: 'Times New Roman' })],
+          LABEL_DOCX_SEQ_LINE, LABEL_DOCX_SEQ_AFTER, AlignmentType.LEFT,
+        )]
+      : []),
     textPara(
       [new TextRun({ text: fullName, bold: true, size: nameSize, font: 'Times New Roman' })],
       NAME_LINE, LABEL_DOCX_NAME_AFTER, AlignmentType.LEFT,
@@ -242,102 +244,43 @@ async function buildLabelCell(s: StudentData | null, sequence?: number): Promise
       [new TextRun({ text: `DOB: ${s.dob ?? ''}`, size: LABEL_DOB_FONT_SIZE_HALF_PT, font: 'Times New Roman' })],
       DOB_LINE, LABEL_DOCX_DOB_AFTER, AlignmentType.LEFT,
     ),
+    ...(barBuf ? [imagePara(barBuf, 230, BARCODE_H_PX, 0, AlignmentType.LEFT)] : []),
   ];
-  const barParas: Paragraph[] = barBuf
-    ? [imagePara(barBuf, 230, BARCODE_H_PX, 0, AlignmentType.LEFT)]
-    : [new Paragraph({ children: [], spacing: { before: 0, after: 0, line: 1, lineRule: LineRuleType.EXACT } })];
-
-  const leftMargins = {
-    top: LABEL_DOCX_TEXT_MARGIN_TOP,
-    bottom: 0,
-    left: LABEL_DOCX_TEXT_MARGIN_LEFT,
-    right: LABEL_DOCX_TEXT_MARGIN_RIGHT,
-  };
-
-  const leftCell = (
-    children: Paragraph[],
-    valign: TableVerticalAlign,
-    margins: { top: number; bottom: number; left: number; right: number },
-  ) => new TableCell({
-    borders: NBR,
-    width: { size: LEFT_COL, type: WidthType.DXA },
-    margins,
-    verticalAlign: valign,
-    children,
-  });
-
-  const qrCell = (rowSpan: number) => new TableCell({
-    borders: NBR,
-    width: { size: RIGHT_COL, type: WidthType.DXA },
-    margins: { top: 0, bottom: 0, left: 20, right: 20 },
-    verticalAlign: VerticalAlign.CENTER,
-    rowSpan,
-    children: [imagePara(qrBuf, LABEL_QR_SIZE_PX, LABEL_QR_SIZE_PX, 0, AlignmentType.CENTER)],
-  });
-
-  const innerRows = seqText
-    ? (() => {
-        const seqRowH = LABEL_DOCX_SEQ_FRAME_H;
-        const minTop = LABEL_DOCX_TEXT_MARGIN_TOP + NAME_LINE + LABEL_DOCX_NAME_AFTER + DOB_LINE + LABEL_DOCX_DOB_AFTER;
-        const topRowH = Math.max(
-          minTop,
-          Math.round(INNER_H / 2 - LABEL_SEQ_NUDGE_TOP_TWIPS - seqRowH / 2),
-        );
-        const botRowH = Math.max(200, INNER_H - topRowH - seqRowH);
-        return [
-          new TableRow({
-            height: { value: topRowH, rule: HeightRule.EXACT },
-            cantSplit: true,
-            children: [leftCell(nameDobParas, VerticalAlign.TOP, leftMargins), qrCell(3)],
-          }),
-          new TableRow({
-            height: { value: seqRowH, rule: HeightRule.EXACT },
-            cantSplit: true,
-            children: [
-              leftCell(
-                [textPara(
-                  [new TextRun({ text: seqText, bold: true, size: LABEL_SEQ_FONT_SIZE_HALF_PT, font: 'Times New Roman' })],
-                  seqRowH, 0, AlignmentType.CENTER,
-                )],
-                VerticalAlign.CENTER,
-                { top: 0, bottom: 0, left: LABEL_DOCX_TEXT_MARGIN_LEFT, right: LABEL_DOCX_TEXT_MARGIN_RIGHT },
-              ),
-            ],
-          }),
-          new TableRow({
-            height: { value: botRowH, rule: HeightRule.EXACT },
-            cantSplit: true,
-            children: [
-              leftCell(barParas, VerticalAlign.BOTTOM, {
-                top: 0,
-                bottom: 40,
-                left: LABEL_DOCX_TEXT_MARGIN_LEFT,
-                right: LABEL_DOCX_TEXT_MARGIN_RIGHT,
-              }),
-            ],
-          }),
-        ];
-      })()
-    : [
-        new TableRow({
-          height: { value: INNER_H, rule: HeightRule.EXACT },
-          cantSplit: true,
-          children: [
-            leftCell([...nameDobParas, ...barParas], VerticalAlign.TOP, leftMargins),
-            qrCell(1),
-          ],
-        }),
-      ];
 
   return new TableCell({
     ...LABEL_CELL_PROPS,
-    verticalAlign: VerticalAlign.CENTER,
+    verticalAlign: VerticalAlign.TOP,
     children: [
       new Table({
         width:        { size: INNER_W, type: WidthType.DXA },
         columnWidths: [LEFT_COL, RIGHT_COL],
         borders:      NBA,
-        rows: innerRows,
+        rows: [
+          new TableRow({
+            cantSplit: true,
+            children: [
+              new TableCell({
+                borders:       NBR,
+                width:         { size: LEFT_COL, type: WidthType.DXA },
+                margins:       {
+                  top: LABEL_DOCX_TEXT_MARGIN_TOP,
+                  bottom: 0,
+                  left: LABEL_DOCX_TEXT_MARGIN_LEFT,
+                  right: LABEL_DOCX_TEXT_MARGIN_RIGHT,
+                },
+                verticalAlign: VerticalAlign.TOP,
+                children:      leftParas,
+              }),
+              new TableCell({
+                borders:       NBR,
+                width:         { size: RIGHT_COL, type: WidthType.DXA },
+                margins:       { top: 0, bottom: 0, left: 20, right: 20 },
+                verticalAlign: VerticalAlign.TOP,
+                children:      [imagePara(qrBuf, LABEL_QR_SIZE_PX, LABEL_QR_SIZE_PX, 0, AlignmentType.CENTER)],
+              }),
+            ],
+          }),
+        ],
       }),
     ],
   });

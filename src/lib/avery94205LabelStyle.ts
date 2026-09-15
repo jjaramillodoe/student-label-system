@@ -7,12 +7,13 @@ export const LABEL_FONT_FAMILY = '"Times New Roman", Times, serif';
 
 /** Outer label padding (CSS). */
 export const LABEL_CONTENT_INSET_LEFT = '0.08in';
-export const LABEL_CONTENT_INSET_TOP = '0.06in';
+export const LABEL_CONTENT_INSET_TOP = '0.03in';
 export const LABEL_COLUMN_GAP = '0.09in';
 
 /** Spacing between stacked text fields (CSS). */
-export const LABEL_NAME_TO_DOB_GAP = '0.07in';
-export const LABEL_DOB_TO_BARCODE_GAP = '0.06in';
+export const LABEL_SEQ_TO_NAME_GAP = '0.03in';
+export const LABEL_NAME_TO_DOB_GAP = '0.05in';
+export const LABEL_DOB_TO_BARCODE_GAP = '0.05in';
 
 /** Text column vs QR column split — match 5163 layout. */
 export const LABEL_TEXT_COLUMN_RATIO = 0.52;
@@ -36,27 +37,9 @@ export const LABEL_DOB_FONT_SIZE_HALF_PT = LABEL_DOB_FONT_SIZE_PT * 2;
 export const LABEL_SEQ_FONT_SIZE_PT = 9;
 export const LABEL_SEQ_FONT_SIZE_HALF_PT = LABEL_SEQ_FONT_SIZE_PT * 2;
 
-/** Sequence sits at the label center, then shifts this far toward the top. */
-export const LABEL_SEQ_NUDGE_TOP = '2mm';
-export const LABEL_SEQ_NUDGE_TOP_TWIPS = Math.round((2 / 25.4) * 1440);
-
-/** Word row height for the centered sequence (twips). */
-export const LABEL_DOCX_SEQ_FRAME_H = 220;
-
-/** Overlay the 5-digit sequence at the horizontal/vertical middle of the label. */
-export const LABEL_SEQ_OVERLAY_STYLE = {
-  position: 'absolute' as const,
-  left: '50%',
-  top: '50%',
-  transform: `translate(-50%, calc(-50% - ${LABEL_SEQ_NUDGE_TOP}))`,
-  fontWeight: 700,
-  letterSpacing: '0.06em',
-  lineHeight: 1,
-  fontVariantNumeric: 'tabular-nums' as const,
-  pointerEvents: 'none' as const,
-  zIndex: 1,
-  whiteSpace: 'nowrap' as const,
-};
+/** Word EXACT line height / spacing after the sequence (twips). */
+export const LABEL_DOCX_SEQ_LINE = 200;
+export const LABEL_DOCX_SEQ_AFTER = 12;
 
 /**
  * QR size — nearly full label height (1.5") minus padding, same visual weight
@@ -74,11 +57,11 @@ export const LABEL_BARCODE_HEIGHT_PX = 18;
 /** Word cell margins (twips: 1 inch = 1440). */
 export const LABEL_DOCX_CELL_MARGIN_LEFT = 110;
 export const LABEL_DOCX_CELL_MARGIN_RIGHT = 30;
-export const LABEL_DOCX_CELL_MARGIN_TOP = 55;
+export const LABEL_DOCX_CELL_MARGIN_TOP = 28;
 export const LABEL_DOCX_CELL_MARGIN_BOTTOM = 30;
 
 /** Word inner text-column margins (twips). */
-export const LABEL_DOCX_TEXT_MARGIN_TOP = 45;
+export const LABEL_DOCX_TEXT_MARGIN_TOP = 16;
 export const LABEL_DOCX_TEXT_MARGIN_LEFT = 50;
 export const LABEL_DOCX_TEXT_MARGIN_RIGHT = 35;
 

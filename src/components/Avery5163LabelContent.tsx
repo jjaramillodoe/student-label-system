@@ -11,7 +11,7 @@ import {
   LABEL_NAME_TO_DOB_GAP,
   LABEL_QR_SIZE_IN,
   LABEL_SEQ_FONT_SIZE_PT,
-  LABEL_SEQ_OVERLAY_STYLE,
+  LABEL_SEQ_TO_NAME_GAP,
   labelNameFontSizePt,
 } from '@/lib/avery5163LabelStyle';
 import { formatLabelName, formatLabelSequence } from '@/lib/personName';
@@ -28,7 +28,7 @@ function getLabelId(student: Avery5163LabelStudent) {
   return student.labelId || student.studentId || '';
 }
 
-/** Inner content for one Avery 5163 label: name/DOB/barcode left, QR right, sequence centered. */
+/** Inner content for one Avery 5163 label: sequence, name/DOB/barcode left, QR right — packed to the top for folder tabs. */
 export default function Avery5163LabelContent({
   student,
   sequence,
@@ -50,13 +50,12 @@ export default function Avery5163LabelContent({
         flexDirection: 'row',
         width: '100%',
         height: '100%',
-        alignItems: 'stretch',
+        alignItems: 'flex-start',
         gap: LABEL_COLUMN_GAP,
         paddingLeft: LABEL_CONTENT_INSET_LEFT,
         paddingTop: LABEL_CONTENT_INSET_TOP,
         boxSizing: 'border-box',
         fontFamily: LABEL_FONT_FAMILY,
-        position: 'relative',
       }}
     >
       <div
@@ -65,41 +64,46 @@ export default function Avery5163LabelContent({
           minWidth: 0,
           display: 'flex',
           flexDirection: 'column',
-          justifyContent: 'space-between',
-          paddingBottom: '0.06in',
-          position: 'relative',
+          justifyContent: 'flex-start',
         }}
       >
         {seqText ? (
-          <div style={{ ...LABEL_SEQ_OVERLAY_STYLE, fontSize: `${LABEL_SEQ_FONT_SIZE_PT}pt` }}>
+          <div
+            style={{
+              fontSize: `${LABEL_SEQ_FONT_SIZE_PT}pt`,
+              fontWeight: 700,
+              letterSpacing: '0.06em',
+              lineHeight: 1.2,
+              marginBottom: LABEL_SEQ_TO_NAME_GAP,
+              fontVariantNumeric: 'tabular-nums',
+            }}
+          >
             {seqText}
           </div>
         ) : null}
 
-        <div>
-          <div
-            style={{
-              fontWeight: 700,
-              fontSize: `${nameSizePt}pt`,
-              lineHeight: 1.25,
-              wordBreak: 'break-word',
-              overflowWrap: 'anywhere',
-              marginBottom: LABEL_NAME_TO_DOB_GAP,
-            }}
-          >
-            {fullName}
-          </div>
+        <div
+          style={{
+            fontWeight: 700,
+            fontSize: `${nameSizePt}pt`,
+            lineHeight: 1.25,
+            wordBreak: 'break-word',
+            overflowWrap: 'anywhere',
+            marginBottom: LABEL_NAME_TO_DOB_GAP,
+          }}
+        >
+          {fullName}
+        </div>
 
-          <div
-            style={{
-              fontSize: `${LABEL_DOB_FONT_SIZE_PT}pt`,
-              lineHeight: 1.3,
-              fontWeight: 400,
-              marginBottom: LABEL_DOB_TO_BARCODE_GAP,
-            }}
-          >
-            DOB: {student.dob}
-          </div>
+        <div
+          style={{
+            fontSize: `${LABEL_DOB_FONT_SIZE_PT}pt`,
+            lineHeight: 1.3,
+            fontWeight: 400,
+            marginBottom: LABEL_DOB_TO_BARCODE_GAP,
+          }}
+        >
+          DOB: {student.dob}
         </div>
 
         {labelId && (
@@ -114,7 +118,7 @@ export default function Avery5163LabelContent({
           style={{
             flex: '0 0 auto',
             display: 'flex',
-            alignItems: 'center',
+            alignItems: 'flex-start',
             justifyContent: 'center',
           }}
         >

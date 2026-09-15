@@ -171,7 +171,7 @@ const featureGroups = [
       'Default layout: Avery 5163 on Letter (8.5"×11") — 10 labels per sheet (also Avery 94205).',
       'Needs label on Find & print: only students never logged in print history — confirm Yes after a successful print so they drop off.',
       'Download Word Doc from the print preview, print from Word at 100% with margins None, then confirm Yes — mark as printed (or No to keep on Needs label).',
-      'Label shows Last, First, DOB, a centered 5-digit batch sequence, barcode (Label ID), and a large QR code.',
+      'Label shows a 5-digit batch sequence, then Last, First, DOB, barcode (Label ID), and a large QR code — packed to the top for file-folder tabs.',
       'Student QR codes link to a public detail page — no login required to scan.',
       'Archive box QR codes link to a public box page with storage location and student file list.',
       'Detail page shows: Label ID, Student ID, name, DOB, cabinet, drawer, school, and sibling links.',
