@@ -45,6 +45,7 @@ import {
   BorderStyle, VerticalAlign,
   LineRuleType, AlignmentType,
   type ISectionOptions,
+  type TableVerticalAlign,
 } from 'docx';
 import QRCode   from 'qrcode';
 // @ts-ignore
@@ -255,7 +256,7 @@ async function buildLabelCell(s: StudentData | null, sequence?: number): Promise
 
   const leftCell = (
     children: Paragraph[],
-    valign: (typeof VerticalAlign)[keyof typeof VerticalAlign],
+    valign: TableVerticalAlign,
     margins: { top: number; bottom: number; left: number; right: number },
   ) => new TableCell({
     borders: NBR,
