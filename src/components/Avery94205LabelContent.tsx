@@ -11,6 +11,7 @@ import {
   LABEL_NAME_TO_DOB_GAP,
   LABEL_QR_SIZE_IN,
   LABEL_SEQ_FONT_SIZE_PT,
+  LABEL_SEQ_OVERLAY_STYLE,
   labelNameFontSizePt,
 } from '@/lib/avery94205LabelStyle';
 import { formatLabelName, formatLabelSequence } from '@/lib/personName';
@@ -55,6 +56,7 @@ export default function Avery94205LabelContent({
         paddingTop: LABEL_CONTENT_INSET_TOP,
         boxSizing: 'border-box',
         fontFamily: LABEL_FONT_FAMILY,
+        position: 'relative',
       }}
     >
       <div
@@ -63,47 +65,42 @@ export default function Avery94205LabelContent({
           minWidth: 0,
           display: 'flex',
           flexDirection: 'column',
-          justifyContent: 'flex-start',
+          justifyContent: 'space-between',
+          paddingBottom: '0.04in',
+          position: 'relative',
         }}
       >
-        <div
-          style={{
-            fontWeight: 700,
-            fontSize: `${nameSizePt}pt`,
-            lineHeight: 1.25,
-            wordBreak: 'break-word',
-            overflowWrap: 'anywhere',
-            marginBottom: LABEL_NAME_TO_DOB_GAP,
-          }}
-        >
-          {fullName}
-        </div>
-
-        <div
-          style={{
-            fontSize: `${LABEL_DOB_FONT_SIZE_PT}pt`,
-            lineHeight: 1.3,
-            fontWeight: 400,
-            marginBottom: seqText ? '0.035in' : LABEL_DOB_TO_BARCODE_GAP,
-          }}
-        >
-          DOB: {student.dob}
-        </div>
-
         {seqText ? (
-          <div
-            style={{
-              fontSize: `${LABEL_SEQ_FONT_SIZE_PT}pt`,
-              fontWeight: 700,
-              letterSpacing: '0.06em',
-              lineHeight: 1.2,
-              marginBottom: LABEL_DOB_TO_BARCODE_GAP,
-              fontVariantNumeric: 'tabular-nums',
-            }}
-          >
+          <div style={{ ...LABEL_SEQ_OVERLAY_STYLE, fontSize: `${LABEL_SEQ_FONT_SIZE_PT}pt` }}>
             {seqText}
           </div>
         ) : null}
+
+        <div>
+          <div
+            style={{
+              fontWeight: 700,
+              fontSize: `${nameSizePt}pt`,
+              lineHeight: 1.25,
+              wordBreak: 'break-word',
+              overflowWrap: 'anywhere',
+              marginBottom: LABEL_NAME_TO_DOB_GAP,
+            }}
+          >
+            {fullName}
+          </div>
+
+          <div
+            style={{
+              fontSize: `${LABEL_DOB_FONT_SIZE_PT}pt`,
+              lineHeight: 1.3,
+              fontWeight: 400,
+              marginBottom: LABEL_DOB_TO_BARCODE_GAP,
+            }}
+          >
+            DOB: {student.dob}
+          </div>
+        </div>
 
         {labelId && (
           <div style={{ display: 'flex', justifyContent: 'flex-start' }}>

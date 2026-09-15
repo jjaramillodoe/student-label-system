@@ -29,6 +29,32 @@ export function labelNameFontSizeHalfPt(fullName: string) {
 export const LABEL_DOB_FONT_SIZE_PT = 11;
 export const LABEL_DOB_FONT_SIZE_HALF_PT = LABEL_DOB_FONT_SIZE_PT * 2;
 
+/** Sequence number size (CSS pt / Word half-points). */
+export const LABEL_SEQ_FONT_SIZE_PT = 11;
+export const LABEL_SEQ_FONT_SIZE_HALF_PT = LABEL_SEQ_FONT_SIZE_PT * 2;
+
+/** Sequence sits at the label center, then shifts this far toward the top. */
+export const LABEL_SEQ_NUDGE_TOP = '2mm';
+export const LABEL_SEQ_NUDGE_TOP_TWIPS = Math.round((2 / 25.4) * 1440);
+
+/** Word row height for the centered sequence (twips). */
+export const LABEL_DOCX_SEQ_FRAME_H = 280;
+
+/** Overlay the 5-digit sequence at the horizontal/vertical middle of the label. */
+export const LABEL_SEQ_OVERLAY_STYLE = {
+  position: 'absolute' as const,
+  left: '50%',
+  top: '50%',
+  transform: `translate(-50%, calc(-50% - ${LABEL_SEQ_NUDGE_TOP}))`,
+  fontWeight: 700,
+  letterSpacing: '0.06em',
+  lineHeight: 1,
+  fontVariantNumeric: 'tabular-nums' as const,
+  pointerEvents: 'none' as const,
+  zIndex: 1,
+  whiteSpace: 'nowrap' as const,
+};
+
 /** QR display size on screen/print CSS. */
 export const LABEL_QR_SIZE_IN = '1.65in';
 

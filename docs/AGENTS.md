@@ -51,7 +51,7 @@ Install Mintlify skill: `npm run docs:skill`
 - Duplicate **Merge** offers field-level choices, ~60s snackbar Undo + ~15m undo from Recent merges (`merge_history`); same-building bulk confirm/dismiss
 - Duplicates **Legacy MDB import** tab (`?tab=legacy&school=`) reviews `school_legacy_roster` vs live students (garbage, ID conflicts, fuzzy/exact); CSV export per bucket; upload + quality summary on School Settings
 - Idle session prompt is configurable in Admin System Settings (default 15 min idle + grace); client-side only
-- Avery labels show **Last, First**, DOB, **5-digit print sequence**, Label ID barcode, and QR
+- Avery labels show **Last, First**, DOB, a **centered 5-digit print sequence** (about 2 mm above the midpoint), Label ID barcode, and QR
 - Drawers use capacity **100 / 200 / 400** or **Custom** (1–5000) with automatic **Section 01–08** (hidden from Intake; shown on Dashboard location and Cabinets)
 - Cabinets page: **Active** / **Archived** tabs (default Active). **Archive** opens EOY packing; full closeout sets archived. **Restore** returns the cabinet to Active without deleting box history
 - **Generate ISRF** (`/admin/isrf`) is Admin / Data Lead / Data Member — fills FY2027 ISRF from intake (SSN and signature stay blank)
