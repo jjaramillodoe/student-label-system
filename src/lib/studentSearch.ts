@@ -252,3 +252,32 @@ export function buildStudentSearchOrConditions(search: string): Record<string, u
 
   return or;
 }
+
+export type StudentFieldSearch = {
+  firstName?: string;
+  lastName?: string;
+  dob?: string;
+};
+
+/**
+ * AND clauses for an explicit First / Last / DOB search (separate inputs, not free text).
+ * Names match case-insensitively anywhere in the field; DOB must be an exact date.
+ * Returns null when DOB is present but not a recognizable date.
+ */
+export function buildStudentFieldSearchConditions(
+  fields: StudentFieldSearch,
+): Record<string, unknown>[] | null {
+  const firstName = fields.firstName?.trim() || '';
+  const lastName = fields.lastName?.trim() || '';
+  const dobRaw = fields.dob?.trim() || '';
+  const and: Record<string, unknown>[] = [];
+
+  if (firstName) and.push({ firstName: { $regex: escapeRegex(firstName), $options: 'i' } });
+  if (lastName) and.push({ lastName: { $regex: escapeRegex(lastName), $options: 'i' } });
+  if (dobRaw) {
+    const dobIso = normalizeDobToIso(dobRaw);
+    if (!dobIso) return null;
+    and.push({ dob: dobIso });
+  }
+  return and;
+}

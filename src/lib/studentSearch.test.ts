@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  buildStudentFieldSearchConditions,
   buildStudentSearchOrConditions,
   escapeRegex,
   isStudentSearchQueryValid,
@@ -45,5 +46,23 @@ describe('buildStudentSearchOrConditions', () => {
     const or = buildStudentSearchOrConditions('1979/05/22');
     expect(or.some((clause) => 'firstName' in clause || 'labelId' in clause)).toBe(false);
     expect(or.some((clause) => clause.dob === '1979-05-22')).toBe(true);
+  });
+});
+
+describe('buildStudentFieldSearchConditions', () => {
+  it('ANDs first name, last name, and normalized DOB', () => {
+    const and = buildStudentFieldSearchConditions({ firstName: 'Mary', lastName: "O'Neil", dob: '01/15/1990' });
+    expect(and).toEqual([
+      { firstName: { $regex: 'Mary', $options: 'i' } },
+      { lastName: { $regex: "O'Neil", $options: 'i' } },
+      { dob: '1990-01-15' },
+    ]);
+  });
+
+  it('skips blank fields and rejects an unrecognizable DOB', () => {
+    expect(buildStudentFieldSearchConditions({ lastName: ' Smith ' })).toEqual([
+      { lastName: { $regex: 'Smith', $options: 'i' } },
+    ]);
+    expect(buildStudentFieldSearchConditions({ firstName: 'Ann', dob: '13/45/1990' })).toBeNull();
   });
 });

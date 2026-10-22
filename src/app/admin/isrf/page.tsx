@@ -12,9 +12,11 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from '@/components/ui/table';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { formatFullName } from '@/lib/personName';
 import { parseStudentsListResponse } from '@/lib/studentsList';
 import { formatShortDate } from '@/lib/utils';
@@ -51,6 +53,11 @@ export default function GenerateIsrfPage() {
   const [query, setQuery] = useState('');
   const [hits, setHits] = useState<StudentHit[]>([]);
   const [searching, setSearching] = useState(false);
+  const [searchMode, setSearchMode] = useState<'quick' | 'fields'>('quick');
+  const [fields, setFields] = useState({ firstName: '', lastName: '', dob: '' });
+  const [fieldHits, setFieldHits] = useState<StudentHit[]>([]);
+  const [fieldSearching, setFieldSearching] = useState(false);
+  const [fieldSearched, setFieldSearched] = useState(false);
   const [selected, setSelected] = useState<StudentHit | null>(null);
   const [generating, setGenerating] = useState<'preview' | 'download' | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
@@ -101,6 +108,84 @@ export default function GenerateIsrfPage() {
       window.clearTimeout(timer);
     };
   }, [query]);
+
+  const hasFieldInput = Boolean(fields.firstName.trim() || fields.lastName.trim() || fields.dob);
+
+  async function searchByFields(e: React.FormEvent) {
+    e.preventDefault();
+    if (!hasFieldInput) return;
+    setError('');
+    setFieldSearching(true);
+    try {
+      const params = new URLSearchParams({ limit: '25', source: 'isrf' });
+      if (fields.firstName.trim()) params.set('firstName', fields.firstName.trim());
+      if (fields.lastName.trim()) params.set('lastName', fields.lastName.trim());
+      if (fields.dob) params.set('dob', fields.dob);
+      const res = await fetch(`/api/students?${params.toString()}`);
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.error || 'Search failed');
+      }
+      const parsed = parseStudentsListResponse<StudentHit>(await res.json());
+      setFieldHits(parsed.students);
+    } catch (err) {
+      setFieldHits([]);
+      setError(err instanceof Error ? err.message : 'Could not search students.');
+    } finally {
+      setFieldSearching(false);
+      setFieldSearched(true);
+    }
+  }
+
+  function clearFieldSearch() {
+    setFields({ firstName: '', lastName: '', dob: '' });
+    setFieldHits([]);
+    setFieldSearched(false);
+  }
+
+  function renderHits(rows: StudentHit[]) {
+    if (rows.length === 0) return null;
+    return (
+      <Table>
+        <TableHeader>
+          <TableRow>
+            <TableHead>Name</TableHead>
+            <TableHead>DOB</TableHead>
+            <TableHead>IDs</TableHead>
+            <TableHead>School</TableHead>
+            <TableHead className="text-right"> </TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {rows.map((row) => (
+            <TableRow key={row._id} className={selected?._id === row._id ? 'bg-muted/50' : undefined}>
+              <TableCell className="font-medium">{formatFullName(row) || '—'}</TableCell>
+              <TableCell>{formatShortDate(row.dob) || row.dob || '—'}</TableCell>
+              <TableCell className="text-muted-foreground text-xs">
+                {[row.labelId, row.studentId].filter(Boolean).join(' · ') || '—'}
+              </TableCell>
+              <TableCell className="text-muted-foreground">{row.school || '—'}</TableCell>
+              <TableCell className="text-right">
+                <Button
+                  size="sm"
+                  variant={selected?._id === row._id ? 'default' : 'outline'}
+                  onClick={() => {
+                    setSelected(row);
+                    setPreviewUrl((prev) => {
+                      if (prev) URL.revokeObjectURL(prev);
+                      return null;
+                    });
+                  }}
+                >
+                  Select
+                </Button>
+              </TableCell>
+            </TableRow>
+          ))}
+        </TableBody>
+      </Table>
+    );
+  }
 
   const mapped = useMemo(
     () => (selected ? buildIsrfFieldValues(studentDocToIsrfInput(selected as Record<string, unknown>)) : null),
@@ -181,70 +266,94 @@ export default function GenerateIsrfPage() {
       <Card>
         <CardHeader>
           <CardTitle>Find a student</CardTitle>
-          <CardDescription>Search by name, Label ID, Student ID, or date of birth.</CardDescription>
+          <CardDescription>
+            Use quick search to find a record as you type, or search by first name, last name,
+            and date of birth together.
+          </CardDescription>
         </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="relative max-w-lg">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <Input
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              placeholder="Search name, Label ID, Student ID, or DOB…"
-              className="pl-9"
-              aria-label="Search students"
-            />
-          </div>
+        <CardContent>
+          <Tabs value={searchMode} onValueChange={(v) => setSearchMode(v as 'quick' | 'fields')}>
+            <TabsList>
+              <TabsTrigger value="quick">Quick search</TabsTrigger>
+              <TabsTrigger value="fields">By name &amp; DOB</TabsTrigger>
+            </TabsList>
 
-          {searching && (
-            <p className="text-sm text-muted-foreground flex items-center gap-2">
-              <Loader2 className="h-4 w-4 animate-spin" /> Searching…
-            </p>
-          )}
+            <TabsContent value="quick" className="space-y-4 pt-2">
+              <div className="relative max-w-lg">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input
+                  value={query}
+                  onChange={(e) => setQuery(e.target.value)}
+                  placeholder="Search name, Label ID, Student ID, or DOB…"
+                  className="pl-9"
+                  aria-label="Search students"
+                />
+              </div>
 
-          {query.trim().length >= 2 && !searching && hits.length === 0 && (
-            <p className="text-sm text-muted-foreground">No matching students.</p>
-          )}
+              {searching && (
+                <p className="text-sm text-muted-foreground flex items-center gap-2">
+                  <Loader2 className="h-4 w-4 animate-spin" /> Searching…
+                </p>
+              )}
 
-          {hits.length > 0 && (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Name</TableHead>
-                  <TableHead>DOB</TableHead>
-                  <TableHead>IDs</TableHead>
-                  <TableHead>School</TableHead>
-                  <TableHead className="text-right"> </TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {hits.map((row) => (
-                  <TableRow key={row._id} className={selected?._id === row._id ? 'bg-muted/50' : undefined}>
-                    <TableCell className="font-medium">{formatFullName(row) || '—'}</TableCell>
-                    <TableCell>{formatShortDate(row.dob) || row.dob || '—'}</TableCell>
-                    <TableCell className="text-muted-foreground text-xs">
-                      {[row.labelId, row.studentId].filter(Boolean).join(' · ') || '—'}
-                    </TableCell>
-                    <TableCell className="text-muted-foreground">{row.school || '—'}</TableCell>
-                    <TableCell className="text-right">
-                      <Button
-                        size="sm"
-                        variant={selected?._id === row._id ? 'default' : 'outline'}
-                        onClick={() => {
-                          setSelected(row);
-                          setPreviewUrl((prev) => {
-                            if (prev) URL.revokeObjectURL(prev);
-                            return null;
-                          });
-                        }}
-                      >
-                        Select
-                      </Button>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          )}
+              {query.trim().length >= 2 && !searching && hits.length === 0 && (
+                <p className="text-sm text-muted-foreground">No matching students.</p>
+              )}
+
+              {renderHits(hits)}
+            </TabsContent>
+
+            <TabsContent value="fields" className="space-y-4 pt-2">
+              <form onSubmit={searchByFields} className="space-y-4">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 max-w-3xl">
+                  <div className="space-y-1.5">
+                    <Label htmlFor="isrf-first-name">First name</Label>
+                    <Input
+                      id="isrf-first-name"
+                      value={fields.firstName}
+                      onChange={(e) => setFields((f) => ({ ...f, firstName: e.target.value }))}
+                      autoComplete="off"
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label htmlFor="isrf-last-name">Last name</Label>
+                    <Input
+                      id="isrf-last-name"
+                      value={fields.lastName}
+                      onChange={(e) => setFields((f) => ({ ...f, lastName: e.target.value }))}
+                      autoComplete="off"
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label htmlFor="isrf-dob">Date of birth</Label>
+                    <Input
+                      id="isrf-dob"
+                      type="date"
+                      value={fields.dob}
+                      onChange={(e) => setFields((f) => ({ ...f, dob: e.target.value }))}
+                    />
+                  </div>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  <Button type="submit" className="gap-2" disabled={!hasFieldInput || fieldSearching}>
+                    {fieldSearching
+                      ? <Loader2 className="h-4 w-4 animate-spin" />
+                      : <Search className="h-4 w-4" />}
+                    Search
+                  </Button>
+                  <Button type="button" variant="outline" onClick={clearFieldSearch} disabled={fieldSearching}>
+                    Clear
+                  </Button>
+                </div>
+              </form>
+
+              {fieldSearched && !fieldSearching && fieldHits.length === 0 && (
+                <p className="text-sm text-muted-foreground">No students match all of the fields entered.</p>
+              )}
+
+              {renderHits(fieldHits)}
+            </TabsContent>
+          </Tabs>
         </CardContent>
       </Card>
 
