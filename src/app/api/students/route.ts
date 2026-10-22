@@ -1,7 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireSession } from '@/lib/requireSession';
 import clientPromise from '@/lib/mongodb';
-import { buildStudentSearchOrConditions, escapeRegex } from '@/lib/studentSearch';
+import {
+  buildStudentFieldSearchConditions,
+  buildStudentSearchOrConditions,
+  escapeRegex,
+} from '@/lib/studentSearch';
 import { logSearchEvent } from '@/lib/searchAnalytics';
 import {
   STUDENTS_LIST_CSV_MAX,
@@ -81,6 +85,19 @@ export async function GET(req: NextRequest) {
       if (orConditions.length > 0) {
         query.$or = orConditions;
       }
+    }
+    // Explicit First / Last / DOB search (ANDed), e.g. ISRF "By name & DOB"
+    const fieldSearch = {
+      firstName: searchParams.get('firstName') || '',
+      lastName: searchParams.get('lastName') || '',
+      dob: searchParams.get('dob') || '',
+    };
+    if (fieldSearch.firstName.trim() || fieldSearch.lastName.trim() || fieldSearch.dob.trim()) {
+      const andConditions = buildStudentFieldSearchConditions(fieldSearch);
+      if (!andConditions) {
+        return NextResponse.json({ error: 'Date of birth is not a valid date' }, { status: 400 });
+      }
+      query.$and = [...((query.$and as unknown[]) || []), ...andConditions];
     }
     if (fiscalYear && fiscalYear !== 'all') query.fiscalYear = fiscalYear;
     if (status && status !== 'all') query.status = status;
