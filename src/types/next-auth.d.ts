@@ -19,6 +19,8 @@ declare module 'next-auth' {
       school?: string;
       forcePasswordChange?: boolean;
       forceMfaSetup?: boolean;
+      /** Set while a Data Member is acting as Data Lead (YYYY-MM-DD, last day). */
+      actingDataLeadUntil?: string;
     };
   }
 }
@@ -26,6 +28,9 @@ declare module 'next-auth' {
 declare module 'next-auth/jwt' {
   interface JWT {
     role?: string;
+    /** The role stored on the user; `role` may be raised by a delegation. */
+    baseRole?: string;
+    actingDataLeadUntil?: string | null;
     school?: string;
     forcePasswordChange?: boolean;
     forceMfaSetup?: boolean;

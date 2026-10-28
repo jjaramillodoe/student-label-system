@@ -3,7 +3,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import Link from 'next/link';
-import { Plus, Edit2, Trash2, Search, Mail, Shield, Loader2, AlertCircle, Users as UsersIcon, ArrowRightLeft, Eye, EyeOff, KeyRound, ShieldOff, ShieldCheck, Upload, MoreHorizontal, ArrowUpDown, ArrowUp, ArrowDown } from 'lucide-react';
+import { Plus, Edit2, Trash2, Search, Mail, Shield, Loader2, AlertCircle, Users as UsersIcon, ArrowRightLeft, Eye, EyeOff, KeyRound, ShieldOff, ShieldCheck, Upload, MoreHorizontal, ArrowUpDown, ArrowUp, ArrowDown, CalendarClock } from 'lucide-react';
 import PageIntro from '@/components/PageIntro';
 import BulkUploadUsersDialog from '@/components/BulkUploadUsersDialog';
 import { Input } from '@/components/ui/input';
@@ -56,6 +56,13 @@ import {
 } from '@/lib/userTableSort';
 import { DATA_LEAD_MANAGEABLE_ROLES, canManageUser } from '@/lib/userManagement';
 import { PASSWORD_POLICY_HINT } from '@/lib/passwordPolicy';
+import { DELEGATE_BASE_ROLE, canDelegate, type DelegationView } from '@/lib/delegation';
+import {
+  DelegateDialog,
+  DelegationsPanel,
+  delegationRowLabel,
+  openDelegationFor,
+} from '@/components/DelegationsPanel';
 
 interface User {
   _id: string;
@@ -101,6 +108,7 @@ const ROLE_PERMISSION_PREVIEW = {
       'Manage students, cabinets, imports, duplicates, unassigned queues, and bulk moves',
       'Review audit activity and reports for their school',
       'Add and edit Data Members and Intake Members at their school, reset their passwords, and unlock them',
+      'Ask for a Data Member to act as Data Lead for up to 30 days (an Admin approves)',
       'Cannot manage Admins or other Data Leads, delete users, change MFA, or clear all data',
     ],
   },
@@ -157,6 +165,9 @@ export default function UsersPage() {
   const [securityPassword, setSecurityPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [showSecurityPassword, setShowSecurityPassword] = useState(false);
+  const [delegations, setDelegations] = useState<DelegationView[]>([]);
+  const [delegateUser, setDelegateUser] = useState<User | null>(null);
+  const [delegationBusyId, setDelegationBusyId] = useState<string | null>(null);
 
   const isAdmin = session?.user?.role === 'Admin';
   const managerSchool = session?.user?.school || '';
@@ -164,6 +175,11 @@ export default function UsersPage() {
     { role: session?.user?.role, school: session?.user?.school, email: session?.user?.email },
     { role: user.role, school: user.school, email: user.email },
   );
+  const canManageDelegations = canDelegate({
+    role: session?.user?.role,
+    school: session?.user?.school,
+    actingDataLeadUntil: session?.user?.actingDataLeadUntil,
+  });
   const roleOptions: string[] = isAdmin
     ? ['Intake Member', 'Data Member', 'Data Lead', 'Admin']
     : [...DATA_LEAD_MANAGEABLE_ROLES];
@@ -184,6 +200,7 @@ export default function UsersPage() {
     if (status !== 'authenticated') return;
     fetchUsers();
     fetchSchoolOptions();
+    fetchDelegations();
   }, [session, status, router]);
 
   const fetchUsers = async () => {
@@ -197,6 +214,47 @@ export default function UsersPage() {
       setError('Failed to load users');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchDelegations = async () => {
+    if (!canManageDelegations) return;
+    try {
+      const res = await fetch('/api/delegations');
+      if (!res.ok) return;
+      const data = await res.json();
+      setDelegations(Array.isArray(data.delegations) ? data.delegations : []);
+    } catch {
+      setDelegations([]);
+    }
+  };
+
+  const handleDelegationAction = async (id: string, action: 'approve' | 'deny' | 'revoke') => {
+    const target = delegations.find(d => d._id === id);
+    const who = target?.userName || target?.userEmail || 'this user';
+    const prompt = action === 'approve'
+      ? `Approve ${who} as Acting Data Lead?`
+      : action === 'deny'
+        ? `Deny the Acting Data Lead request for ${who}?`
+        : `End Acting Data Lead access for ${who} now?`;
+    if (!confirm(prompt)) return;
+
+    setDelegationBusyId(id);
+    setError('');
+    try {
+      const res = await fetch(`/api/delegations/${id}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || 'Failed to update delegation');
+      setDelegations(prev => prev.map(d => (d._id === id ? data.delegation : d)));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to update delegation');
+      void fetchDelegations();
+    } finally {
+      setDelegationBusyId(null);
     }
   };
 
@@ -558,6 +616,13 @@ export default function UsersPage() {
         </Alert>
       )}
 
+      <DelegationsPanel
+        delegations={delegations}
+        isAdmin={isAdmin}
+        busyId={delegationBusyId}
+        onAction={(id, action) => void handleDelegationAction(id, action)}
+      />
+
       <Card>
         <CardHeader>
           <div className="flex items-center justify-between">
@@ -651,6 +716,12 @@ export default function UsersPage() {
                           {userIsLocked(user) && (
                             <Badge variant="destructive" className="text-xs">Locked</Badge>
                           )}
+                          {delegationRowLabel(openDelegationFor(delegations, user._id)) && (
+                            <Badge variant="secondary" className="text-xs gap-1">
+                              <CalendarClock className="h-3 w-3" />
+                              {delegationRowLabel(openDelegationFor(delegations, user._id))}
+                            </Badge>
+                          )}
                         </div>
                       </TableCell>
                       <TableCell className="text-muted-foreground">
@@ -674,6 +745,16 @@ export default function UsersPage() {
                           <span className="text-xs text-muted-foreground">View only</span>
                         ) : (
                         <div className="flex justify-end gap-1">
+                          {canManageDelegations && user.role === DELEGATE_BASE_ROLE && (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => setDelegateUser(user)}
+                              title="Make Acting Data Lead for a date range"
+                            >
+                              <CalendarClock className="h-4 w-4" />
+                            </Button>
+                          )}
                           <Button
                             variant="ghost"
                             size="sm"
@@ -1233,6 +1314,13 @@ export default function UsersPage() {
           )}
         </DialogContent>
       </Dialog>
+
+      <DelegateDialog
+        user={delegateUser}
+        isAdmin={isAdmin}
+        onClose={() => setDelegateUser(null)}
+        onCreated={(d) => setDelegations(prev => [d, ...prev])}
+      />
 
       {isAdmin && (
       <BulkUploadUsersDialog

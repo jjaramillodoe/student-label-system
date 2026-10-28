@@ -10,6 +10,8 @@ export type SessionUser = {
   school?: string;
   forcePasswordChange?: boolean;
   forceMfaSetup?: boolean;
+  /** Set while a Data Member is acting as Data Lead under a delegation. */
+  actingDataLeadUntil?: string;
 };
 
 export type AuthedSession = {
@@ -44,6 +46,7 @@ function toSessionUser(user: {
   school?: string;
   forcePasswordChange?: boolean;
   forceMfaSetup?: boolean;
+  actingDataLeadUntil?: string;
 }): SessionUser {
   return {
     name: user.name,
@@ -53,6 +56,7 @@ function toSessionUser(user: {
     school: typeof user.school === 'string' ? user.school : undefined,
     forcePasswordChange: user.forcePasswordChange,
     forceMfaSetup: user.forceMfaSetup,
+    actingDataLeadUntil: user.actingDataLeadUntil,
   };
 }
 

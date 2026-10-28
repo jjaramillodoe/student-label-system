@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useSession } from 'next-auth/react';
 import { usePathname, useRouter } from 'next/navigation';
-import { Loader2 } from 'lucide-react';
+import { CalendarClock, Loader2 } from 'lucide-react';
 import AppSidebar from '@/components/AppSidebar';
 import AppTopBar from '@/components/AppTopBar';
 import Footer from '@/components/Footer';
@@ -11,6 +11,7 @@ import { useAppSettings } from '@/lib/useAppSettings';
 import { useDarkMode } from '@/lib/useDarkMode';
 import { canUseAppShell, shouldUseAppShell } from '@/lib/navConfig';
 import { cn } from '@/lib/utils';
+import { formatDelegationDate } from '@/lib/delegation';
 
 export default function AppShell({ children }: { children: React.ReactNode }) {
   const { data: session, status } = useSession();
@@ -120,6 +121,13 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
           onToggleDarkMode={() => setDarkMode((d) => !d)}
           onOpenMobileNav={() => setMobileOpen(true)}
         />
+        {session.user?.actingDataLeadUntil && (
+          <div className="flex items-center gap-2 border-b bg-amber-50 px-4 py-2 text-sm text-amber-900 dark:bg-amber-950/40 dark:text-amber-200 sm:px-6">
+            <CalendarClock className="h-4 w-4 shrink-0" />
+            You are Acting Data Lead through {formatDelegationDate(session.user.actingDataLeadUntil)}. Your access
+            goes back to Data Member after that day.
+          </div>
+        )}
         <main id="main-content" className="w-full max-w-full flex-1 px-4 sm:px-6 py-6">
           {children}
         </main>

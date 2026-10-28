@@ -49,6 +49,10 @@ const TYPE_BADGE: Record<string, string> = {
   user_created: 'ui-badge-muted',
   user_updated: 'ui-badge-muted',
   password_reset: 'ui-badge-warning',
+  delegation_requested: 'ui-badge-muted',
+  delegation_approved: 'ui-badge-warning',
+  delegation_denied: 'ui-badge-muted',
+  delegation_revoked: 'ui-badge-muted',
   login_success: 'ui-badge-success',
 };
 
@@ -64,6 +68,10 @@ function typeLabel(type: string) {
     case 'user_created': return 'User created';
     case 'user_updated': return 'User updated';
     case 'password_reset': return 'Password reset';
+    case 'delegation_requested': return 'Delegation requested';
+    case 'delegation_approved': return 'Delegation approved';
+    case 'delegation_denied': return 'Delegation denied';
+    case 'delegation_revoked': return 'Delegation revoked';
     case 'login_success': return 'Signed in';
     default: return type;
   }
@@ -281,6 +289,10 @@ export default function AdminSecurityPage() {
                 <SelectItem value="user_created">User created</SelectItem>
                 <SelectItem value="user_updated">User updated</SelectItem>
                 <SelectItem value="password_reset">Password reset</SelectItem>
+                <SelectItem value="delegation_requested">Delegation requested</SelectItem>
+                <SelectItem value="delegation_approved">Delegation approved</SelectItem>
+                <SelectItem value="delegation_denied">Delegation denied</SelectItem>
+                <SelectItem value="delegation_revoked">Delegation revoked</SelectItem>
                 <SelectItem value="login_success">Signed in</SelectItem>
               </SelectContent>
             </Select>
