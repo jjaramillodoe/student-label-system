@@ -160,6 +160,9 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
 
     // Extract a visit-log entry to append (don't $set it as a scalar field).
     const { appendVisit, reactivateFromArchive, ...setFields } = body as Record<string, any>;
+    // Note counters are owned by the notes API; ignore stale copies sent back by the edit form.
+    delete setFields.noteCount;
+    delete setFields.lastNoteAt;
 
     // null drawerSection means clear it (student left active storage)
     const unsetFields: Record<string, ''> = {};

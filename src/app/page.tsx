@@ -22,6 +22,8 @@ import SelectionPrintTray from '@/components/SelectionPrintTray';
 import PrintView from '@/components/PrintView';
 import UndoSnackbar from '@/components/UndoSnackbar';
 import StudentDetailsDialog from '@/components/StudentDetailsDialog';
+import StudentNotesDialog, { type NotesStudent } from '@/components/StudentNotesDialog';
+import { STUDENT_NOTE_ROLES } from '@/lib/studentNotes';
 import { Cabinet } from '../types/cabinet';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Button } from '@/components/ui/button';
@@ -77,6 +79,7 @@ function Dashboard() {
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [printMode, setPrintMode] = useState(false);
   const [detailsStudent, setDetailsStudent] = useState<Student | null>(null);
+  const [notesStudent, setNotesStudent] = useState<NotesStudent | null>(null);
   const [undoData, setUndoData] = useState<{ students: Student[], timer: NodeJS.Timeout | null }>({ students: [], timer: null });
   const [showUndo, setShowUndo] = useState(false);
   const [auditLog, setAuditLog] = useState<{ action: string, student: Student | Student[], time: string, user?: { name: string, email: string, role: string, school: string } | null }[]>([]);
@@ -919,6 +922,9 @@ function Dashboard() {
               onEdit={openEditModal}
               onDelete={handleDelete}
               onDetails={setDetailsStudent}
+              onNotes={(STUDENT_NOTE_ROLES as readonly string[]).includes(userRole)
+                ? (student) => setNotesStudent({ _id: student._id!, name: formatFullName(student) })
+                : undefined}
               userRole={userRole}
               cabinetMap={cabinetMap}
               drawerMap={drawerMap}
@@ -1120,6 +1126,14 @@ function Dashboard() {
           onEdit={(student) => {
             setDetailsStudent(null);
             openEditModal(student);
+          }}
+        />
+
+        <StudentNotesDialog
+          student={notesStudent}
+          onClose={() => setNotesStudent(null)}
+          onCountChange={(id, count) => {
+            setStudents((prev) => prev.map((s) => (s._id === id ? { ...s, noteCount: count } : s)));
           }}
         />
 

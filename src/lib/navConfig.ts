@@ -25,6 +25,7 @@ import {
   ExternalLink,
   Info,
   Shield,
+  StickyNote,
   type LucideIcon,
 } from 'lucide-react';
 import { MINTLIFY_DOCS_URL } from '@/lib/docsUrl';
@@ -77,6 +78,7 @@ export const NAV_GROUPS: NavGroup[] = [
       { href: '/admin/students/all', label: 'All Students', icon: Users },
       { href: '/admin/students/bulk-upload', label: 'Bulk Upload', icon: Upload, emphasize: true },
       { href: '/admin/enrollment', label: 'Enrollment', icon: UserPlus },
+      { href: '/admin/notes', label: 'Student Notes', icon: StickyNote, roles: ['Admin', 'Data Lead'] },
       { href: '/admin/duplicates', label: 'Duplicates', icon: CopyCheck, roles: ['Admin', 'Data Lead'], badgeKey: 'duplicates' },
       { href: '/admin/validation', label: 'Email Validation', icon: ShieldCheck, roles: ['Admin'] },
     ],
