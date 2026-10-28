@@ -47,6 +47,8 @@ const TYPE_BADGE: Record<string, string> = {
   account_locked: 'ui-badge-danger',
   account_unlocked: 'ui-badge-success',
   user_created: 'ui-badge-muted',
+  user_updated: 'ui-badge-muted',
+  password_reset: 'ui-badge-warning',
   login_success: 'ui-badge-success',
 };
 
@@ -60,6 +62,8 @@ function typeLabel(type: string) {
     case 'account_locked': return 'Account locked';
     case 'account_unlocked': return 'Unlocked';
     case 'user_created': return 'User created';
+    case 'user_updated': return 'User updated';
+    case 'password_reset': return 'Password reset';
     case 'login_success': return 'Signed in';
     default: return type;
   }
@@ -275,6 +279,8 @@ export default function AdminSecurityPage() {
                 <SelectItem value="account_locked">Account locked</SelectItem>
                 <SelectItem value="account_unlocked">Unlocked</SelectItem>
                 <SelectItem value="user_created">User created</SelectItem>
+                <SelectItem value="user_updated">User updated</SelectItem>
+                <SelectItem value="password_reset">Password reset</SelectItem>
                 <SelectItem value="login_success">Signed in</SelectItem>
               </SelectContent>
             </Select>

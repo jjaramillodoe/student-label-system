@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { BookOpen, FileDown, Upload, History, Printer, MoreHorizontal, Settings, ExternalLink, LayoutDashboard } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { BULK_UPLOAD_STUDENTS_ENABLED } from '@/lib/features';
 import PageIntro from './PageIntro';
 import SeedTestData from './SeedTestData';
 import SeedCabinets from './SeedCabinets';
@@ -42,11 +43,13 @@ export default function DashboardHeader({
         icon={<LayoutDashboard className="h-5 w-5 text-primary" />}
         actions={
           <>
-            <Button variant="default" className="gap-2" asChild>
-              <Link href="/admin/students/bulk-upload">
-                <Upload size={16} /> Bulk Upload
-              </Link>
-            </Button>
+            {BULK_UPLOAD_STUDENTS_ENABLED && (
+              <Button variant="default" className="gap-2" asChild>
+                <Link href="/admin/students/bulk-upload">
+                  <Upload size={16} /> Bulk Upload
+                </Link>
+              </Button>
+            )}
             <Button
               variant="outline"
               onClick={onShowPrintHistory}

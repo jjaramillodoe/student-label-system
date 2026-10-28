@@ -30,4 +30,17 @@ describe('shouldUseAppShell', () => {
     expect(isNavItemVisible(item!, 'Data Lead')).toBe(true);
     expect(isNavItemVisible(item!, 'Data Member')).toBe(false);
   });
+
+  it('hides Bulk Upload while the feature is off', () => {
+    const item = NAV_GROUPS.flatMap((g) => g.items).find((i) => i.href === '/admin/students/bulk-upload');
+    expect(item).toBeUndefined();
+  });
+
+  it('shows User Management to Admin and Data Lead only', () => {
+    const item = NAV_GROUPS.flatMap((g) => g.items).find((i) => i.href === '/admin/users');
+    expect(item).toBeTruthy();
+    expect(isNavItemVisible(item!, 'Admin')).toBe(true);
+    expect(isNavItemVisible(item!, 'Data Lead')).toBe(true);
+    expect(isNavItemVisible(item!, 'Data Member')).toBe(false);
+  });
 });

@@ -29,6 +29,7 @@ import {
   type LucideIcon,
 } from 'lucide-react';
 import { MINTLIFY_DOCS_URL } from '@/lib/docsUrl';
+import { BULK_UPLOAD_STUDENTS_ENABLED } from '@/lib/features';
 
 export type NavRole = 'Admin' | 'Data Lead' | 'Data Member' | 'Intake Member' | string;
 
@@ -76,7 +77,9 @@ export const NAV_GROUPS: NavGroup[] = [
     label: 'Students',
     items: [
       { href: '/admin/students/all', label: 'All Students', icon: Users },
-      { href: '/admin/students/bulk-upload', label: 'Bulk Upload', icon: Upload, emphasize: true },
+      ...(BULK_UPLOAD_STUDENTS_ENABLED
+        ? [{ href: '/admin/students/bulk-upload', label: 'Bulk Upload', icon: Upload, emphasize: true }]
+        : []),
       { href: '/admin/enrollment', label: 'Enrollment', icon: UserPlus },
       { href: '/admin/notes', label: 'Student Notes', icon: StickyNote, roles: ['Admin', 'Data Lead'] },
       { href: '/admin/duplicates', label: 'Duplicates', icon: CopyCheck, roles: ['Admin', 'Data Lead'], badgeKey: 'duplicates' },
@@ -106,7 +109,7 @@ export const NAV_GROUPS: NavGroup[] = [
     label: 'Admin',
     collapsible: true,
     items: [
-      { href: '/admin/users', label: 'User Management', icon: Users, roles: ['Admin'] },
+      { href: '/admin/users', label: 'User Management', icon: Users, roles: ['Admin', 'Data Lead'] },
       { href: '/admin/security', label: 'Security', icon: Shield, roles: ['Admin'] },
       { href: '/admin/schools', label: 'Schools', icon: Settings, roles: ['Admin', 'Data Lead'] },
       { href: '/admin/analytics', label: 'Analytics', icon: BarChart3, roles: ['Admin', 'Data Lead'] },

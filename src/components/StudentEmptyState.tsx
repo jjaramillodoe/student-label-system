@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { FileSearch, ScanLine, Upload, UserPlus, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { BULK_UPLOAD_STUDENTS_ENABLED } from '@/lib/features';
 
 interface StudentEmptyStateProps {
   userRole?: string;
@@ -18,7 +19,8 @@ export default function StudentEmptyState({
   onFocusSearch,
 }: StudentEmptyStateProps) {
   const canIntake = ['Admin', 'Data Lead'].includes(userRole || '');
-  const canUpload = ['Admin', 'Data Lead', 'Data Member'].includes(userRole || '');
+  const canUpload = BULK_UPLOAD_STUDENTS_ENABLED
+    && ['Admin', 'Data Lead', 'Data Member'].includes(userRole || '');
 
   return (
     <div className="ui-empty-surface ui-enter">
