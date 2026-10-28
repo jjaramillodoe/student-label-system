@@ -1,5 +1,6 @@
 'use client';
 
+import { useState } from 'react';
 import { Loader2, Plus, Trash2, UserRound } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -109,6 +110,48 @@ function LeaderFields({
         )}
       </div>
     </div>
+  );
+}
+
+function parseActivityLines(text: string): string[] {
+  return text.split('\n').map((s) => s.trim()).filter(Boolean);
+}
+
+/**
+ * One activity per line. The raw text is kept locally so Enter and trailing spaces
+ * survive while typing; the trimmed, non-empty lines go to the form.
+ */
+function IntakeActivitiesInput({
+  value,
+  onChange,
+  className,
+}: {
+  value: string[];
+  onChange: (next: string[]) => void;
+  className: string;
+}) {
+  const joined = value.join('\n');
+  const [text, setText] = useState(joined);
+  const [lastJoined, setLastJoined] = useState(joined);
+
+  // Pick up outside changes (e.g. the school finished loading) without clobbering typing.
+  if (joined !== lastJoined) {
+    setLastJoined(joined);
+    if (parseActivityLines(text).join('\n') !== joined) setText(joined);
+  }
+
+  return (
+    <textarea
+      className={className}
+      placeholder={
+        'Intake Paperwork Only\nOrientation\nTesting\nLocator\nPlacement\nAdditional Classes\nTransfer'
+      }
+      value={text}
+      onChange={(e) => {
+        setText(e.target.value);
+        onChange(parseActivityLines(e.target.value));
+      }}
+    />
   );
 }
 
@@ -460,20 +503,11 @@ export default function SchoolConfigForm({
                 (one per line — checkbox options)
               </span>
             </Label>
-            <textarea
+            <IntakeActivitiesInput
               className={textareaClassName}
-              placeholder={
-                'Intake Paperwork Only\nOrientation\nTesting\nLocator\nPlacement\nAdditional Classes\nTransfer'
-              }
-              value={(form.intakeActivities ?? []).join('\n')}
-              onChange={(e) =>
-                setForm((current) => ({
-                  ...current,
-                  intakeActivities: e.target.value
-                    .split('\n')
-                    .map((s) => s.trim())
-                    .filter(Boolean),
-                }))
+              value={form.intakeActivities ?? []}
+              onChange={(intakeActivities) =>
+                setForm((current) => ({ ...current, intakeActivities }))
               }
             />
             <p className="text-xs text-muted-foreground">
