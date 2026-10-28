@@ -22,4 +22,12 @@ describe('shouldUseAppShell', () => {
     expect(isNavItemVisible(item!, 'Data Member')).toBe(true);
     expect(isNavItemVisible(item!, 'Intake Member')).toBe(false);
   });
+
+  it('shows Student Notes to Admin and Data Lead only', () => {
+    const item = NAV_GROUPS.flatMap((g) => g.items).find((i) => i.href === '/admin/notes');
+    expect(item).toBeTruthy();
+    expect(isNavItemVisible(item!, 'Admin')).toBe(true);
+    expect(isNavItemVisible(item!, 'Data Lead')).toBe(true);
+    expect(isNavItemVisible(item!, 'Data Member')).toBe(false);
+  });
 });

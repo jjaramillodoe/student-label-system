@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from "react";
 import Barcode from "react-barcode";
-import { Edit, Trash2, Eye, Users, MoreVertical, Calendar, MapPin, Hash, ArrowUpDown, ArrowUp, ArrowDown, Link2 } from "lucide-react";
+import { Edit, Trash2, Eye, Users, MoreVertical, Calendar, MapPin, Hash, ArrowUpDown, ArrowUp, ArrowDown, Link2, StickyNote } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -75,6 +75,8 @@ export type Student = {
   agencyId?: string;
   siblingConfirmed?: boolean;
   siblingWith?: string[];
+  /** Visible staff notes on this student (see studentNotes). */
+  noteCount?: number;
   endDate: string | null;
   archived: boolean;
   school?: string;
@@ -114,6 +116,8 @@ interface StudentTableProps {
   onEdit: (student: Student) => void;
   onDelete: (id: string) => void;
   onDetails: (student: Student) => void;
+  /** Open the notes timeline. Omit to hide notes for roles that cannot use them. */
+  onNotes?: (student: Student) => void;
   userRole: string;
   cabinetMap: Record<string, string>;
   drawerMap: Record<string, string>;
@@ -132,6 +136,7 @@ const StudentTable: React.FC<StudentTableProps> = ({
   onEdit,
   onDelete,
   onDetails,
+  onNotes,
   userRole,
   cabinetMap,
   drawerMap,
@@ -483,6 +488,17 @@ const StudentTable: React.FC<StudentTableProps> = ({
                               : 'Sibling'}
                           </span>
                         )}
+                        {onNotes && (student.noteCount ?? 0) > 0 && (
+                          <button
+                            type="button"
+                            onClick={() => onNotes(student)}
+                            className="ui-badge-warning text-xs w-fit"
+                            title="Open notes"
+                          >
+                            <StickyNote className="h-3 w-3" />
+                            {student.noteCount === 1 ? '1 note' : `${student.noteCount} notes`}
+                          </button>
+                        )}
                       </div>
                     </TableCell>
                     <TableCell className="px-2 align-top">
@@ -547,6 +563,12 @@ const StudentTable: React.FC<StudentTableProps> = ({
                               <Edit className="h-4 w-4 mr-2" />
                               Edit
                             </DropdownMenuItem>
+                            {onNotes && (
+                              <DropdownMenuItem onClick={() => onNotes(student)}>
+                                <StickyNote className="h-4 w-4 mr-2" />
+                                Notes
+                              </DropdownMenuItem>
+                            )}
                             {['Data Lead', 'Admin'].includes(userRole) && (
                               <>
                                 <DropdownMenuSeparator />
