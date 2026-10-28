@@ -68,6 +68,14 @@ export default function SchoolsPage() {
     fetchSchools();
   }, [session, status, router, canManageSchools]);
 
+  // Show the message from the edit page after a save, then drop it from the URL.
+  useEffect(() => {
+    const saved = new URLSearchParams(window.location.search).get('saved');
+    if (!saved) return;
+    setSuccess(saved);
+    router.replace('/admin/schools');
+  }, [router]);
+
   async function fetchSchools() {
     setLoading(true);
     setError('');
