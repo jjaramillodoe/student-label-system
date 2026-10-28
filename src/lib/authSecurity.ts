@@ -23,7 +23,11 @@ export type AuthEventType =
   | 'account_unlocked'
   | 'user_created'
   | 'user_updated'
-  | 'password_reset';
+  | 'password_reset'
+  | 'delegation_requested'
+  | 'delegation_approved'
+  | 'delegation_denied'
+  | 'delegation_revoked';
 
 export type AuthEvent = {
   type: AuthEventType;
@@ -87,6 +91,12 @@ export async function logAuthEvent(input: {
     if (input.type === 'account_locked') {
       void maybeAlertAccountLocked(db, event).catch((err) => {
         console.error('[authSecurity] lockout alert failed', err);
+      });
+    }
+
+    if (input.type === 'delegation_requested') {
+      void maybeAlertDelegationRequested(db, event).catch((err) => {
+        console.error('[authSecurity] delegation alert failed', err);
       });
     }
 
@@ -373,4 +383,27 @@ async function maybeAlertUserCreated(db: Db, event: AuthEvent) {
         appUrl ? `${appUrl}/admin/users` : '',
       ].filter(Boolean).join('\n');
   await sendEmail({ to: recipients, subject, text });
+}
+
+async function maybeAlertDelegationRequested(db: Db, event: AuthEvent) {
+  if (!isEmailConfigured()) return;
+  const settings = await getNotificationSettings(db);
+  const recipients = await resolveNotificationRecipients(db, settings);
+  if (recipients.length === 0) return;
+
+  const by = event.meta?.byEmail ? String(event.meta.byEmail) : 'a Data Lead';
+  const appUrl = appBaseUrl();
+  await sendEmail({
+    to: recipients,
+    subject: `[Security] Acting Data Lead request for ${event.email}`,
+    text: [
+      `${by} asked for ${event.email} to act as Data Lead.`,
+      `School: ${event.meta?.school ? String(event.meta.school) : '—'}`,
+      `Dates: ${String(event.meta?.startDate || '')} to ${String(event.meta?.endDate || '')}`,
+      event.meta?.reason ? `Reason: ${String(event.meta.reason)}` : '',
+      '',
+      'Approve or deny it in Admin → Users.',
+      appUrl ? `${appUrl}/admin/users` : '',
+    ].filter(Boolean).join('\n'),
+  });
 }

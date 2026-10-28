@@ -10,6 +10,7 @@ import {
   logAuthEvent,
   recordCredentialFailure,
 } from './authSecurity';
+import { activeDelegationEndDate } from './delegationSession';
 
 type DbUser = {
   _id: unknown;
@@ -299,6 +300,7 @@ export const authOptions: NextAuthOptions = {
     async session({ session, token }) {
       if (session.user && token) {
         session.user.role = token.role as string;
+        session.user.actingDataLeadUntil = token.actingDataLeadUntil || undefined;
         session.user.name = token.name as string;
         session.user.email = token.email as string;
         session.user.school = token.school as string;
@@ -322,6 +324,7 @@ export const authOptions: NextAuthOptions = {
 
       if (user) {
         token.role = user.role || 'Data Member';
+        token.baseRole = token.role;
         token.name = user.name;
         token.email = user.email;
         token.school = user.school || '';
@@ -337,6 +340,7 @@ export const authOptions: NextAuthOptions = {
             const dbUser = await loadDbUserByEmail(email);
             if (dbUser) {
               token.role = dbUser.role || 'Data Member';
+              token.baseRole = token.role;
               token.school = dbUser.school || '';
               token.name = dbUser.name || token.name;
               token.forcePasswordChange = Boolean(dbUser.forcePasswordChange);
@@ -359,6 +363,17 @@ export const authOptions: NextAuthOptions = {
           /* ignore */
         }
       }
+
+      // Acting Data Lead: the stored role stays put; an approved delegation covering
+      // today raises it for this session and it drops back after the end date.
+      token.baseRole ??= token.role;
+      const actingUntil = await activeDelegationEndDate(
+        String(token.baseRole || ''),
+        String(token.email || ''),
+        String(token.school || ''),
+      );
+      token.role = actingUntil ? 'Data Lead' : token.baseRole;
+      token.actingDataLeadUntil = actingUntil;
 
       return token;
     },
