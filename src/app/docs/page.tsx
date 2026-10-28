@@ -12,6 +12,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Separator } from '@/components/ui/separator';
 import { MINTLIFY_DOCS_URL } from '@/lib/docsUrl';
 import { roleBadgeClass } from '@/lib/roleBadge';
+import { BULK_UPLOAD_STUDENTS_ENABLED } from '@/lib/features';
 
 // ── Role guides ────────────────────────────────────────────────────────────────
 const roleGuides = [
@@ -356,7 +357,9 @@ export default function DocsPage() {
             <CheckCircle2 className="h-6 w-6 text-primary" /> Feature Overview
           </h2>
           <div className="grid gap-4 md:grid-cols-2">
-            {featureGroups.map((group) => {
+            {featureGroups
+              .filter((group) => BULK_UPLOAD_STUDENTS_ENABLED || group.title !== 'Bulk Upload')
+              .map((group) => {
               const Icon = group.icon;
               return (
                 <Card key={group.title}>
@@ -470,6 +473,7 @@ Agency IDs (set in Schools):
             </Card>
 
             {/* Bulk upload columns */}
+            {BULK_UPLOAD_STUDENTS_ENABLED && (
             <Card>
               <CardHeader className="pb-2">
                 <CardTitle className="flex items-center gap-2 text-base">
@@ -496,6 +500,7 @@ address, apt, city, state, zip`}
                 </div>
               </CardContent>
             </Card>
+            )}
           </div>
         </section>
 
@@ -612,7 +617,9 @@ address, apt, city, state, zip`}
         <section>
           <h2 className="text-2xl font-semibold mb-4">Quick Links</h2>
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-            {quickLinks.map((link) => {
+            {quickLinks
+              .filter((link) => BULK_UPLOAD_STUDENTS_ENABLED || link.href !== '/admin/students/bulk-upload')
+              .map((link) => {
               const Icon = link.icon;
               return (
                 <Button key={link.href} variant="outline" asChild className="justify-start gap-2 h-auto py-2">

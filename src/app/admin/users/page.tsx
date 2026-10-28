@@ -54,6 +54,8 @@ import {
   type UserSortColumn,
   type UserSortDirection,
 } from '@/lib/userTableSort';
+import { DATA_LEAD_MANAGEABLE_ROLES, canManageUser } from '@/lib/userManagement';
+import { PASSWORD_POLICY_HINT } from '@/lib/passwordPolicy';
 
 interface User {
   _id: string;
@@ -98,7 +100,8 @@ const ROLE_PERMISSION_PREVIEW = {
     permissions: [
       'Manage students, cabinets, imports, duplicates, unassigned queues, and bulk moves',
       'Review audit activity and reports for their school',
-      'Cannot manage user accounts, reset passwords, disable MFA, or clear all data',
+      'Add and edit Data Members and Intake Members at their school, reset their passwords, and unlock them',
+      'Cannot manage Admins or other Data Leads, delete users, change MFA, or clear all data',
     ],
   },
   'Data Member': {
@@ -154,6 +157,16 @@ export default function UsersPage() {
   const [securityPassword, setSecurityPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [showSecurityPassword, setShowSecurityPassword] = useState(false);
+
+  const isAdmin = session?.user?.role === 'Admin';
+  const managerSchool = session?.user?.school || '';
+  const canManage = (user: User) => canManageUser(
+    { role: session?.user?.role, school: session?.user?.school, email: session?.user?.email },
+    { role: user.role, school: user.school, email: user.email },
+  );
+  const roleOptions: string[] = isAdmin
+    ? ['Intake Member', 'Data Member', 'Data Lead', 'Admin']
+    : [...DATA_LEAD_MANAGEABLE_ROLES];
 
   useEffect(() => {
     if (status === 'loading') return;
@@ -506,23 +519,29 @@ export default function UsersPage() {
       <PageIntro
         eyebrow="Admin"
         title="User Management"
-        description="Manage system users and their permissions"
+        description={isAdmin
+          ? 'Manage system users and their permissions'
+          : `Add and edit Data Members and Intake Members at ${managerSchool || 'your school'}, reset passwords, and unlock accounts.`}
         icon={<UsersIcon className="h-5 w-5 text-primary" />}
         actions={
           <>
-            <Button variant="outline" asChild>
-              <Link href="/admin/users/migrate">
-                <ArrowRightLeft className="mr-2 h-4 w-4" />
-                Migrate Users
-              </Link>
-            </Button>
-            <Button variant="outline" onClick={() => setBulkUploadOpen(true)}>
-              <Upload className="mr-2 h-4 w-4" />
-              Bulk Upload
-            </Button>
+            {isAdmin && (
+              <>
+                <Button variant="outline" asChild>
+                  <Link href="/admin/users/migrate">
+                    <ArrowRightLeft className="mr-2 h-4 w-4" />
+                    Migrate Users
+                  </Link>
+                </Button>
+                <Button variant="outline" onClick={() => setBulkUploadOpen(true)}>
+                  <Upload className="mr-2 h-4 w-4" />
+                  Bulk Upload
+                </Button>
+              </>
+            )}
             <Button onClick={() => {
               setEditingUser(null);
-              setForm(EMPTY_FORM);
+              setForm(isAdmin ? EMPTY_FORM : { ...EMPTY_FORM, school: managerSchool });
               setIsModalOpen(true);
             }}>
               <Plus className="mr-2 h-4 w-4" />
@@ -651,6 +670,9 @@ export default function UsersPage() {
                         {formatDate(user.lastLogin)}
                       </TableCell>
                       <TableCell className="text-right">
+                        {!canManage(user) ? (
+                          <span className="text-xs text-muted-foreground">View only</span>
+                        ) : (
                         <div className="flex justify-end gap-1">
                           <Button
                             variant="ghost"
@@ -689,6 +711,8 @@ export default function UsersPage() {
                           >
                             <Edit2 className="h-4 w-4" />
                           </Button>
+                          {isAdmin && (
+                          <>
                           <DropdownMenu>
                             <DropdownMenuTrigger asChild>
                               <Button variant="ghost" size="sm" title="User actions" disabled={loading}>
@@ -733,7 +757,10 @@ export default function UsersPage() {
                           >
                             <Trash2 className="h-4 w-4" />
                           </Button>
+                          </>
+                          )}
                         </div>
+                        )}
                       </TableCell>
                     </TableRow>
                   ))
@@ -828,6 +855,11 @@ export default function UsersPage() {
                   Leave blank to keep current password
                 </p>
               )}
+              {!isAdmin && (
+                <p className="text-xs text-muted-foreground">
+                  This is a temporary password; the user must change it at first sign-in. {PASSWORD_POLICY_HINT}
+                </p>
+              )}
             </div>
 
             <div className="space-y-2">
@@ -852,10 +884,9 @@ export default function UsersPage() {
                   <SelectValue placeholder="Select role" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="Intake Member">Intake Member</SelectItem>
-                  <SelectItem value="Data Member">Data Member</SelectItem>
-                  <SelectItem value="Data Lead">Data Lead</SelectItem>
-                  <SelectItem value="Admin">Admin</SelectItem>
+                  {roleOptions.map((roleName) => (
+                    <SelectItem key={roleName} value={roleName}>{roleName}</SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
               <div className="rounded-lg border bg-muted/30 p-3 space-y-3">
@@ -901,7 +932,7 @@ export default function UsersPage() {
                         : [],
                   }));
                 }}
-                disabled={loading}
+                disabled={loading || !isAdmin}
                 required
               >
                 <SelectTrigger id="school">
@@ -985,6 +1016,7 @@ export default function UsersPage() {
               </div>
             )}
 
+            {isAdmin && (
             <div className="rounded-lg border p-4 space-y-3">
               <div className="flex items-start justify-between gap-3">
                 <div className="space-y-1">
@@ -1009,6 +1041,7 @@ export default function UsersPage() {
                 </p>
               )}
             </div>
+            )}
 
             <DialogFooter>
               <Button
@@ -1050,7 +1083,9 @@ export default function UsersPage() {
               User Security Recovery
             </DialogTitle>
             <DialogDescription>
-              Reset passwords, force password changes, toggle MFA, or reset authenticator enrollment.
+              {isAdmin
+                ? 'Reset passwords, force password changes, toggle MFA, or reset authenticator enrollment.'
+                : 'Reset passwords, force a password change, or unlock the account. Ask an Admin for MFA help.'}
             </DialogDescription>
           </DialogHeader>
 
@@ -1078,6 +1113,7 @@ export default function UsersPage() {
                 </div>
               </div>
 
+              {isAdmin && (
               <div className="rounded-lg border p-4 space-y-3">
                 <div className="flex items-start justify-between gap-3">
                   <div className="space-y-1">
@@ -1104,6 +1140,7 @@ export default function UsersPage() {
                   />
                 </div>
               </div>
+              )}
 
               <div className="space-y-2">
                 <Label htmlFor="securityPassword">Temporary Password</Label>
@@ -1133,7 +1170,7 @@ export default function UsersPage() {
                   </Button>
                 </div>
                 <p className="text-xs text-muted-foreground">
-                  Resetting a password automatically forces the user to change it after login.
+                  Resetting a password automatically forces the user to change it after login. {PASSWORD_POLICY_HINT}
                 </p>
               </div>
 
@@ -1163,6 +1200,7 @@ export default function UsersPage() {
                 >
                   Clear Force Change
                 </Button>
+                {isAdmin && (
                 <Button
                   type="button"
                   variant="outline"
@@ -1173,6 +1211,7 @@ export default function UsersPage() {
                   <ShieldOff className="h-4 w-4" />
                   Reset MFA
                 </Button>
+                )}
                 <Button
                   type="button"
                   variant="outline"
@@ -1195,6 +1234,7 @@ export default function UsersPage() {
         </DialogContent>
       </Dialog>
 
+      {isAdmin && (
       <BulkUploadUsersDialog
         open={bulkUploadOpen}
         onOpenChange={setBulkUploadOpen}
@@ -1202,6 +1242,7 @@ export default function UsersPage() {
           void fetchUsers();
         }}
       />
+      )}
     </div>
   );
 } 

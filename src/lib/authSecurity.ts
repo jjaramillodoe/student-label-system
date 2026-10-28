@@ -21,7 +21,9 @@ export type AuthEventType =
   | 'user_unknown'
   | 'account_locked'
   | 'account_unlocked'
-  | 'user_created';
+  | 'user_created'
+  | 'user_updated'
+  | 'password_reset';
 
 export type AuthEvent = {
   type: AuthEventType;

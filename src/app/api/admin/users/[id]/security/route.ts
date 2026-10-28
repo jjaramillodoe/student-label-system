@@ -1,13 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { requireAdmin } from '@/lib/requireSession';
+import { requireRole } from '@/lib/requireSession';
 import { ObjectId } from 'mongodb';
 import * as bcrypt from 'bcrypt';
 import clientPromise from '@/lib/mongodb';
 import { applyMfaBypass, isAccountLocked, logAuthEvent, unlockAccount } from '@/lib/authSecurity';
 import { passwordPolicyError } from '@/lib/passwordPolicy';
+import { USER_MANAGER_ROLES, canManageUser, canRunSecurityAction } from '@/lib/userManagement';
 
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  const auth = await requireAdmin();
+  const auth = await requireRole(USER_MANAGER_ROLES);
   if (!auth.ok) return auth.response;
 
   try {
@@ -27,6 +28,13 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       return NextResponse.json({ error: 'User not found' }, { status: 404 });
     }
 
+    if (!canManageUser(auth.user, user) || !canRunSecurityAction(auth.user, String(action))) {
+      return NextResponse.json(
+        { error: 'Data Leads can reset passwords and unlock Data Members and Intake Members at their own school' },
+        { status: 403 },
+      );
+    }
+
     if (action === 'reset-password') {
       const policyError = passwordPolicyError(password);
       if (policyError) {
@@ -43,6 +51,18 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
           },
         }
       );
+
+      await logAuthEvent({
+        type: 'password_reset',
+        email: String(user.email || ''),
+        reason: `${auth.user.role} reset password (must change at next sign-in)`,
+        meta: {
+          byEmail: auth.user?.email || '',
+          byName: auth.user?.name || '',
+          byRole: auth.user.role,
+          userId: id,
+        },
+      });
 
       return NextResponse.json({ success: true, message: 'Password reset. User must change it on next login.' });
     }

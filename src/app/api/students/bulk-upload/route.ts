@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { BULK_UPLOAD_STUDENTS_ENABLED } from '@/lib/features';
 import { requireRole } from '@/lib/requireSession';
 import { ObjectId } from 'mongodb';
 import clientPromise from '@/lib/mongodb';
@@ -237,6 +238,9 @@ function bulkUploadErrorMessage(error: unknown): string {
 }
 
 export async function POST(req: NextRequest) {
+  if (!BULK_UPLOAD_STUDENTS_ENABLED) {
+    return NextResponse.json({ error: 'Bulk upload is turned off' }, { status: 404 });
+  }
   try {
     const auth = await requireRole(['Admin', 'Data Lead', 'Data Member']);
     if (!auth.ok) return auth.response;
