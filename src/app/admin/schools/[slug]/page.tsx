@@ -143,24 +143,13 @@ export default function EditSchoolPage({ params }: { params: Promise<{ slug: str
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Failed to save school/program');
 
-      setSuccess(
-        isDataLead
-          ? 'School settings saved.'
-          : persisted
-            ? 'School/program updated.'
-            : 'School/program saved as a custom entry.',
-      );
-
       const updated = data as SchoolConfig;
-      setSchool(updated);
-      setForm(schoolToForm(updated));
-
-      if (!isDataLead && updated.name) {
-        const newSlug = updated.slug || schoolNameToSlug(updated.name);
-        if (newSlug !== slug) {
-          router.replace(`/admin/schools/${newSlug}`);
-        }
-      }
+      const message = isDataLead
+        ? `${updated.name || school.name} settings saved.`
+        : persisted
+          ? `${updated.name || school.name} updated.`
+          : `${updated.name || school.name} saved as a custom entry.`;
+      router.push(`/admin/schools?saved=${encodeURIComponent(message)}`);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to save school/program.');
     } finally {
