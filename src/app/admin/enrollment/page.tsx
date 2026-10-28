@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { Fragment, useCallback, useEffect, useState } from 'react';
 import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
@@ -24,7 +24,7 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Skeleton } from '@/components/ui/skeleton';
 import {
-  epeVisitDurationMinutes,
+  epeVisitBreakdown,
   epeVisitsTotalMinutes,
   fmtEpeTimeStr,
   isEpeAdjusted,
@@ -136,6 +136,12 @@ function fmtTotalHM(mins: number) {
   const m = mins % 60;
   return `${h}h ${m}m`;
 }
+function fmtDayLabel(date?: string) {
+  if (!date) return 'Day';
+  const d = new Date(date);
+  if (Number.isNaN(d.getTime())) return 'Day';
+  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+}
 function epeTimeTitle(t?: string) {
   if (!t || !isEpeAdjusted(t)) return undefined;
   return `Actual: ${fmtTimeStr(t)} · EPE: ${fmtEpeTimeStr(t)}`;
@@ -216,6 +222,46 @@ function IntakeFlagBadge({ flag }: { flag: IntakeVisitFlag }) {
   );
 }
 
+function EpeDaySubtotalRow({
+  day,
+  dateLabel,
+}: {
+  day: ReturnType<typeof epeVisitBreakdown>['days'][number];
+  dateLabel: string;
+}) {
+  const first = day.stays[0];
+  const last = day.stays[day.stays.length - 1];
+  const handoffs = day.visitIndexes.length - day.stays.length;
+  const summary = day.stays.length > 1
+    ? day.stays
+        .map((s) => (s.open
+          ? `${fmtEpeTimeStr(String(s.startTime))} – no time out`
+          : `${fmtEpeTimeStr(String(s.startTime))} – ${fmtEpeTimeStr(String(s.endTime))} (${fmtTotalHM(s.minutes ?? 0)})`))
+        .join(' · ')
+    : `1 stay${handoffs > 0 ? `, ${handoffs} handoff${handoffs === 1 ? '' : 's'}` : ''}`;
+  return (
+    <TableRow className="bg-muted/30 hover:bg-muted/30 border-b-2">
+      <TableCell />
+      <TableCell className="text-xs font-semibold whitespace-nowrap">{dateLabel} total</TableCell>
+      <TableCell className="text-xs font-semibold">
+        {first ? fmtEpeTimeStr(String(first.startTime)) : '—'}
+      </TableCell>
+      <TableCell className="text-xs font-semibold">
+        {last?.open
+          ? <span className="text-amber-700 dark:text-amber-400">Missing Time-Out</span>
+          : last ? fmtEpeTimeStr(String(last.endTime)) : '—'}
+      </TableCell>
+      <TableCell className="text-xs font-semibold">
+        {day.totalMinutes != null ? fmtTotalHM(day.totalMinutes) : '—'}
+        {day.totalMinutes != null && last?.open && (
+          <span className="font-normal text-muted-foreground"> + open</span>
+        )}
+      </TableCell>
+      <TableCell colSpan={6} className="text-xs text-muted-foreground">{summary}</TableCell>
+    </TableRow>
+  );
+}
+
 function IntakeVisitHistory({
   visits,
   validation,
@@ -228,6 +274,13 @@ function IntakeVisitHistory({
       <p className="text-sm text-muted-foreground py-2">No intake visit history recorded.</p>
     );
   }
+  const breakdown = epeVisitBreakdown(visits);
+  // Show each day's subtotal after the last row of that day in display order.
+  const dayAfterIndex = new Map<number, (typeof breakdown.days)[number]>();
+  for (const day of breakdown.days) {
+    dayAfterIndex.set(Math.max(...day.visitIndexes), day);
+  }
+
   return (
     <div className="space-y-3">
       {validation.dayIssues.map(issue => (
@@ -265,12 +318,14 @@ function IntakeVisitHistory({
         </TableHeader>
         <TableBody>
           {visits.map((v, i) => {
-            const mins = epeVisitDurationMinutes(v.timeIn, v.timeOut);
+            const segment = breakdown.segments[i];
+            const mins = segment.minutes;
             const rowFlags = flagsForVisit(validation, i);
             const flagged = rowFlags.length > 0;
+            const day = dayAfterIndex.get(i);
             return (
+              <Fragment key={`${v.date}-${i}`}>
               <TableRow
-                key={`${v.date}-${i}`}
                 className={flagged ? 'bg-amber-50/60 dark:bg-amber-950/15' : undefined}
               >
                 <TableCell className="text-xs text-muted-foreground">{i + 1}</TableCell>
@@ -289,15 +344,24 @@ function IntakeVisitHistory({
                   {fmtEpeTimeStr(v.timeIn)}
                 </TableCell>
                 <TableCell className="text-xs">
-                  {v.isLeaving === 'Staying'
-                    ? <span className="italic text-muted-foreground">Staying</span>
+                  {segment.handoff || segment.open || v.isLeaving === 'Staying'
+                    ? (
+                      <span className="italic text-muted-foreground">
+                        {segment.handoff
+                          ? `Staying → ${fmtEpeTimeStr(String(segment.endTime))}`
+                          : segment.open ? 'No time out yet' : 'Staying'}
+                      </span>
+                    )
                     : (
                       <span title={epeTimeTitle(v.timeOut ?? undefined)}>
                         {fmtEpeTimeStr(v.timeOut ?? undefined)}
                       </span>
                     )}
                 </TableCell>
-                <TableCell className="text-xs font-medium">
+                <TableCell
+                  className="text-xs font-medium"
+                  title={segment.handoff ? 'Time until the next activity started' : undefined}
+                >
                   {mins != null ? fmtTotalHM(mins) : '—'}
                 </TableCell>
                 <TableCell className="text-xs">
@@ -331,6 +395,8 @@ function IntakeVisitHistory({
                   {v.recordedBy?.name || v.recordedBy?.email || '—'}
                 </TableCell>
               </TableRow>
+              {day && <EpeDaySubtotalRow day={day} dateLabel={fmtDayLabel(visits[day.visitIndexes[0]]?.date)} />}
+              </Fragment>
             );
           })}
         </TableBody>

@@ -170,3 +170,119 @@ export function isEpeAdjusted(t?: string): boolean {
   const rounded = roundEpeTime(t);
   return raw !== null && rounded !== null && raw !== rounded;
 }
+
+/** One visit row's share of the day: its own time in until the next activity (or its time out). */
+export type EpeVisitSegment = {
+  minutes: number | null;
+  /** Time the segment ends: own time out, or the next visit's time in for a handoff. */
+  endTime: unknown;
+  /** Handoff row whose end comes from the next visit's time in. */
+  handoff: boolean;
+  /** Last row of a stay with no time out yet. */
+  open: boolean;
+};
+
+export type EpeStay = {
+  startTime: unknown;
+  endTime: unknown | null;
+  minutes: number | null;
+  open: boolean;
+};
+
+export type EpeDayBreakdown = {
+  dayKey: string;
+  /** Indexes into the original visits array, in clock order. */
+  visitIndexes: number[];
+  stays: EpeStay[];
+  /** Same value as epeDaySpanMinutes for these visits. */
+  totalMinutes: number | null;
+};
+
+export type EpeVisitBreakdown = {
+  /** Keyed by index into the original visits array. */
+  segments: EpeVisitSegment[];
+  days: EpeDayBreakdown[];
+};
+
+/**
+ * Split each day's EPE span into per-visit segments so the rows add up to the day total.
+ * Mirrors epeDaySpanMinutes: a Staying (or not-yet-clocked-out) visit runs until the next
+ * visit's time in; a clocked-out visit closes the stay at its own time out.
+ */
+export function epeVisitBreakdown(visits: EpeVisitLike[]): EpeVisitBreakdown {
+  const segments: EpeVisitSegment[] = visits.map((v) => ({
+    minutes: epeVisitDurationMinutes(v.timeIn, v.timeOut),
+    endTime: v.timeOut ?? null,
+    handoff: false,
+    open: false,
+  }));
+
+  const byDay = new Map<string, number[]>();
+  visits.forEach((v, i) => {
+    const day = visitDayKey(v.date);
+    if (!day) return;
+    if (!byDay.has(day)) byDay.set(day, []);
+    byDay.get(day)!.push(i);
+  });
+
+  const days: EpeDayBreakdown[] = [];
+  for (const [dayKey, indexes] of byDay) {
+    const sorted = [...indexes].sort((ia, ib) => {
+      const a = visits[ia];
+      const b = visits[ib];
+      const aIn = parseMinutesOfDay(a.timeIn);
+      const bIn = parseMinutesOfDay(b.timeIn);
+      if (aIn !== null && bIn !== null && aIn !== bIn) return aIn - bIn;
+      return new Date(a.date || 0).getTime() - new Date(b.date || 0).getTime();
+    });
+
+    const stays: EpeStay[] = [];
+    let stayStart: unknown = null;
+    sorted.forEach((idx, pos) => {
+      const v = visits[idx];
+      if (stayStart == null) stayStart = v.timeIn;
+      if (isVisitClockedOut(v) && v.timeOut) {
+        segments[idx] = {
+          minutes: epeVisitDurationMinutes(v.timeIn, v.timeOut),
+          endTime: v.timeOut,
+          handoff: false,
+          open: false,
+        };
+        if (stayStart != null && stayStart !== '') {
+          stays.push({
+            startTime: stayStart,
+            endTime: v.timeOut,
+            minutes: epeVisitDurationMinutes(stayStart, v.timeOut),
+            open: false,
+          });
+        }
+        stayStart = null;
+        return;
+      }
+      const next = pos + 1 < sorted.length ? visits[sorted[pos + 1]] : null;
+      segments[idx] = next
+        ? {
+            minutes: epeVisitDurationMinutes(v.timeIn, next.timeIn),
+            endTime: next.timeIn,
+            handoff: true,
+            open: false,
+          }
+        : { minutes: null, endTime: null, handoff: false, open: true };
+    });
+    if (stayStart != null && stayStart !== '') {
+      stays.push({ startTime: stayStart, endTime: null, minutes: null, open: true });
+    }
+
+    const completed = stays.filter((s) => !s.open && s.minutes !== null);
+    days.push({
+      dayKey,
+      visitIndexes: sorted,
+      stays,
+      totalMinutes: completed.length
+        ? completed.reduce((sum, s) => sum + (s.minutes ?? 0), 0)
+        : null,
+    });
+  }
+
+  return { segments, days };
+}
